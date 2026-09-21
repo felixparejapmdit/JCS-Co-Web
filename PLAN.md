@@ -148,12 +148,26 @@ All transactional, operational, and masterfile data in the legacy system persist
 * `pohdrtbl` & `podettbl`: Purchase Order headers and detail line items.
 * `mmrrhdrtbl` & `mmrrdettbl`: Material Receiving Report headers and inspection lines.
 
-### 5. Payroll & Human Resources
-* `payemployeetbl`: Employee profile and basic wage data.
-* `payearntbl`: Payroll earnings breakdown.
-* `paydeducttbl`: Statutory deductions (SSS, PhilHealth, Pag-IBIG) and tax withholdings.
+### 5. Human Resource Information System (HRIS)
+* `payemployeetbl`: Comprehensive 201 personnel records, contact details, emergency contacts, hire/regularization dates, civil status, and job designations.
+* `depttbl`: Department master definitions, manager assignments, monthly payroll budgets, and cost center associations.
+* `leavetbl` & `leavebalancetbl`: Employee leave ledger (Vacation, Sick, Emergency, Maternity/Paternity), leave credit accruals, and Maker-Checker approval workflow.
+* `attendancetbl`: Time card records, time-in/time-out biometric integration logs, tardiness minutes, undertime, and approved overtime tracking.
+* `govidenttbl`: Philippine statutory government compliance records (BIR TIN, SSS, PhilHealth, Pag-IBIG numbers) with format validation.
 
-### 6. System Configuration & Security
+### 6. Philippine Payroll & Compensation Engine
+* `payhdrtbl`: Semi-monthly payroll run headers (period name, date range, total gross, total deductions, total net, disbursement voucher ID).
+* `payearntbl`: Payroll earnings breakdown (basic pay half, overtime pay 125%/130%/200%, night differential 10%, taxable/non-taxable allowances, de minimis benefits).
+* `paydeducttbl`: Statutory deductions breakdown:
+  - 2026 SSS Monthly Salary Credit (MSC) schedule (PhP 30,000 MSC ceiling, 4.5% Employee / 9.5% Employer share, WISP).
+  - PhilHealth Premium (5.0% total premium: 2.5% Employee / 2.5% Employer share with PhP 10k–100k salary floor/ceiling).
+  - Pag-IBIG / HDMF mandatory contribution (PhP 200 Employee / PhP 200 Employer share).
+  - BIR TRAIN Law Semi-Monthly Withholding Tax on Compensation with graduated tax brackets.
+* `thirteenthpaytbl`: Annualized 13th month pay accumulation tracker ($(\sum \text{Basic Pay}) / 12$) with PhP 90,000 statutory tax exemption ceiling.
+* `paybankexporttbl`: Electronic Fund Transfer (EFT) batch hash export files for BDO, BPI, and Metrobank PESONet/InstaPay disbursements.
+* `paysliptbl`: Official BIR/DOLE compliant payslips with amount in words and employer counterpart contributions.
+
+### 7. System Configuration & Security
 * `batbl`: Business Area reference table (`8100`, `8200`, `8300`).
 * `sys_userrecords`: User credentials, account lock state, and full names.
 * `sys_usergrouprights`: Screen-by-screen role permissions (View, Edit, Insert, Delete, Release, Autosave).
@@ -384,8 +398,9 @@ JCS Co/
 3. **Accounts Receivable, Cashiering & Collections**: Customer Masterfile, Collections (OR/Invoice / TC 60) across Cash/Cheque/Online tenders, Cashier's Daily Collection Report (CDCR), Bank Deposit Batching, Customer Debit/Credit Memos (TC 90/92), Customer Creditable Withholding Tax (BIR Form 2307 / TC 66).
 4. **Materials Management & Costing**: Material Master (`mmasttbl`), Purchase Orders (PO), Material Receiving Reports (MMRR) with 3-Way Matching, Inventory Valuation (Moving Average / FIFO), Stock Cards, Cost of Sales (COS) vs. Average Selling Price (ASP) margin analysis.
 5. **Financial Reporting & BI**: Real-time Trial Balance, Comparative Balance Sheet, Multi-Departmental Income Statement, AP/AR Aging Schedules, Official BIR Tax Registers.
-6. **Human Resources & Philippine Payroll**: Employee Masterfile (`payemployeetbl`), Statutory Deductions (`paydeducttbl`: 2026 SSS MSC schedule, PhilHealth 2.5%, Pag-IBIG PhP 200), BIR TRAIN Law semi-monthly withholding tax on compensation, Semi-monthly payroll computation engine, Official Payslip generator, and automatic Check Voucher (`Form 024`) disbursement.
-7. **System Governance, Data Management & Access Matrix**: Role-Based Access Control matrix (`sys_usergrouprights`), Live User management with lockout controls, multi-tenant corporate entity switcher, dynamic application branding, and one-click demo data loading / fresh ledger initialization.
+6. **Human Resource Information System (HRIS)**: Complete Employee 201 File masterfile (`payemployeetbl`), Department hierarchy & manager assignments (`depttbl`), Leave administration & approval workflow (`leavetbl`), Daily attendance & time-card logging (`attendancetbl`), and Philippine Statutory Identification compliance audit (TIN, SSS, PhilHealth, Pag-IBIG).
+7. **Philippine Payroll & Compensation Engine**: Semi-monthly computation engine, earnings itemization (`payearntbl`: basic pay, overtime rates, allowances), statutory deductions (`paydeducttbl`: 2026 SSS MSC schedule, PhilHealth 2.5%, Pag-IBIG PhP 200), BIR TRAIN Law semi-monthly withholding tax, official payslip generation, 13th month pay accumulation, bank PESONet/BDO/BPI batch disbursement hash export, and automated Check Voucher (`Form 024`) release.
+8. **System Governance, Data Management & Access Matrix**: Role-Based Access Control matrix (`sys_usergrouprights`), Live User management with lockout controls, multi-tenant corporate entity switcher, dynamic application branding, and one-click demo data loading / fresh ledger initialization.
 
 ## 3.4 Regulatory & Tax Compliance Specifications (BIR / EOPT / PCHC)
 * **Ease of Paying Taxes (EOPT) Act (RA 11976)**: Primary substantiating document for VAT claiming on both goods and services is standardized to the **Sales Invoice**. Official Receipts are transitioned to supplemental collection proofs.

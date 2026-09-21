@@ -137,7 +137,8 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/dashboard/vouchers/cheques': 'Vouchers > Check Vouchers & Cheque Printing',
   '/dashboard/cashiering': 'Cashiering > Daily Cash & Receipts',
   '/dashboard/materials': 'Materials > Inventory & Stock Cards',
-  '/dashboard/payroll': 'Human Resources > Payroll & Compensation',
+  '/dashboard/hris': 'Human Resources > Employee Directory & 201 Records',
+  '/dashboard/payroll': 'Payroll > Semi-Monthly Computation & Vouchers',
   '/dashboard/reports/aging': 'Reports > AP & AR Aging',
   '/dashboard/reports/bir2307': 'Reports > BIR Form 2307',
   '/dashboard/reports/financial-statements': 'Reports > Financial Statements',
@@ -352,7 +353,24 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
     setSelectedTenant(tid);
     localStorage.setItem('aos100_tenant', tid);
     setShowCompanySwitcher(false);
-    window.location.reload();
+
+    // Update currentUser active tenant profile in state and localStorage
+    const savedUserStr = typeof window !== 'undefined' ? localStorage.getItem('aos100_user') : null;
+    if (savedUserStr) {
+      try {
+        const u = JSON.parse(savedUserStr);
+        u.tenantId = tid;
+        u.tenantName = TENANT_NAMES[tid];
+        localStorage.setItem('aos100_user', JSON.stringify(u));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // In-place broadcast event to all dashboard components without hard page reload
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aos100_tenant_changed', { detail: { tenantId: tid } }));
+    }
   };
 
   const handleLogout = () => {
@@ -420,7 +438,8 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
         canVouchers: !!(roleMatrix.accounts_payable?.view || roleMatrix.check_vouchers?.view),
         canCashiering: !!roleMatrix.cashiering?.view,
         canMaterials: !!roleMatrix.materials_management?.view,
-        canPayroll: !!roleMatrix.payroll_hris?.view,
+        canHRIS: !!(roleMatrix.hris?.view || roleMatrix.payroll_hris?.view),
+        canPayroll: !!(roleMatrix.payroll?.view || roleMatrix.payroll_hris?.view),
         canReports: !!(roleMatrix.financial_statements?.view || roleMatrix.bir_2307?.view),
         canSettings: !!roleMatrix.settings_management?.view,
         matrix: roleMatrix,
@@ -439,7 +458,8 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
       canVouchers: isAdmin || isFinHead || isAcct || isCashier,
       canCashiering: isAdmin || isFinHead || isAcct || isCashier,
       canMaterials: isAdmin || isWhse,
-      canPayroll: isAdmin || isHr,
+      canHRIS: isAdmin || isHr,
+      canPayroll: isAdmin || isHr || isFinHead || isAcct,
       canReports: isAdmin || isFinHead || isAcct,
       canSettings: isAdmin || isFinHead,
       matrix: {},
@@ -451,6 +471,7 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
     if (currentUser.role === 'ADMINISTRATOR') return true;
     if (pathname === '/dashboard') return true;
 
+    if (pathname.startsWith('/dashboard/hris')) return userPerms.canHRIS;
     if (pathname.startsWith('/dashboard/payroll')) return userPerms.canPayroll;
     if (pathname.startsWith('/dashboard/gl')) return userPerms.canGL;
     if (pathname.startsWith('/dashboard/vouchers')) return userPerms.canVouchers;
@@ -738,7 +759,26 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
             </Link>
           )}
 
-          {/* Human Resources & Payroll */}
+          {/* Human Resources (HRIS) */}
+          {userPerms.canHRIS && matchesSearch('HRIS') && (
+            <Link
+              href="/dashboard/hris"
+              onClick={() => setIsMobileDrawerOpen(false)}
+              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all ${getNavItemClass(
+                isNavActive('/dashboard/hris')
+              )}`}
+            >
+              <div className="flex items-center gap-3 truncate">
+                <Users className="w-4 h-4 flex-shrink-0 text-cyan-600 dark:text-cyan-400" />
+                <span className="truncate font-semibold">Human Resources (HRIS)</span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 font-bold">
+                201
+              </span>
+            </Link>
+          )}
+
+          {/* Payroll & Compensation */}
           {userPerms.canPayroll && matchesSearch('Payroll') && (
             <Link
               href="/dashboard/payroll"
@@ -748,10 +788,10 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
               )}`}
             >
               <div className="flex items-center gap-3 truncate">
-                <DollarSign className="w-4 h-4 flex-shrink-0 text-teal-600 dark:text-teal-400" />
-                <span className="truncate font-semibold">Payroll & HRIS</span>
+                <DollarSign className="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span className="truncate font-semibold">Payroll & Compensation</span>
               </div>
-              <Sparkles className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+              <Sparkles className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
             </Link>
           )}
 

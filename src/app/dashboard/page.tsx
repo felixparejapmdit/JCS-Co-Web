@@ -162,12 +162,7 @@ export default function DashboardPage() {
   const [newExplanation, setNewExplanation] = useState('');
 
   useEffect(() => {
-    const tid = localStorage.getItem('aos100_tenant') || '8100';
-    setTenantId(tid);
-    setVouchers(DEFAULT_VOUCHERS[tid] || DEFAULT_VOUCHERS['8100']);
-
-    // Fetch live vouchers from API for current tenant
-    const fetchLiveVouchers = async () => {
+    const fetchLiveVouchers = async (tid: string) => {
       try {
         const res = await fetch('/api/vouchers/jv', {
           headers: { 'x-tenant-id': tid },
@@ -184,13 +179,30 @@ export default function DashboardPage() {
             explanation: jv.explanation,
           }));
           setVouchers(mapped);
+        } else {
+          setVouchers(DEFAULT_VOUCHERS[tid] || DEFAULT_VOUCHERS['8100']);
         }
       } catch (e) {
         console.error('Error fetching live vouchers:', e);
       }
     };
 
-    fetchLiveVouchers();
+    const updateForTenant = (tid: string) => {
+      setTenantId(tid);
+      setVouchers(DEFAULT_VOUCHERS[tid] || DEFAULT_VOUCHERS['8100']);
+      fetchLiveVouchers(tid);
+    };
+
+    const initialTid = localStorage.getItem('aos100_tenant') || '8100';
+    updateForTenant(initialTid);
+
+    const handleTenantEvent = (e: any) => {
+      const newTid = e?.detail?.tenantId || localStorage.getItem('aos100_tenant') || '8100';
+      updateForTenant(newTid);
+    };
+
+    window.addEventListener('aos100_tenant_changed', handleTenantEvent);
+    return () => window.removeEventListener('aos100_tenant_changed', handleTenantEvent);
   }, []);
 
   const currentMetrics = TENANT_DATA[tenantId] || TENANT_DATA['8100'];
