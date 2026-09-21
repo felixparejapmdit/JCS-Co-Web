@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "aos100-jcs",
+    "staging": "aos100-jcs-staging",
+    "production": "aos100-jcs-prod"
+  }
+}

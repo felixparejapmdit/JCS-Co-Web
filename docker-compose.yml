@@ -1,0 +1,73 @@
+services:
+  # Database Service: PostgreSQL 16
+  db:
+    image: postgres:16-alpine
+    container_name: aos100_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aos_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Aos100SecurePass!}
+      POSTGRES_DB: ${POSTGRES_DB:-aos100_core}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    networks:
+      - aos100_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aos_admin} -d ${POSTGRES_DB:-aos100_core}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Cache & Lock Service: Redis 7
+  redis:
+    image: redis:7-alpine
+    container_name: aos100_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-RedisSecurePass!}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - aos100_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-RedisSecurePass!}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Full-Stack Web App: Next.js 15 App Router
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aos100_web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8180
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aos_admin}:${POSTGRES_PASSWORD:-Aos100SecurePass!}@db:5432/${POSTGRES_DB:-aos100_core}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-RedisSecurePass!}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:-SuperSecretKeyForAOS100NextGenJwtAuth2026!}
+    ports:
+      - "8180:8180"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aos100_network
+
+networks:
+  aos100_network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
