@@ -58,7 +58,7 @@ RETURNS void AS $$
 BEGIN
     -- Fiscal Periods Controller
     EXECUTE format('
-        CREATE TABLE IF NOT EXISTS %I.fiscal_periods (
+        CREATE TABLE IF NOT EXISTS %1$I.fiscal_periods (
             id VARCHAR(50) PRIMARY KEY,
             fiscal_year INT NOT NULL,
             fiscal_month INT NOT NULL,
@@ -72,7 +72,7 @@ BEGIN
         );
 
         -- Chart of Accounts (COA)
-        CREATE TABLE IF NOT EXISTS %I.chart_of_accounts (
+        CREATE TABLE IF NOT EXISTS %1$I.chart_of_accounts (
             id VARCHAR(50) PRIMARY KEY,
             account_number VARCHAR(30) UNIQUE NOT NULL,
             account_name VARCHAR(150) NOT NULL,
@@ -85,7 +85,7 @@ BEGIN
         );
 
         -- Cost Centers (cctrnotbl replacement)
-        CREATE TABLE IF NOT EXISTS %I.cost_centers (
+        CREATE TABLE IF NOT EXISTS %1$I.cost_centers (
             id VARCHAR(50) PRIMARY KEY,
             code VARCHAR(20) UNIQUE NOT NULL,
             name VARCHAR(100) NOT NULL,
@@ -96,7 +96,7 @@ BEGIN
         );
 
         -- Vendors Masterfile
-        CREATE TABLE IF NOT EXISTS %I.vendors (
+        CREATE TABLE IF NOT EXISTS %1$I.vendors (
             id VARCHAR(50) PRIMARY KEY,
             vendor_code VARCHAR(30) UNIQUE NOT NULL,
             vendor_name VARCHAR(150) NOT NULL,
@@ -111,7 +111,7 @@ BEGIN
         );
 
         -- Customers Masterfile
-        CREATE TABLE IF NOT EXISTS %I.customers (
+        CREATE TABLE IF NOT EXISTS %1$I.customers (
             id VARCHAR(50) PRIMARY KEY,
             customer_code VARCHAR(30) UNIQUE NOT NULL,
             customer_name VARCHAR(150) NOT NULL,
@@ -125,7 +125,7 @@ BEGIN
         );
 
         -- Bank Accounts & Cheque Settings
-        CREATE TABLE IF NOT EXISTS %I.bank_accounts (
+        CREATE TABLE IF NOT EXISTS %1$I.bank_accounts (
             id VARCHAR(50) PRIMARY KEY,
             bank_code VARCHAR(20) NOT NULL, -- BDO, BPI, MBTC, SECB
             bank_name VARCHAR(100) NOT NULL,
@@ -139,11 +139,11 @@ BEGIN
         );
 
         -- Journal Vouchers (Form 052 Header)
-        CREATE TABLE IF NOT EXISTS %I.journal_vouchers (
+        CREATE TABLE IF NOT EXISTS %1$I.journal_vouchers (
             id VARCHAR(50) PRIMARY KEY,
             voucher_number VARCHAR(50) UNIQUE NOT NULL,
             voucher_date DATE NOT NULL,
-            fiscal_period_id VARCHAR(50) REFERENCES %I.fiscal_periods(id),
+            fiscal_period_id VARCHAR(50) REFERENCES %1$I.fiscal_periods(id),
             explanation TEXT NOT NULL,
             total_debit NUMERIC(18,2) NOT NULL,
             total_credit NUMERIC(18,2) NOT NULL,
@@ -160,9 +160,9 @@ BEGIN
         );
 
         -- Journal Voucher Lines
-        CREATE TABLE IF NOT EXISTS %I.journal_voucher_lines (
+        CREATE TABLE IF NOT EXISTS %1$I.journal_voucher_lines (
             id VARCHAR(50) PRIMARY KEY,
-            voucher_id VARCHAR(50) REFERENCES %I.journal_vouchers(id) ON DELETE CASCADE,
+            voucher_id VARCHAR(50) REFERENCES %1$I.journal_vouchers(id) ON DELETE CASCADE,
             line_number INT NOT NULL,
             account_number VARCHAR(30) NOT NULL,
             cost_center_code VARCHAR(20),
@@ -172,13 +172,13 @@ BEGIN
         );
 
         -- General Ledger Headers (Immutable Postings)
-        CREATE TABLE IF NOT EXISTS %I.general_ledger_headers (
+        CREATE TABLE IF NOT EXISTS %1$I.general_ledger_headers (
             id VARCHAR(50) PRIMARY KEY,
             batch_number VARCHAR(50) UNIQUE NOT NULL,
             document_type VARCHAR(20) NOT NULL, -- JV, VP, CV, OR
             document_number VARCHAR(50) NOT NULL,
             document_date DATE NOT NULL,
-            fiscal_period_id VARCHAR(50) REFERENCES %I.fiscal_periods(id),
+            fiscal_period_id VARCHAR(50) REFERENCES %1$I.fiscal_periods(id),
             total_debit NUMERIC(18,2) NOT NULL,
             total_credit NUMERIC(18,2) NOT NULL,
             posted_by VARCHAR(50) NOT NULL,
@@ -187,9 +187,9 @@ BEGIN
         );
 
         -- General Ledger Lines
-        CREATE TABLE IF NOT EXISTS %I.general_ledger_lines (
+        CREATE TABLE IF NOT EXISTS %1$I.general_ledger_lines (
             id VARCHAR(50) PRIMARY KEY,
-            gl_header_id VARCHAR(50) REFERENCES %I.general_ledger_headers(id) ON DELETE CASCADE,
+            gl_header_id VARCHAR(50) REFERENCES %1$I.general_ledger_headers(id) ON DELETE CASCADE,
             line_number INT NOT NULL,
             account_number VARCHAR(30) NOT NULL,
             cost_center_code VARCHAR(20),
@@ -199,7 +199,7 @@ BEGIN
         );
 
         -- Audit Trail Log
-        CREATE TABLE IF NOT EXISTS %I.audit_trail (
+        CREATE TABLE IF NOT EXISTS %1$I.audit_trail (
             id VARCHAR(50) PRIMARY KEY,
             entity_type VARCHAR(50) NOT NULL,
             entity_id VARCHAR(50) NOT NULL,
@@ -211,7 +211,7 @@ BEGIN
             details TEXT,
             timestamp TIMESTAMPTZ DEFAULT NOW()
         );
-    ', schema_name, schema_name, schema_name, schema_name, schema_name, schema_name, schema_name, schema_name, schema_name, schema_name);
+    ', schema_name);
 END;
 $$ LANGUAGE plpgsql;
 
