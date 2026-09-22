@@ -24,8 +24,8 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var mode = localStorage.getItem('aos100_theme_mode') || 'light';
-                  var isDark = mode === 'dark' || (mode === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  var mode = localStorage.getItem('aos100_theme_mode') || 'dark';
+                  var isDark = mode !== 'light';
                   var doc = document.documentElement;
                   if (isDark) {
                     doc.classList.add('dark');

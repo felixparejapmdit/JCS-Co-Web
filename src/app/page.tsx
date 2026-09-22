@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, ShieldCheck, Lock, AlertTriangle, KeyRound, CheckCircle2, ArrowRight, UserCheck } from 'lucide-react';
+import { Building2, ShieldCheck, Lock, AlertTriangle, KeyRound, CheckCircle2, ArrowRight, UserCheck, Sun, Moon } from 'lucide-react';
 import { AuthService } from '@/services/AuthService';
 
 export default function LoginPage() {
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [strikesRemaining, setStrikesRemaining] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState(false);
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'auto'>('dark');
 
   useEffect(() => {
     const savedAppName = localStorage.getItem('aos100_app_name');
@@ -24,7 +25,26 @@ export default function LoginPage() {
 
     const savedTenant = localStorage.getItem('aos100_tenant');
     if (savedTenant) setSelectedTenant(savedTenant);
+
+    const savedTheme = (localStorage.getItem('aos100_theme_mode') as 'light' | 'dark' | 'auto') || 'dark';
+    setThemeMode(savedTheme);
   }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = themeMode === 'dark' ? 'light' : 'dark';
+    setThemeMode(nextTheme);
+    localStorage.setItem('aos100_theme_mode', nextTheme);
+    const doc = document.documentElement;
+    if (nextTheme === 'dark') {
+      doc.classList.add('dark');
+      doc.style.backgroundColor = '#0F1115';
+      doc.style.colorScheme = 'dark';
+    } else {
+      doc.classList.remove('dark');
+      doc.style.backgroundColor = '#F8FAFC';
+      doc.style.colorScheme = 'light';
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,39 +82,53 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B132B] flex flex-col justify-between text-slate-100 font-sans antialiased">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0F1115] flex flex-col justify-between text-slate-800 dark:text-slate-100 font-sans antialiased transition-colors duration-200">
       {/* Top Advisory Banner matching legacy SystemAdvisory.txt */}
-      <div className="bg-[#1C2541] border-b border-blue-900/50 py-2.5 px-6 text-xs flex items-center justify-between text-blue-300">
+      <div className="bg-white dark:bg-[#161922] border-b border-slate-200 dark:border-slate-800/80 py-2.5 px-6 text-xs flex items-center justify-between text-slate-700 dark:text-blue-300 transition-colors">
         <div className="flex items-center space-x-2">
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span className="font-semibold uppercase tracking-wider text-blue-200">System Advisory:</span>
-          <span>Enterprise Modernization Active. Fiscal Period September 2026 is currently OPEN.</span>
+          <span className="font-semibold uppercase tracking-wider text-slate-900 dark:text-blue-200">System Advisory:</span>
+          <span className="hidden sm:inline">Enterprise Modernization Active. Fiscal Period September 2026 is currently OPEN.</span>
+          <span className="sm:hidden">Sep 2026 Fiscal Period: OPEN</span>
         </div>
-        <div className="text-slate-400 hidden sm:block">TRAIN / CREATE / EOPT Compliance Engine Active</div>
+        
+        <div className="flex items-center gap-3">
+          <div className="text-slate-400 hidden md:block">TRAIN / CREATE / EOPT Compliance Engine Active</div>
+          {/* Quick Theme Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 text-xs transition-colors"
+            title="Toggle Light/Dark Theme"
+          >
+            {themeMode === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-500" />}
+            <span className="font-medium text-[11px]">{themeMode === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Login Shell */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-md bg-[#1C2541]/90 backdrop-blur-md rounded-2xl border border-slate-700 shadow-2xl p-6 sm:p-8">
+        <div className="w-full max-w-md bg-white dark:bg-[#161922] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 transition-colors">
           {/* Brand Header matching Dashboard */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-12 h-9 rounded-md bg-blue-600 text-white font-black text-sm mb-3 shadow-lg shadow-blue-500/30">
               JCS
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white flex items-center justify-center gap-2">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center justify-center gap-2">
               {appName}
             </h1>
-            <p className="text-xs text-slate-400 mt-1">Enterprise Financial Accounting & Multi-Tenant Governance</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Enterprise Financial Accounting & Multi-Tenant Governance</p>
           </div>
 
           {/* Security Alert / Strike Warning */}
           {errorMessage && (
             <div className={`p-3.5 mb-5 rounded-lg border text-xs flex items-start space-x-2.5 ${
               isLocked 
-                ? 'bg-rose-950/80 border-rose-800 text-rose-200' 
-                : 'bg-amber-950/80 border-amber-800 text-amber-200'
+                ? 'bg-rose-50 dark:bg-rose-950/80 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-200' 
+                : 'bg-amber-50 dark:bg-amber-950/80 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200'
             }`}>
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-400" />
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" />
               <div>
                 <p className="font-semibold">{isLocked ? 'Security Lockout' : 'Authentication Warning'}</p>
                 <p className="mt-0.5">{errorMessage}</p>
@@ -106,14 +140,14 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Business Area / Company Selector */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
                 <span>Business Area / Corporate Entity</span>
-                <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                <Building2 className="w-3.5 h-3.5 text-blue-500" />
               </label>
               <select
                 value={selectedTenant}
                 onChange={(e) => setSelectedTenant(e.target.value)}
-                className="w-full bg-[#0B132B] border border-slate-700 rounded-lg px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer"
+                className="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer"
               >
                 <option value="8100">8100 — JCS Chemical Industries, Inc.</option>
                 <option value="8200">8200 — APF Corporation</option>
@@ -123,7 +157,7 @@ export default function LoginPage() {
 
             {/* Username Input */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
                 <span>Username</span>
                 <UserCheck className="w-3.5 h-3.5 text-slate-400" />
               </label>
@@ -134,13 +168,13 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter user identifier"
                 disabled={isLocked}
-                className="w-full bg-[#0B132B] border border-slate-700 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-50"
+                className="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-50"
               />
             </div>
 
             {/* Password Input */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
                 <span>Master Password</span>
                 <Lock className="w-3.5 h-3.5 text-slate-400" />
               </label>
@@ -151,7 +185,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
                 disabled={isLocked}
-                className="w-full bg-[#0B132B] border border-slate-700 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-50"
+                className="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-50"
               />
             </div>
 
@@ -173,42 +207,42 @@ export default function LoginPage() {
           </form>
 
           {/* Quick-Fill Profiles for Review */}
-          <div className="mt-6 pt-5 border-t border-slate-800">
-            <p className="text-[11px] font-semibold text-slate-400 mb-2.5">
+          <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800">
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2.5">
               Live System Accounts:
             </p>
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <button
                 type="button"
                 onClick={() => handleAutofill('admin', 'Password123!', '8100')}
-                className="p-2 bg-[#0B132B] hover:bg-slate-800 border border-slate-700 rounded text-left transition-colors"
+                className="p-2 bg-slate-50 dark:bg-[#0F1115] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded text-left transition-colors"
               >
-                <div className="font-semibold text-blue-400">Administrator</div>
-                <div className="text-slate-400 text-[10px]">admin • Full Access</div>
+                <div className="font-semibold text-blue-600 dark:text-blue-400">Administrator</div>
+                <div className="text-slate-500 dark:text-slate-400 text-[10px]">admin • Full Access</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleAutofill('hr', 'Password123!', '8100')}
-                className="p-2 bg-[#0B132B] hover:bg-slate-800 border border-slate-700 rounded text-left transition-colors"
+                className="p-2 bg-slate-50 dark:bg-[#0F1115] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded text-left transition-colors"
               >
-                <div className="font-semibold text-purple-400">HR & Payroll</div>
-                <div className="text-slate-400 text-[10px]">hr • Payroll Only</div>
+                <div className="font-semibold text-purple-600 dark:text-purple-400">HR & Payroll</div>
+                <div className="text-slate-500 dark:text-slate-400 text-[10px]">hr • Payroll Only</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleAutofill('accountant', 'Password123!', '8100')}
-                className="p-2 bg-[#0B132B] hover:bg-slate-800 border border-slate-700 rounded text-left transition-colors"
+                className="p-2 bg-slate-50 dark:bg-[#0F1115] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded text-left transition-colors"
               >
-                <div className="font-semibold text-emerald-400">Sr. Accountant</div>
-                <div className="text-slate-400 text-[10px]">accountant • GL & Vouchers</div>
+                <div className="font-semibold text-emerald-600 dark:text-emerald-400">Sr. Accountant</div>
+                <div className="text-slate-500 dark:text-slate-400 text-[10px]">accountant • GL & Vouchers</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleAutofill('cashier', 'Password123!', '8100')}
-                className="p-2 bg-[#0B132B] hover:bg-slate-800 border border-slate-700 rounded text-left transition-colors"
+                className="p-2 bg-slate-50 dark:bg-[#0F1115] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded text-left transition-colors"
               >
-                <div className="font-semibold text-amber-400">Cashier / Treasury</div>
-                <div className="text-slate-400 text-[10px]">cashier • Cashiering & CV</div>
+                <div className="font-semibold text-amber-600 dark:text-amber-400">Cashier / Treasury</div>
+                <div className="text-slate-500 dark:text-slate-400 text-[10px]">cashier • Cashiering & CV</div>
               </button>
             </div>
           </div>
@@ -216,7 +250,7 @@ export default function LoginPage() {
       </div>
 
       {/* Footer */}
-      <footer className="py-4 text-center text-xs text-slate-500 border-t border-slate-800/60">
+      <footer className="py-4 text-center text-xs text-slate-500 dark:text-slate-500 border-t border-slate-200 dark:border-slate-800/60">
         &copy; 2026 JCS Chemical Industries, Inc. &bull; APF Corp. &bull; Chemag Trading &bull; Philippine Tax Code & BIR CAS Compliant
       </footer>
     </div>

@@ -39,7 +39,15 @@ import {
   HelpCircle,
   Folder,
   User,
-  SlidersHorizontal
+  SlidersHorizontal,
+  LayoutGrid,
+  Scale,
+  Landmark,
+  TrendingUp,
+  Clock,
+  BookOpen,
+  Briefcase,
+  ShieldCheck,
 } from 'lucide-react';
 import { AccessMatrixPermissions } from '@/services/TenantDataStore';
 
@@ -153,29 +161,249 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/dashboard/masterfiles/banks': 'Settings > Banks & Cheque Calibration',
 };
 
+// Complete Mobile Modules Definition matching Image 2 Terminal Navigation & Tools
+interface MobileModuleItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  category: 'finance' | 'operations' | 'hris' | 'reports' | 'admin';
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string;
+  iconColor: string;
+}
+
+const ALL_MOBILE_MODULES: MobileModuleItem[] = [
+  // Finance & GL
+  {
+    id: 'gl_ledger',
+    title: 'General Ledger',
+    subtitle: 'Trial Balance & Financial Postings',
+    href: '/dashboard/gl/ledger',
+    category: 'finance',
+    icon: Scale,
+    iconBg: 'bg-cyan-500/10 dark:bg-cyan-500/20',
+    iconColor: 'text-cyan-500 dark:text-cyan-400',
+  },
+  {
+    id: 'gl_vouchers',
+    title: 'Journal Vouchers',
+    subtitle: 'Maker-Checker JV Approval Workflow',
+    href: '/dashboard/gl/vouchers',
+    category: 'finance',
+    icon: FileSpreadsheet,
+    iconBg: 'bg-blue-500/10 dark:bg-blue-500/20',
+    iconColor: 'text-blue-500 dark:text-blue-400',
+  },
+  {
+    id: 'ap_vouchers',
+    title: 'Accounts Payable',
+    subtitle: 'Form 023 & Vendor Vouchers',
+    href: '/dashboard/vouchers/payables',
+    category: 'finance',
+    icon: FileText,
+    iconBg: 'bg-amber-500/10 dark:bg-amber-500/20',
+    iconColor: 'text-amber-500 dark:text-amber-400',
+  },
+  {
+    id: 'cv_cheques',
+    title: 'Check Vouchers',
+    subtitle: 'Disbursements & Cheque Print',
+    href: '/dashboard/vouchers/cheques',
+    category: 'finance',
+    icon: Landmark,
+    iconBg: 'bg-orange-500/10 dark:bg-orange-500/20',
+    iconColor: 'text-orange-500 dark:text-orange-400',
+  },
+  {
+    id: 'fiscal_periods',
+    title: 'Fiscal Periods',
+    subtitle: 'Monthly & Annual Hard/Soft Close',
+    href: '/dashboard/gl/fiscal-periods',
+    category: 'finance',
+    icon: Calendar,
+    iconBg: 'bg-indigo-500/10 dark:bg-indigo-500/20',
+    iconColor: 'text-indigo-500 dark:text-indigo-400',
+  },
+  // Operations & Treasury
+  {
+    id: 'cashiering',
+    title: 'Cashiering & OR',
+    subtitle: 'Official Receipts & Collections',
+    href: '/dashboard/cashiering',
+    category: 'operations',
+    icon: Receipt,
+    iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20',
+    iconColor: 'text-emerald-500 dark:text-emerald-400',
+  },
+  {
+    id: 'materials',
+    title: 'Materials (MMRR)',
+    subtitle: 'Purchase Orders & 3-Way Match',
+    href: '/dashboard/materials',
+    category: 'operations',
+    icon: Boxes,
+    iconBg: 'bg-cyan-500/10 dark:bg-cyan-500/20',
+    iconColor: 'text-cyan-500 dark:text-cyan-400',
+  },
+  // HR & Payroll
+  {
+    id: 'hris',
+    title: 'Human Resources',
+    subtitle: '201 Files, Org Chart & Leaves',
+    href: '/dashboard/hris',
+    category: 'hris',
+    icon: Users,
+    iconBg: 'bg-purple-500/10 dark:bg-purple-500/20',
+    iconColor: 'text-purple-500 dark:text-purple-400',
+  },
+  {
+    id: 'payroll',
+    title: 'Payroll Engine',
+    subtitle: '2026 SSS, PhilHealth & TRAIN',
+    href: '/dashboard/payroll',
+    category: 'hris',
+    icon: DollarSign,
+    iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20',
+    iconColor: 'text-emerald-500 dark:text-emerald-400',
+  },
+  // Reports
+  {
+    id: 'fin_reports',
+    title: 'Financial Reports',
+    subtitle: 'Balance Sheet & Income Statement',
+    href: '/dashboard/reports/financial-statements',
+    category: 'reports',
+    icon: TrendingUp,
+    iconBg: 'bg-purple-500/10 dark:bg-purple-500/20',
+    iconColor: 'text-purple-500 dark:text-purple-400',
+  },
+  {
+    id: 'bir_2307',
+    title: 'BIR Form 2307',
+    subtitle: 'Withholding Tax Certificates',
+    href: '/dashboard/reports/bir2307',
+    category: 'reports',
+    icon: FileText,
+    iconBg: 'bg-violet-500/10 dark:bg-violet-500/20',
+    iconColor: 'text-violet-500 dark:text-violet-400',
+  },
+  {
+    id: 'aging_reports',
+    title: 'Aging Schedules',
+    subtitle: '30/60/90+ Day Delinquency & Aging',
+    href: '/dashboard/reports/aging',
+    category: 'reports',
+    icon: Clock,
+    iconBg: 'bg-rose-500/10 dark:bg-rose-500/20',
+    iconColor: 'text-rose-500 dark:text-rose-400',
+  },
+  // Admin & Masterfiles
+  {
+    id: 'coa',
+    title: 'Chart of Accounts',
+    subtitle: 'Master Account Hierarchy',
+    href: '/dashboard/masterfiles/accounts',
+    category: 'admin',
+    icon: BookOpen,
+    iconBg: 'bg-blue-500/10 dark:bg-blue-500/20',
+    iconColor: 'text-blue-500 dark:text-blue-400',
+  },
+  {
+    id: 'banks',
+    title: 'Banks & Checkbooks',
+    subtitle: 'Company Bank Accounts & Ledgers',
+    href: '/dashboard/masterfiles/banks',
+    category: 'admin',
+    icon: Landmark,
+    iconBg: 'bg-amber-500/10 dark:bg-amber-500/20',
+    iconColor: 'text-amber-500 dark:text-amber-400',
+  },
+  {
+    id: 'customers',
+    title: 'Customers Directory',
+    subtitle: 'Debtors, Terms & Credit Limits',
+    href: '/dashboard/masterfiles/customers',
+    category: 'admin',
+    icon: Building2,
+    iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20',
+    iconColor: 'text-emerald-500 dark:text-emerald-400',
+  },
+  {
+    id: 'vendors',
+    title: 'Vendors Directory',
+    subtitle: 'Creditors, TIN & Payment Terms',
+    href: '/dashboard/masterfiles/vendors',
+    category: 'admin',
+    icon: Briefcase,
+    iconBg: 'bg-orange-500/10 dark:bg-orange-500/20',
+    iconColor: 'text-orange-500 dark:text-orange-400',
+  },
+  {
+    id: 'users',
+    title: 'User Management',
+    subtitle: 'Accounts, Tenancy & Passwords',
+    href: '/dashboard/settings/users',
+    category: 'admin',
+    icon: ShieldCheck,
+    iconBg: 'bg-cyan-500/10 dark:bg-cyan-500/20',
+    iconColor: 'text-cyan-500 dark:text-cyan-400',
+  },
+  {
+    id: 'access_matrix',
+    title: 'RBAC Access Matrix',
+    subtitle: 'Granular Role Permissions & SoD',
+    href: '/dashboard/settings/access-matrix',
+    category: 'admin',
+    icon: Sliders,
+    iconBg: 'bg-purple-500/10 dark:bg-purple-500/20',
+    iconColor: 'text-purple-500 dark:text-purple-400',
+  },
+  {
+    id: 'audit_trail',
+    title: 'Audit Trail Logs',
+    subtitle: 'Immutable System Activity Logs',
+    href: '/dashboard/settings/data',
+    category: 'admin',
+    icon: Database,
+    iconBg: 'bg-rose-500/10 dark:bg-rose-500/20',
+    iconColor: 'text-rose-500 dark:text-rose-400',
+  },
+  {
+    id: 'settings_gen',
+    title: 'System Settings',
+    subtitle: 'Currencies, Tax Rates & Setup',
+    href: '/dashboard/settings/general',
+    category: 'admin',
+    icon: Settings,
+    iconBg: 'bg-slate-500/10 dark:bg-slate-500/20',
+    iconColor: 'text-slate-500 dark:text-slate-400',
+  },
+];
+
 export function DashboardShell({ children, breadcrumb = 'Dashboard' }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const activeBreadcrumb = breadcrumb !== 'Dashboard' ? breadcrumb : (BREADCRUMB_MAP[pathname] || 'Dashboard');
 
-  // Theme Mode: 'light' | 'dark' | 'auto' with synchronous client initialization to prevent theme flash
+  // Theme Mode: 'light' | 'dark' | 'auto' with synchronous client initialization (default: 'dark')
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'auto'>(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem('aos100_theme_mode') as 'light' | 'dark' | 'auto') || 'light';
+      return (localStorage.getItem('aos100_theme_mode') as 'light' | 'dark' | 'auto') || 'dark';
     }
-    return 'light';
+    return 'dark';
   });
 
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
-      const mode = localStorage.getItem('aos100_theme_mode') || 'light';
-      if (mode === 'dark') return 'dark';
+      const mode = localStorage.getItem('aos100_theme_mode') || 'dark';
+      if (mode === 'light') return 'light';
       if (mode === 'auto') {
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
-      return 'light';
+      return 'dark';
     }
-    return 'light';
+    return 'dark';
   });
 
   const [selectedTenant, setSelectedTenant] = useState<string>(() => {
@@ -224,6 +452,10 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
 
   // Mobile Drawer State
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  // Mobile "More" Sheet Modal State (per Image 2 specs)
+  const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+  const [moreCategory, setMoreCategory] = useState<'all' | 'finance' | 'operations' | 'hris' | 'reports' | 'admin'>('all');
 
   // Accordion Dropdown States (Pre-opened matching current pathname so there is ZERO jump on route change)
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>(() => ({
@@ -1391,25 +1623,22 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
           <span>Home</span>
         </Link>
 
-        {/* Vouchers (if permitted) */}
+        {/* Vouchers (Direct Navigation to Real Page) */}
         {userPerms.canVouchers && (
-          <button
-            onClick={() => {
-              setOpenDropdowns((prev) => ({ ...prev, vouchers: true }));
-              setIsMobileDrawerOpen(true);
-            }}
+          <Link
+            href="/dashboard/vouchers/payables"
             className={`flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/dashboard/vouchers')
+              pathname.startsWith('/dashboard/vouchers') || pathname.startsWith('/dashboard/gl/vouchers')
                 ? 'text-amber-600 dark:text-amber-400 font-bold'
                 : 'hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <FileSpreadsheet className="w-5 h-5 mb-0.5 text-amber-500" />
             <span>Vouchers</span>
-          </button>
+          </Link>
         )}
 
-        {/* Payroll (if permitted) */}
+        {/* Payroll (Direct Navigation) */}
         {userPerms.canPayroll && (
           <Link
             href="/dashboard/payroll"
@@ -1424,13 +1653,10 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
           </Link>
         )}
 
-        {/* Reports (if permitted) */}
+        {/* Reports (Direct Navigation to Real Page) */}
         {userPerms.canReports && (
-          <button
-            onClick={() => {
-              setOpenDropdowns((prev) => ({ ...prev, reports: true }));
-              setIsMobileDrawerOpen(true);
-            }}
+          <Link
+            href="/dashboard/reports/financial-statements"
             className={`flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
               pathname.startsWith('/dashboard/reports')
                 ? 'text-purple-600 dark:text-purple-400 font-bold'
@@ -1439,22 +1665,120 @@ export function DashboardShell({ children, breadcrumb = 'Dashboard' }: Dashboard
           >
             <FileText className="w-5 h-5 mb-0.5 text-purple-500" />
             <span>Reports</span>
-          </button>
+          </Link>
         )}
 
-        {/* Middle Footer "Menu" button to open Primary Drawer */}
+        {/* Mobile Footer "More" button to open Image 2 Terminal Navigation & Tools */}
         <button
-          onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
+          onClick={() => setIsMoreSheetOpen(true)}
           className={`flex flex-col items-center justify-center flex-1 h-full text-[10px] font-medium transition-colors ${
-            isMobileDrawerOpen
-              ? 'text-blue-600 dark:text-blue-400 font-bold'
+            isMoreSheetOpen
+              ? 'text-cyan-600 dark:text-cyan-400 font-bold'
               : 'hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Menu className="w-5 h-5 mb-0.5 text-slate-500" />
-          <span>Menu</span>
+          <LayoutGrid className="w-5 h-5 mb-0.5 text-cyan-500" />
+          <span>More</span>
         </button>
       </nav>
+
+      {/* ========================================================================= */}
+      {/* MOBILE NAVIGATION & TOOLS MODAL SHEET (Matching Image 2 Reference)       */}
+      {/* ========================================================================= */}
+      {isMoreSheetOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop blur */}
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsMoreSheetOpen(false)}
+          />
+
+          {/* Bottom Sheet Modal */}
+          <div className="relative z-10 w-full max-h-[88vh] bg-white dark:bg-[#0F1115] border-t border-slate-200 dark:border-slate-800 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
+            {/* Drag Handle */}
+            <div className="pt-3 pb-1 flex justify-center">
+              <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+            </div>
+
+            {/* Header: Icon + Title + Close Button */}
+            <div className="px-5 py-3 flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80">
+              <div className="flex items-center gap-2.5">
+                <LayoutGrid className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Terminal Navigation & Tools</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Complete Enterprise Modules & Services</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMoreSheetOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="px-4 py-2.5 overflow-x-auto scrollbar-none flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800/60 bg-slate-50 dark:bg-[#14171F]">
+              {[
+                { id: 'all', label: 'All Modules' },
+                { id: 'finance', label: 'Finance & GL' },
+                { id: 'operations', label: 'Operations' },
+                { id: 'hris', label: 'HR & Payroll' },
+                { id: 'reports', label: 'Reports' },
+                { id: 'admin', label: 'Admin & Setup' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setMoreCategory(cat.id as any)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                    moreCategory === cat.id
+                      ? 'bg-cyan-500 text-black font-bold shadow-xs'
+                      : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Module Cards Grid (2-column layout per Image 2) */}
+            <div className="p-4 overflow-y-auto max-h-[calc(88vh-140px)] pb-12">
+              <div className="grid grid-cols-2 gap-2.5">
+                {ALL_MOBILE_MODULES
+                  .filter((m) => moreCategory === 'all' || m.category === moreCategory)
+                  .map((mod) => {
+                    const Icon = mod.icon;
+                    const isActive = pathname.startsWith(mod.href);
+                    return (
+                      <Link
+                        key={mod.id}
+                        href={mod.href}
+                        onClick={() => setIsMoreSheetOpen(false)}
+                        className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between text-left active:scale-[0.98] ${
+                          isActive
+                            ? 'bg-slate-100 dark:bg-slate-800/90 border-cyan-500 shadow-sm'
+                            : 'bg-slate-50/80 dark:bg-[#161922] border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-xl ${mod.iconBg} ${mod.iconColor} flex items-center justify-center mb-2.5`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
+                            {mod.title}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                            {mod.subtitle}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
