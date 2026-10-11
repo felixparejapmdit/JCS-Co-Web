@@ -34,13 +34,20 @@ export function readSession(token: string | undefined | null): Session | null {
   }
 }
 
-export const sessionCookieOptions = {
-  httpOnly: true,
-  sameSite: 'lax' as const,
-  secure: process.env.NODE_ENV === 'production',
-  path: '/',
-  maxAge: SESSION_HOURS * 3600,
-};
+/**
+ * Session cookie settings. `Secure` follows the connection: on for HTTPS (the hosted site, or a
+ * TLS proxy that sends X-Forwarded-Proto), off for plain HTTP so sign-in also works on an
+ * intranet server or http://localhost. COOKIE_SECURE=true forces it on.
+ */
+export function sessionCookieOptions(https: boolean) {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: https || process.env.COOKIE_SECURE === 'true',
+    path: '/',
+    maxAge: SESSION_HOURS * 3600,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Passwords. The legacy app stores Base64 text in sys_userrecords.userpassword

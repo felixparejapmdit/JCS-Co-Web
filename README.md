@@ -107,6 +107,7 @@ Always on a **restored test copy** first (PLAN.md Section 8.3).
 | `DATABASE_ALLOW_WRITES` | `true` to allow saving. Default: read-only. |
 | `DB_JCS`, `DB_APF`, `DB_CHEMAG`, `DB_BFI`, `DB_BFI_ADMIN` | Database names (legacy defaults `jcs`, `apf`, `chemag`, `bfi`, `bfi_admin`). |
 | `JWT_SECRET` | Signs the session cookie. **Required** with a database; also recommended for the hosted preview. |
+| `COOKIE_SECURE` | The session cookie is `Secure` automatically on HTTPS. Set `true` to force it behind a TLS proxy that does not send `X-Forwarded-Proto`. |
 
 Transaction codes written on documents follow the legacy code (`src/shared/codes.ts`); confirm them against the client's `tccodestbl` in Phase 1.
 

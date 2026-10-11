@@ -12,6 +12,10 @@ function errorResponse(err: unknown) {
   return NextResponse.json({ ok: false, error: 'Something went wrong on the server. Please try again; if it keeps happening, contact your administrator.' }, { status: 500 });
 }
 
+function isHttps(req: NextRequest): boolean {
+  return req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'https';
+}
+
 /** Single RPC endpoint for the whole application: POST { op, args }. */
 export async function POST(req: NextRequest) {
   let body: { op?: string; args?: Record<string, unknown> };
@@ -23,6 +27,7 @@ export async function POST(req: NextRequest) {
   const op = String(body.op ?? '');
   const args = (body.args ?? {}) as Record<string, any>;
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined;
+  const cookie = sessionCookieOptions(isHttps(req));
 
   try {
     if (op === 'app.info') {
@@ -36,12 +41,12 @@ export async function POST(req: NextRequest) {
       if (res.error) return NextResponse.json({ ok: false, error: res.error, locked: res.locked ?? false }, { status: res.locked ? 423 : 401 });
       if (res.choose) return NextResponse.json({ ok: true, data: { choose: res.choose } });
       const out = NextResponse.json({ ok: true, data: { signedIn: true } });
-      out.cookies.set(SESSION_COOKIE, signSession(res.session!), sessionCookieOptions);
+      out.cookies.set(SESSION_COOKIE, signSession(res.session!), cookie);
       return out;
     }
     if (op === 'auth.logout') {
       const out = NextResponse.json({ ok: true, data: null });
-      out.cookies.set(SESSION_COOKIE, '', { ...sessionCookieOptions, maxAge: 0 });
+      out.cookies.set(SESSION_COOKIE, '', { ...cookie, maxAge: 0 });
       return out;
     }
 
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
     if (op === 'auth.switch') {
       const next = await session.switchCompany(s, String(args.ba));
       const out = NextResponse.json({ ok: true, data: { switched: true } });
-      out.cookies.set(SESSION_COOKIE, signSession(next), sessionCookieOptions);
+      out.cookies.set(SESSION_COOKIE, signSession(next), cookie);
       return out;
     }
 

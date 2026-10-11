@@ -37,6 +37,7 @@ services:
       DB_BFI: ${DB_BFI:-bfi}
       DB_BFI_ADMIN: ${DB_BFI_ADMIN:-bfi_admin}
       JWT_SECRET: ${JWT_SECRET:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
       - "8180:8180"
     healthcheck:
