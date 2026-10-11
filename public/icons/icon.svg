@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="jcsGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e40af" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <linearGradient id="cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+    <linearGradient id="cubeLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#93c5fd" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <linearGradient id="cubeRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="32" height="32" rx="7.5" fill="url(#jcsGrad)" />
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="none" stroke="#60a5fa" stroke-opacity="0.35" stroke-width="1" />
+
+  <!-- Isometric Chemical/ERP Hex Cube Structure -->
+  <!-- Center Top Face -->
+  <path d="M 16 7 L 23 11 L 16 15 L 9 11 Z" fill="url(#cubeTop)" />
+  <!-- Center Left Face -->
+  <path d="M 9 11 L 16 15 L 16 23 L 9 19 Z" fill="url(#cubeLeft)" />
+  <!-- Center Right Face -->
+  <path d="M 16 15 L 23 11 L 23 19 L 16 23 Z" fill="url(#cubeRight)" />
+
+  <!-- Molecule / Chemical Nodes -->
+  <circle cx="16" cy="7" r="1.5" fill="#ffffff" />
+  <circle cx="23" cy="11" r="1.5" fill="#93c5fd" />
+  <circle cx="9" cy="11" r="1.5" fill="#93c5fd" />
+  <circle cx="16" cy="23" r="1.5" fill="#bfdbfe" />
+  <circle cx="16" cy="15" r="1.2" fill="#ffffff" />
+</svg>

@@ -1,110 +1,302 @@
-# AOS100 NextGen: 8-Sprint Master Roadmap & Engineering Reference
+# Cloud AOS: Sprint Roadmap (5 Phases, 12 Sprints)
 
-This document serves as the official standalone backup reference for the complete 16-week, 8-Sprint phased modernization roadmap for **AOS100 NextGen** (JCS Chemical Industries, Inc., APF Corporation, Chemag Trading Corporation), extracted and preserved from [PLAN.md](file:///d:/PROJECTS/01%20JCS%20Co/PLAN.md).
+> **Same data. Same business rules. A modern system built for the next 10 years.**
 
----
+This is the working roadmap for **Cloud AOS** (AOS100 NextGen). It follows [PLAN.md](PLAN.md) Section 8 and the client deck `PresentationNew-CloudAOS.pdf`. Detailed requirements stay in PLAN.md; this file tracks what each sprint delivers and how far the project has got.
 
-## Roadmap Executive Summary
+**Ground rules (from the plan)**
 
-| Sprint | Weeks | Primary Focus Area | Key Deliverables |
-| :---: | :---: | :--- | :--- |
-| **Sprint 1** | W1–W2 | **Scaffolding, OOP Domain, Docker & Firebase** | **[COMPLETED]** Next.js 15 Full-Stack TypeScript web app, OOP domain models & aggregates, FinTech UI, Docker multi-stage container, `docker-compose.yml`, multi-tenant PostgreSQL 16 schemas, Firebase Hosting & Cloud Run configs. |
-| **Sprint 2** | W3–W4 | **Masterfiles & Foundational Settings** | **[COMPLETED]** Chart of Accounts (COA) hierarchical CRUD, Cost Center management, Vendor/Customer masterfiles with TIN & ATC codes, Bank checking accounts, `DataGrid<T>` virtualized table. |
-| **Sprint 3** | W5–W6 | **General Ledger & Fiscal Governance** | **[COMPLETED]** Fiscal Period Controller (`gltransmonstatus` replacement), Journal Voucher (`Form 052`) balancing ($DR = CR$), Maker-Checker approval workflow, atomic GL posting, period closing routines. |
-| **Sprint 4** | W7–W8 | **Accounts Payable & Cheque Printing** | **[COMPLETED]** Voucher Payable (`Form 023`) with 12% VAT and EWT, Check Voucher (`Form 024`) payment allocations (replacing `tempcvdettbl`), `AmtWords` currency verbalizer, Vector cheque printing (BDO, BPI, Metrobank), F7 hotkey print preview. |
-| **Sprint 5** | W9–W10 | **Cashiering, Collections, HRIS & Payroll** | **[COMPLETED]** Official Receipt Collection (`Form 010`) for Cash/Cheque/Online, multi-invoice payment allocations, CDCR, bank deposit slips, PDC alerts, dedicated Human Resource Information System (HRIS — 201 records, department hierarchy, leave administration, attendance time card, statutory ID compliance), Philippine Payroll Engine (2026 SSS MSC, PhilHealth 2.5%, Pag-IBIG PhP 200, TRAIN WTax, 13th month pay, bank EFT export), and RBAC Access Control Matrix (`sys_usergrouprights`). |
-| **Sprint 6** | W11–W12 | **BIR Form 2307 & Materials Management** | **[COMPLETED]** BIR Form 2307 withholding tax engine, automated Credit Memos (TC 90), printable official BIR 2307 certificate generator, Material Receiving Reports (MMRR) 3-way matching, Moving Average costing. |
-| **Sprint 7** | W13–W14 | **Financial Statements & Audit Compliance** | **[COMPLETED]** Real-time Balance Sheet, multi-departmental P&L, AP/AR Aging schedules (Current, 30, 60, 90, 120+ days), immutable JSON audit trail, Cost of Sales vs Average Selling Price (COS vs ASP) analysis. |
-| **Sprint 8** | W15–W16 | **Legacy MySQL Migration & Final Cutover** | **[COMPLETED]** Automated ETL extraction scripts from legacy MySQL (`jcs`, `apf`, `chemag`), Base64 to Argon2id migration, trial balance zero-centavo reconciliation, side-by-side verification, production cutover readiness. |
+* **The client's existing MySQL databases stay** (`jcs`, `apf`, `chemag`, plus `bfi` / `bfi_admin`). There is no data migration, no ETL and no cutover weekend. Cloud AOS reads and writes the legacy tables in the legacy format (PLAN.md Appendix A); its own data lives only in additive `ng_*` tables (PLAN.md Section 7.2).
+* **One module group at a time, on the live database.** Legacy AOS100 and Cloud AOS run side by side until every module has been switched over.
+* **Every phase ends with a verification gate.** The same transactions are entered in both systems on two identical database copies, and must give the same documents, GL lines, balances and printed forms (PLAN.md Section 8.3).
+* **Privacy between companies.** The login page lists no companies, and no screen has a company dropdown. Each company sees only its own customised header at the top of the side menu (PLAN.md Sections 5.1 and 6.2).
 
 ---
 
-## Detailed Sprint Specifications
+## Status Legend
 
-## Milestone 1: Architecture, Multi-Tenant Engine & Identity (Month 1)
-
-### Sprint 1: Scaffolding, Multi-Tenant Database, OOP TypeScript Domain, Dockerization & Firebase Readiness
-* **Task 1.1**: Initialize Next.js 15 Full-Stack Web Application with TypeScript, App Router, React 19, Tailwind CSS, Lucide icons, and Shadcn UI components.
-* **Task 1.2**: Implement core Object-Oriented Programming (OOP) and DDD domain model hierarchy in TypeScript:
-  * Abstract base classes: `BaseEntity`, `AggregateRoot`, `FinancialDocument`.
-  * Value objects: `Money` (decimal + currency, zero-float precision), `TaxRate`, `TaxIdentificationNumber`.
-  * Initial financial aggregates: `JournalVoucher` with encapsulated debit/credit equilibrium invariant ($DR = CR$), `VoucherPayable`, and `CheckVoucher`.
-  * Core interfaces & abstractions: `IRepository<T>`, `IUnitOfWork`, `ITenantContext`, `ITaxCalculationStrategy`, `IChequeLayoutStrategy`.
-* **Task 1.3**: Configure PostgreSQL 16 multi-tenant schemas (`shared_system`, `tenant_8100`, `tenant_8200`, `tenant_8300`) with dynamic search-path resolver and connection pooling.
-* **Task 1.4**: Implement Argon2id password hashing, JWT bearer issuance, and session token rotation in Next.js Route Handlers.
-* **Task 1.5**: Implement TypeScript OOP service client layer:
-  * Abstract `BaseHttpService` managing JWT tokens, tenant header propagation (`X-Tenant-Id`), and error handling.
-  * Concrete client services (`AuthApiService`, `VoucherApiService`, `TenantApiService`).
-* **Task 1.6**: Multi-stage Dockerization setup:
-  * Standalone production `Dockerfile` (<120MB Alpine image) with non-root `nextjs` user.
-  * Root `docker-compose.yml` orchestrating PostgreSQL 16 Alpine, Redis 7 Alpine, and the Next.js Full-Stack Web App with healthchecks and persistent volumes.
-* **Task 1.7**: Firebase Deployment Readiness:
-  * Configure `firebase.json` with single-origin routing: `/api/**` rewritten to Cloud Run (`serviceId: aos100-web`, region: `asia-east1`) and `/**` served by Firebase Hosting.
-  * Configure `.firebaserc` with project alias targets (`aos100-jcs`, `staging`, `production`).
-  * Add cross-platform deployment automation scripts (`scripts/deploy-firebase.ps1` and `scripts/deploy-firebase.sh`).
-* **Task 1.8**: Build Next.js Login interface with company switcher dropdown (`8100 JCS`, `8200 APF`, `8300 Chemag`) and 5-strike account lockout protection.
-* **Task 1.9**: Build Executive Financial Dashboard overview with KPI metric cards, Cash Flow trends, and Journal Voucher entry module.
-
-### Sprint 2: Masterfiles & Foundational Settings
-* **Task 2.1**: Implement Chart of Accounts (COA) hierarchical CRUD API with prefix code validation and normal balance constraints (`DR`/`CR`).
-* **Task 2.2**: Implement Cost Center (`cctrnotbl`) management with plant and division tags.
-* **Task 2.3**: Build Vendor and Customer masterfile modules with TIN formatting, default ATC tax codes, and payment terms.
-* **Task 2.4**: Create Bank Master module with checking account definitions and millimeter cheque coordinate settings.
-* **Task 2.5**: Construct the reusable `DataGrid<T>` virtualized table component in Next.js using TanStack Table v8.
+| Mark | Meaning |
+| :---: | :--- |
+| ✅ | Built in the hosted preview (https://jcs-co-web.vercel.app) on sample data in the legacy table format. Still needs the phase's verification gate on a copy of the client's database. |
+| 🟡 | Partly built; the remaining work is listed. |
+| ⬜ | Not started. |
+| 🔒 | Needs something from the client first (schema dump, database copy, sample documents, key-user sessions). |
 
 ---
 
-## Milestone 2: Financial Core (GL, Payables & Cheque Printing) (Month 2)
+## Roadmap at a Glance
 
-### Sprint 3: General Ledger & Fiscal Period Governance
-* **Task 3.1**: Build Fiscal Period Controller (`gltransmonstatus`) with `OPEN`, `CLOSED`, and `LOCKED` status enforcement.
-* **Task 3.2**: Implement Journal Voucher (JV / Form 052) module with strict client and server-side balance validation ($DR = CR$).
-* **Task 3.3**: Build Maker-Checker review and approval workflow for Journal Vouchers.
-* **Task 3.4**: Implement atomic GL Posting service that writes balanced entries to `general_ledger_headers` and `lines`.
-* **Task 3.5**: Implement automated Month-End Closing and Year-End Retained Earnings adjustment routines.
+| Phase | Sprints | Weeks | Scope | Legacy pages | Preview |
+| :--- | :---: | :---: | :--- | :---: | :---: |
+| **1. Foundation** | 1-2 | W1-W4 | Secure login, roles, company header, connection to the existing database | 18 | 🟡 |
+| **2. Finance Core** | 3-5 | W5-W10 | General Ledger, Journal Vouchers, Payables, Cheque Printing | 18 | 🟡 |
+| **3. Cash, Receivables & Sales** | 6-8 | W11-W16 | Collections, CDCR, bank deposits, BIR 2307, customers, sales orders and invoices | 20 | 🟡 |
+| **4. Inventory, Materials & Production** | 9-10 | W17-W20 | MMRR, deliveries and transfers, plant stock, RIV / PO, production costing | 15 | 🟡 |
+| **5. HR & Payroll, Reports & Go-Live** | 11-12 | W21-W24 | Payroll, financial statements, cross-module tools, final verification, training | 13 | 🟡 |
 
-### Sprint 4: Accounts Payable & Precision Cheque Printing
-* **Task 4.1**: Build Voucher Payable (VP / Form 023) screen with automatic 12% Input VAT and EWT deductions.
-* **Task 4.2**: Implement Check Voucher (CV / Form 024) module with multi-VP payment allocation grid (replacing `tempcvdettbl`).
-* **Task 4.3**: Develop C# `AmtWords` currency verbalizer for Philippine Peso figures in words.
-* **Task 4.4**: Build QuestPDF Vector Cheque Generator with millimeter-accurate positioning for BDO, BPI, Metrobank, and Security Bank.
-* **Task 4.5**: Integrate browser-direct PDF print preview with keyboard hotkey trigger (`F7`).
+```
+W1 ─────── W4 ──────────── W10 ──────────── W16 ─────── W20 ─────── W24
+│ Phase 1  │    Phase 2     │    Phase 3     │  Phase 4  │  Phase 5  │
+│ S1  S2   │ S3   S4   S5   │ S6   S7   S8   │ S9   S10  │ S11  S12  │
+│ Login,   │ GL, JV, AP,    │ OR, CDCR, 2307,│ MMRR, DO, │ Payroll,  │
+│ roles,   │ cheques        │ SO, SI, AR     │ stock, PO,│ FS, go-   │
+│ shell    │                │                │ production│ live      │
+└──── gate ┴────────── gate ┴────────── gate ┴────── gate ┴──── gate ┘
+```
 
----
-
-## Milestone 3: Cashiering, BIR Form 2307 & Materials (Month 3)
-
-### Sprint 5: Cashiering, Collections & Bank Deposits
-* **Task 5.1**: Build Collection (OR / Form 010) module supporting Cash, Cheque, and Electronic Fund Transfers.
-* **Task 5.2**: Implement multi-invoice payment allocation logic with automatic discount and withholding tax deductions.
-* **Task 5.3**: Build Cashier's Daily Collection Report (CDCR) auto-aggregation module grouping collections by tender type.
-* **Task 5.4**: Develop Bank Deposit preparation and clearing reconciliation module.
-* **Task 5.5**: Implement Post-Dated Check (PDC) maturity tracking and alert banner.
-* **Task 5.6 (HRIS Module)**: Build dedicated Human Resource Information System (HRIS) featuring Employee 201 Personnel Masterfile (`payemployeetbl`), Department hierarchy & payroll budget allocations (`depttbl`), Employee Leave Administration with Maker-Checker approval workflow (`leavetbl`), Daily Time Card Attendance Logging (`attendancetbl`), and Philippine Statutory Identification Compliance Audit (BIR TIN, SSS, PhilHealth, Pag-IBIG).
-* **Task 5.7 (Payroll Module)**: Develop Semi-Monthly Payroll Calculation Engine (`payhdrtbl` & `payearntbl`), 2026 Philippine Statutory Deductions (`paydeducttbl`: SSS MSC ceiling PhP 30,000, PhilHealth 2.5%, Pag-IBIG PhP 200), BIR TRAIN Law graduated withholding tax, official printable Payslip Generator (`paysliptbl`), 13th Month Pay Estimator (`thirteenthpaytbl`), Electronic Fund Transfer bank hash batch export (BDO/BPI/Metrobank), and automatic Check Voucher disbursement integration.
-* **Task 5.8**: Build Role-Based Access Control Matrix (RBAC) screen replacing legacy `sys_usergrouprights`.
-
-### Sprint 6: BIR Form 2307 Tax Engine & Materials Management
-* **Task 6.1**: Implement Alphanumeric Tax Code (ATC) catalog and automated calculation rules (WC158, WC160, WI010).
-* **Task 6.2**: Build Customer EWT / BIR 2307 module with automated Credit Memo (TC 90) generation against open invoices.
-* **Task 6.3**: Implement QuestPDF official BIR Form 2307 layout generator matching the official Philippine BIR design.
-* **Task 6.4**: Build Material Receiving Report (MMRR) module with Purchase Order 3-way matching.
-* **Task 6.5**: Implement Inventory Stock Card tracking and Moving Average costing engine.
+The duration is indicative (12 two-week sprints, about 24 weeks) and is confirmed after the Phase 1 schema review.
 
 ---
 
-## Milestone 4: Financial Statements, Migration & Cutover (Month 4)
+## Built Into Every Module (Preview)
 
-### Sprint 7: Financial Statements & Compliance Auditing
-* **Task 7.1**: Develop real-time Balance Sheet generation with comparative monthly and annual columns.
-* **Task 7.2**: Develop Income Statement (P&L) generator broken down by Business Area and Cost Center.
-* **Task 7.3**: Implement Accounts Payable and Accounts Receivable Aging Reports (Current, 30, 60, 90, 120+ days).
-* **Task 7.4**: Implement automated immutable Audit Trail with JSON before/after state diff recording.
-* **Task 7.5**: Build Cost of Sales (COS) vs. Average Selling Price (ASP) margin analysis screen.
+These are already in place across all modules and are what the client sees in the preview:
 
-### Sprint 8: Legacy Data Migration, Reconciliation & Cutover
-* **Task 8.1**: Write migration ETL scripts extracting historical data from legacy MySQL databases (`jcs`, `apf`, `chemag`).
-* **Task 8.2**: Clean and transform legacy Base64 credentials into temporary secure reset tokens.
-* **Task 8.3**: Reconcile beginning GL account balances and unposted open VPs / AR invoices ($DR = CR$ verification).
-* **Task 8.4**: Execute 30-day side-by-side parallel run testing between legacy AOS100 and NextGen.
-* **Task 8.5**: Final production cutover, DNS transition, and legacy system decommissioning.
+* **Legacy-format data layer.** Every service reads and writes the legacy tables and columns (`gljvhdrtbl`, `exphdrtbl`, `colhdrtbl`, `invhdrtbl`, `payearntbl` and so on). One interface, two drivers: sample data in memory for the preview, and MySQL for the client's databases. The MySQL driver refuses writes unless `DATABASE_ALLOW_WRITES=true`, so a first connection to a live database is read-only.
+* **Legacy rights, unchanged.** `IsAllowed(group, form, action)` is reproduced from `sys_usergrouprights` (view, edit, insert, delete, release). Menus, buttons and approvals follow the same rights the client already maintains.
+* **Automation so users do less typing:**
+  * documents number themselves, continuing the legacy numbering in each table;
+  * *Create from* fills a new document from its source (PO from RIV, MMRR from PO, VP from MMRR, CV from VPs, SI from delivery, OR from open invoices);
+  * VAT, withholding tax, amounts in words, moving-average cost and lot picking (first-expiry-first-out, skipping lots on lab hold) are computed;
+  * credit limit, overdue, stock and approval-limit checks run before saving;
+  * GL entries are written automatically in the legacy `gltranstbl` format and bundled by JV Posting, exactly as legacy does;
+  * every document shows its *Next step* and offers buttons that create the next document in the flow;
+  * the Home page and the tasks bell list what is waiting for each user (approvals, postings, lab results).
+* **Customised client header.** Each company's logo or initials, display name, tagline and accent colour sit at the top of the side menu, maintained in *Administration → Company & Branding* with a live preview (`ng_company_branding`). There is no company dropdown anywhere.
+* **Audit.** Every action writes the legacy `translog` row plus a before / after snapshot in `ng_audit_log`.
+* **Works on desktop, tablet and phone,** with light and dark themes. It can be installed as an app (PWA), and a plain offline page appears when the connection drops. Pages and data are never cached on the device.
+* **Tests.** Server tests check that the sample books balance, that AR / AP subledgers equal their control accounts, that no stock goes negative and that every document opens (`npm test`). Browser tests cover sign-in privacy, the main screens and the installable app (`npm run test:e2e`).
+
+---
+
+## Phase 1: Foundation (Sprints 1-2, W1-W4)
+
+**Goal:** users sign in with their existing AOS accounts, see only their own company, and Cloud AOS is connected to a copy of the client's databases.
+
+### Sprint 1 (W1-W2): Database Connection & Schema Verification
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 1.1 | Schema-only dump and a test copy of all five databases; compare with Appendix A, list triggers, views, procedures and table engines (PLAN.md Section 7.4) | 🔒 | Needs the dump and backup from the client. |
+| 1.2 | Next.js 15 / React 19 / TypeScript / Tailwind app, Dockerfile and `docker-compose.yml` | ✅ | |
+| 1.3 | Database layer: one `mysql2` pool per company database, least-privilege MySQL account | 🟡 | Connect `bfi` / `bfi_admin`; generate typed table definitions from the schema dump; create the least-privilege account with the client's DBA. |
+| 1.4 | Domain rules: money rounding, VAT and EWT, TIN format, amounts in words (exact port of `AmtWords.vb`) | ✅ | |
+| 1.8 | Additive `ng_*` tables (`ng_user_credentials`, `ng_audit_log`, `ng_cheque_layouts`, `ng_company_branding`, `ng_sessions`, `ng_schema_migrations`) | 🟡 | Script ready in `database/mysql/001_ng_tables.sql`; add the versioned migration runner. |
+
+### Sprint 2 (W3-W4): Sign-in, Rights & Application Shell
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 1.5 | Sign-in with username and password only. The company is resolved from the account; users with several companies choose after signing in, from their own companies only. Legacy Base64 check on the first sign-in, then Argon2id in `ng_user_credentials`; lock after 5 wrong attempts | ✅ | Refresh tokens in `ng_sessions` (the preview uses one 8-hour session cookie). |
+| 1.6 | `IsAllowed(group, form, action)`; users, groups and rights, approval limits | ✅ | |
+| 1.7 | Shell: customised client header, side menu filtered by rights, screen finder, document search, tasks bell, switch company (own companies only), change password | ✅ | Favourites (`MyFavorites.aspx`). |
+
+**Legacy pages and their Cloud AOS screens**
+
+| Legacy page | Cloud AOS | Status |
+| :--- | :--- | :---: |
+| `Login.aspx`, `logout.aspx` | Sign-in page, post-sign-in company chooser, Sign out | ✅ |
+| `ChangePassword.aspx`, `NewPass.aspx`, `UserDetails.aspx` | My Account (profile, change password) | ✅ |
+| `UserMaintenance.aspx` | Administration → Users (create, temporary password, unlock) | ✅ |
+| `UserGrpAccess.aspx` | Administration → Group Access (rights matrix per form) | ✅ |
+| `AuthConfig.aspx` | Administration → Approval Limits | ✅ |
+| `AOSappConfig.aspx`, `Administrator.aspx` | Administration → Company & Branding | ✅ |
+| `Home.aspx`, `AOS100_main.Master`, `MyMenu.master`, `Admin.master` | Home page and the application shell | ✅ |
+| `MyFavorites.aspx` | Favourites in the side menu | ⬜ |
+| `DocConfig.aspx`, `Maintenance.aspx` | Document settings and maintenance tools | ⬜ |
+| `Help.aspx` (compiled as `About`) | Help and About | ⬜ |
+
+**Gate:** sign-in, rights and menus checked against legacy for every user group on the test copy.
+
+---
+
+## Phase 2: Finance Core (Sprints 3-5, W5-W10)
+
+**Goal:** accounting runs the general ledger, payables and cheque printing in Cloud AOS.
+
+### Sprint 3 (W5-W6): General Ledger & Period Control
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 2.1 | Chart of accounts, cost centers, profit centers | ✅ | |
+| 2.2 | Period control (`gltransmonstatus`, `modtranstattbl`) on every save; Period Closing with pre-close checks and reopen | ✅ | |
+| 2.3 | Journal vouchers (Open → Approved → Posted), JV Posting that bundles subledger entries into the monthly automatic JV, reversal | ✅ | Edit screen for automatic JVs (`JVedit.aspx`). |
+
+### Sprint 4 (W7-W8): Payables
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 2.4 | Vendor master; vouchers payable with VAT and EWT (`bir_ewttbl`); duplicate supplier-invoice check; approval limits (`authtbl`); create from a posted MMRR | ✅ | |
+| 2.6 | Petty cash, fund replenishment, cash-advance liquidation, budget monitoring | ⬜ | `FundRepl.aspx`, `Liquidation.aspx`, `CashDisb.aspx`, `BudgetMonitor.aspx`. |
+| 2.6 | A/P aging and open vouchers | ✅ | Remaining AP report variants from `APReports.aspx`. |
+
+### Sprint 5 (W9-W10): Cheques & Printed Forms
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 2.5 | Check vouchers paying several VPs; next cheque number per bank; approve and release; amount in words; cheque calibration per bank account (`ng_cheque_layouts`); print and reprint log (`prttbl`) | ✅ | Calibrate on the client's actual cheque stock (BDO, regular, crossed, small). |
+| 2.7 | Printed forms: VP, JV, CV, cheques, BIR 2307, FI registers | 🟡 | Print views exist; match each one to its Crystal Reports output. |
+
+**Legacy pages and their Cloud AOS screens**
+
+| Legacy page | Cloud AOS | Status |
+| :--- | :--- | :---: |
+| `JournalVoucher.aspx` | General Ledger → Journal Vouchers | ✅ |
+| `JVPosting.aspx` | General Ledger → JV Posting | ✅ |
+| `JVedit.aspx` | Automatic JV edit | ⬜ |
+| `AccountingPeriod.aspx` | General Ledger → Period Closing | ✅ |
+| `ChartOfAcct.aspx` | Administration → Chart of Accounts, Cost Centers, Profit Centers | ✅ |
+| `VoucherPayables.aspx`, `APapp.aspx` | Payables → Vouchers Payable (approval inside the document) | ✅ |
+| `CheckVoucher.aspx` | Payables → Check Vouchers; Administration → Cheque Printing Setup | ✅ |
+| `VendorMast.aspx` | Payables → Vendors | ✅ |
+| `APReports.aspx` | Payables → A/P Aging | 🟡 |
+| `FinancialAccounting.aspx`, `FI.master` | Home page and the side menu | ✅ |
+| `FIreportViewer.aspx`, `ReportViewer.aspx` | Print view on every document and report | 🟡 |
+| `CashDisb.aspx`, `FundRepl.aspx`, `Liquidation.aspx`, `BudgetMonitor.aspx` | Petty cash, replenishment, liquidation, budget | ⬜ |
+
+**Gate:** trial balance per company and AP open balances show zero difference against legacy; NextGen JVs, VPs and CVs open and print correctly in the legacy screens.
+
+---
+
+## Phase 3: Cash, Receivables & Sales (Sprints 6-8, W11-W16)
+
+**Goal:** cashiers, credit and collection, and sales work in Cloud AOS.
+
+### Sprint 6 (W11-W12): Collections, CDCR & Deposits
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 3.1 | Official receipts with cash and cheques, post-dated cheques detected, applied to the oldest invoices first, EWT on `coldettbl`, unapplied amount kept as a customer deposit | ✅ | Online / bank-transfer tender types used by the client. |
+| 3.2 | CDCR generated from the day's receipts; bank deposits | ✅ | Deposit application (`DepApp.aspx`) and the cashier report variants. |
+
+### Sprint 7 (W13-W14): Memos, 2307 & Customers
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 3.3 | Customer debit and credit memos against open invoices; customer 2307 tracking (received / pending) | ✅ | |
+| 3.4 | Customer master with change history (`custmasttbl_update`), price list, salesmen, areas | ✅ | Excel import, change requests and special prices. |
+| 3.6 | A/R aging and statement of account computed directly (no `tempaging*` tables) | ✅ | |
+
+### Sprint 8 (W15-W16): Sales Orders & Invoices
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 3.5 | Sales orders with price list, credit-limit, overdue and stock checks; approval above the limit with remarks; sales invoices created from deliveries with VAT split and automatic GL | ✅ | Salesman and sales-manager module; event sales report. |
+| 3.6 | Sales register and SD reports | 🟡 | Remaining report variants from `SDReports.aspx` and `DailySalesReport.aspx`. |
+| 3.7 | Printed forms: OR, CDCR, deposit summary, DM / CM, SO, SI, shrinkage report | 🟡 | Match each one to its Crystal Reports output. |
+
+**Legacy pages and their Cloud AOS screens**
+
+| Legacy page | Cloud AOS | Status |
+| :--- | :--- | :---: |
+| `Collection.aspx` | Cashiering → Official Receipts | ✅ |
+| `CDCR.aspx`, `BankDep.aspx` | Cashiering → CDCR & Bank Deposits | ✅ |
+| `DepApp.aspx`, `CashierReports.aspx` | Deposit application, cashier reports | 🟡 |
+| `CustDMCM.aspx` | Cashiering → Credit Memos, Debit Memos | ✅ |
+| `CustEWT.aspx` | Cashiering → Customer 2307 | ✅ |
+| `ARreports.aspx`, `ARrepViewer.aspx` | Cashiering → A/R Aging & Statements | ✅ |
+| `CustMast.aspx` | Sales → Customers, Price List, Salesmen, Sales Areas | 🟡 |
+| `SalesOrder.aspx`, `SOapp.aspx` | Sales → Sales Orders (approval inside the document) | ✅ |
+| `SalesInvoice.aspx` | Sales → Sales Invoices | ✅ |
+| `SDReports.aspx`, `SDrepViewer.aspx`, `DailySalesReport.aspx` | Sales → Sales Reports | 🟡 |
+| `SalesAndDist.aspx`, `SD.master` | Home page and the side menu | ✅ |
+| `SalesmanModule.aspx` | Salesman and sales-manager views | ⬜ |
+| `SmnAccessMobile.aspx` | Not needed: every screen works on phones | ✅ |
+
+**Gate:** AR open balances, CDCR totals and deposits show zero difference against legacy for the sample days.
+
+---
+
+## Phase 4: Inventory, Materials & Production (Sprints 9-10, W17-W20)
+
+**Goal:** warehouses, plants, purchasing and production work in Cloud AOS, with stock per plant.
+
+### Sprint 9 (W17-W18): Receiving, Deliveries & Stock
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 4.1 | Materials and plants, movement types (`movtbl`), plant inventory switch (`plnttbl.invset`) | ✅ | Movement types per plant (`movplnttbl`). |
+| 4.2 | Receiving (MMRR) against POs, lots and expiry, lab status for raw materials | ✅ | |
+| 4.3 | Deliveries and issuances (sales, production, transfers, scrap) with automatic lot picking; plant transfers create the receiving side; physical count with variance posting | ✅ | Warehouse returns (`wrrhdrtbl`). |
+| 4.4 | Stock by plant and lot, stock card, MM registers, reorder alerts, computed directly (no `tempinv*` tables) | ✅ | Inventory valuation report variants. |
+
+### Sprint 10 (W19-W20): Purchasing & Production
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 4.5 | Requisitions (RIV) prefilled from reorder levels, purchase orders from RIVs, approval limits, PO monitoring | ✅ | |
+| 4.6 | Production worksheets with formula prefill, material issues, lot receipt on lab hold, costing (`cosdettbl`, `coshdrtbl`), COS vs ASP | ✅ | |
+| 4.7 | Printed forms: MMRR, DO variants per company, PO / RIV, pick list, production and inventory reports | 🟡 | Match each one to its Crystal Reports output. |
+
+**Legacy pages and their Cloud AOS screens**
+
+| Legacy page | Cloud AOS | Status |
+| :--- | :--- | :---: |
+| `MMRR.aspx` | Inventory → Receiving (MMRR) | ✅ |
+| `DeliveryOrder.aspx` | Inventory → Deliveries & Transfers | ✅ |
+| `InventoryReports.aspx`, `MMReports.aspx`, `MMreportViewer.aspx` | Inventory → Stock by Plant, Registers | ✅ |
+| `LabMonitoring.aspx` | Inventory → Lab Monitoring | ✅ |
+| `MaterialManagement.aspx`, `MM.master` | Home page and the side menu; Materials, Plants & Warehouses | ✅ |
+| `RIV.aspx` | Purchasing → Requisitions (RIV) | ✅ |
+| `PO.aspx`, `PurcApp.aspx` | Purchasing → Purchase Orders (approval inside the document) | ✅ |
+| `POreports.aspx` | Purchasing → PO Monitoring | ✅ |
+| `ProdWorkSheet.aspx`, `ProductionCosting.aspx` | Production → Production Worksheets | ✅ |
+| `COSvsASP.aspx` | Production → COS vs ASP | ✅ |
+
+**Gate:** stock balances per plant and lot show zero difference against legacy; production costs match.
+
+---
+
+## Phase 5: HR & Payroll, Reports & Go-Live (Sprints 11-12, W21-W24)
+
+**Goal:** payroll and the financial statements run in Cloud AOS, then the legacy application is retired.
+
+### Sprint 11 (W21-W22): Payroll
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 5.1 | Employees; semi-monthly payroll periods; attendance exceptions; computation with SSS, PhilHealth, Pag-IBIG and withholding tax from the government rate tables; loans; adjustments; register and payslips; posting to the GL and reversal | ✅ | DTR upload, weekly payroll, payroll ID variants. |
+
+### Sprint 12 (W23-W24): Reports, Tools & Go-Live
+
+| # | Task | Status | Remaining |
+| :--- | :--- | :---: | :--- |
+| 5.2 | Trial balance, account ledgers, balance sheet and income statement (month and year to date, with or without entries waiting for JV posting) | ✅ | The company-specific statement layouts (`FS_JCS`, `FSChemag`). |
+| 5.3 | Find a document across modules; void request and approval; audit trail | ✅ | Controlled corrections (`DocQuery.aspx`); clinic monitoring. |
+| 5.4 | Final verification of all modules against legacy; training for makers, checkers and administrators | 🔒 | Needs the test copy and key-user sessions. |
+| 5.5 | Retire legacy: read-only for an agreed period, then shut down; clear the Base64 passwords; rotate the MySQL `root` password | ⬜ | |
+
+**Legacy pages and their Cloud AOS screens**
+
+| Legacy page | Cloud AOS | Status |
+| :--- | :--- | :---: |
+| `Attendance.aspx`, `PayrollID.aspx` | HR & Payroll → Payroll (periods, attendance) | 🟡 |
+| `PayrollAcctg.aspx`, `PayrollAdjt.aspx` | HR & Payroll → Payroll (post to GL, adjustments) | ✅ |
+| `HRIShome.aspx`, `HRIS.master` | HR & Payroll → Employees and the side menu | ✅ |
+| `GLReports.aspx` (compiled as `GLReportsNew`) | General Ledger → GL Reports | ✅ |
+| `FS.aspx` (compiled as `FS_JCS`), `FSChemag.aspx` | General Ledger → Financial Statements | 🟡 |
+| `DocQuery.aspx` | Find a document (top bar) | 🟡 |
+| `VoidReq.aspx`, `VoidApproval.aspx` | Administration → Void Requests | ✅ |
+| `ClinicMonitoring.aspx` | Clinic monitoring | ⬜ |
+
+**Gate:** the full parity checklist passes for every module (PLAN.md Section 8.3, step 3); then the legacy application is set to read-only.
+
+---
+
+## Switching Each Module Over (No Data Migration)
+
+1. **Test copy.** Restore a recent backup of all five databases into the test environment.
+2. **Build** the module against the copy.
+3. **Parity tests.** Same transactions in legacy and Cloud AOS on two identical copies; compare documents, GL lines, trial balance, AR / AP and stock balances, and printed forms. The target is zero difference.
+4. **Pilot** on the live database with a small group of users, with the legacy screens still available.
+5. **Switch.** Move the module's users over and set its legacy forms to view-only in `sys_usergrouprights`. To roll back, restore those rights; no data has to move, because both systems write the same tables.
+6. **Retire legacy** after the last module.
+
+## Before Connecting to the Client's Database
+
+* [ ] Schema-only dump of `jcs`, `apf`, `chemag`, `bfi`, `bfi_admin`, plus a recent full backup for the test copy.
+* [ ] A least-privilege MySQL account for Cloud AOS (never `root`).
+* [ ] Confirm the transaction codes against the client's `tccodestbl` (Cloud AOS uses the codes found in the legacy code, for example JV 40, VP 42, CV 43, OR 60, SI 62).
+* [ ] Run `database/mysql/001_ng_tables.sql` on the test copy only.
+* [ ] Start read-only (leave `DATABASE_ALLOW_WRITES` unset), compare screens and reports with legacy, then enable writes on the test copy for the parity tests.
+* [ ] Sample printed forms (Crystal Reports output) for every document type.

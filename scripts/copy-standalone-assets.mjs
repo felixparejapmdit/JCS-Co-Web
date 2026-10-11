@@ -9,7 +9,7 @@ if (fs.existsSync(standaloneDir)) {
   const destStatic = path.join(standaloneDir, '.next', 'static');
 
   if (fs.existsSync(srcStatic)) {
-    console.log('[AOS100 Build] Copying .next/static to .next/standalone/.next/static...');
+    console.log('[Cloud AOS build] Copying .next/static to .next/standalone/.next/static...');
     fs.cpSync(srcStatic, destStatic, { recursive: true });
   }
 
@@ -17,9 +17,9 @@ if (fs.existsSync(standaloneDir)) {
   const destPublic = path.join(standaloneDir, 'public');
 
   if (fs.existsSync(srcPublic)) {
-    console.log('[AOS100 Build] Copying public assets to .next/standalone/public...');
+    console.log('[Cloud AOS build] Copying public assets to .next/standalone/public...');
     fs.cpSync(srcPublic, destPublic, { recursive: true });
   }
 
-  console.log('[AOS100 Build] Standalone assets synchronization complete.');
+  console.log('[Cloud AOS build] Standalone assets synchronization complete.');
 }

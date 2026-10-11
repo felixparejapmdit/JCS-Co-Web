@@ -5,6 +5,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -36,3 +38,7 @@ yarn-error.log*
 # scratch & cache
 /scratch/
 /database/data_local/
+
+# client database backups (never commit)
+/database/restore/*
+!/database/restore/README.md

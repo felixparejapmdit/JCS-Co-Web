@@ -1,169 +1,163 @@
-# AOS100 NextGen — Enterprise ERP & Financial Governance
+# Cloud AOS
 
-Modern Multi-Tenant Financial Accounting, General Ledger, Accounts Payable/Receivable, BIR Tax Compliance, HRIS 201 Records, Automated 2026 Payroll, and Cheque Printing Platform for **JCS Chemical Industries**, **APF Corporation**, and **Chemag Trading**.
+**Same data. Same business rules. A modern system built for the next 10 years.**
 
-- **Live Production URL:** [https://jcs-co-web.vercel.app](https://jcs-co-web.vercel.app)
-- **Local Dev Server:** `http://localhost:8180`
-- **Architecture:** Next.js 15 App Router • TypeScript • PostgreSQL 16 • Redis 7 • Tailwind CSS
+Cloud AOS is the modern web version of AOS100, the accounting and operations system used by the group's companies. It replaces the ASP.NET / VB.NET screens and **keeps the client's existing MySQL databases**: it reads and writes the same legacy tables, in the same format, so both systems can run side by side while each module is switched over.
+
+| | |
+| :--- | :--- |
+| **Hosted preview** | https://jcs-co-web.vercel.app (sample data) |
+| **Local** | http://localhost:8180 |
+| **Stack** | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, `mysql2`, Argon2id (`hash-wasm`), JWT session cookie |
+| **Plan** | [PLAN.md](PLAN.md): legacy inventory (78 pages, 187 tables, form codes), architecture, design and rollout |
+| **Roadmap** | [SPRINTS_ROADMAP.md](SPRINTS_ROADMAP.md): 5 phases, 12 sprints, and what is built so far |
+| **Client deck** | `PresentationNew-CloudAOS.pdf` |
 
 ---
 
-## 1. Database Credentials & Connection Details
+## 1. How It Works
 
-### Local & Docker PostgreSQL (Port 5432)
+```
+Browser ──POST /api/aos {op, args}──▶ src/server/rpc.ts ──▶ services (GL, AP, AR, sales,
+                                                             inventory, purchasing, production,
+                                                             payroll, admin)
+                                                                   │
+                                                                   ▼
+                                                         Db interface (legacy tables)
+                                                          ├─ MemoryDb: sample data (preview)
+                                                          └─ MysqlDb:  client's databases
+```
 
-| Configuration Key | Value | Description |
+* **Legacy tables, legacy columns.** Every service works on the AOS100 tables (`gljvhdrtbl`, `exphdrtbl`, `cvhdrtbl`, `colhdrtbl`, `sohdrtbl`, `invhdrtbl`, `payearntbl` and the rest; PLAN.md Appendix A). Cloud AOS keeps its own data only in additive `ng_*` tables (PLAN.md Section 7.2).
+* **Legacy rights.** Menus, buttons and approvals follow `IsAllowed(group, form, action)` over `sys_usergrouprights`, exactly as the old system does.
+* **Automation.** Documents number themselves; *Create from* fills a document from its source; VAT, withholding tax, amounts in words, moving-average cost and lot picking are computed; credit, stock and approval-limit checks run before saving; GL entries are written automatically and bundled by JV Posting; each document shows its next step; Home and the tasks bell list what is waiting for each user.
+
+### Data modes
+
+| Mode | When | Behaviour |
 | :--- | :--- | :--- |
-| **Host** | `localhost` or `127.0.0.1` | Local machine host |
-| **Port** | `5432` | Standard PostgreSQL port |
-| **Database Name** | `aos100_core` | Primary ERP database |
-| **Username** | `aos_admin` | Master database administrator |
-| **Password** | `Aos100SecurePass!` | Secure local database password |
-| **SSL Mode** | `disable` | Local non-SSL mode |
-| **Connection URI** | `postgresql://aos_admin:Aos100SecurePass!@localhost:5432/aos100_core?sslmode=disable` | Direct database connection string |
-
-### Redis 7 Cache & Lock Service (Port 6379)
-
-| Configuration Key | Value | Description |
-| :--- | :--- | :--- |
-| **Host** | `localhost` or `127.0.0.1` | Local cache host |
-| **Port** | `6379` | Standard Redis port |
-| **Password** | `RedisSecurePass!` | Authentication password |
-| **Connection URI** | `redis://:RedisSecurePass!@localhost:6379` | Distributed locks & caching |
+| **Sample data** | `DATABASE_HOST` is empty (default, and the hosted preview) | Three sample companies in memory, built by running real transactions through the services (purchases, sales, collections, production, payroll, month-end closing). Data resets when the server restarts. |
+| **Client MySQL** | `DATABASE_HOST` is set | One connection pool per company database. **Read-only** until `DATABASE_ALLOW_WRITES=true`, so a first connection can never change live data. |
 
 ---
 
-## 2. Database Architecture & Schemas
+## 2. Sign-in and Company Privacy
 
-The PostgreSQL database uses a multi-tenant schema isolation design:
+* The login page asks only for a username and password. **It never lists or names the companies.**
+* The company comes from the account. Users who belong to several companies choose one **after** signing in, from their own companies only, and can switch later from the user menu.
+* There is **no company dropdown** anywhere. Each company sees its own **customised header** at the top of the side menu: logo or initials, name, tagline and accent colour, set by its administrator in **Administration → Company & Branding** (stored in `ng_company_branding`).
+* Passwords: the legacy Base64 password is checked once, on the first Cloud AOS sign-in, then replaced by an Argon2id hash in `ng_user_credentials`. Five wrong attempts lock the account (`sys_userrecords.idstat = 'Locked'`) until an administrator unlocks it.
 
-```
-aos100_core
-├── shared_system/             # Global System Catalog & Security
-│   ├── tenants                # 8100 (JCS), 8200 (APF), 8300 (Chemag)
-│   ├── users                  # Staff credentials, roles & Argon2id hashes
-│   └── audit_logs             # Immutable system audit trail
-│
-├── tenant_8100/               # JCS Chemical Industries, Inc.
-│   ├── accounts               # Chart of Accounts (COA)
-│   ├── journal_vouchers       # Form 052 JVs & Line Items
-│   ├── vouchers_payable       # Form 023 Accounts Payable
-│   ├── check_vouchers         # Cheque Printing & Disbursements
-│   ├── vendors & customers    # Masterfile directories
-│   ├── employees_201          # HRIS 201 personnel records
-│   └── payroll_runs           # Semi-monthly payroll computations
-│
-├── tenant_8200/               # APF Corporation (Isolated Schema)
-└── tenant_8300/               # Chemag Trading Corporation (Isolated Schema)
-```
+### Sample accounts (hosted preview and local sample data)
 
----
+All sample accounts use the password **`Demo@2026`**; the login page lists them in sample-data mode only.
 
-## 3. How to Run PostgreSQL Locally
-
-### Option A: Using Docker Compose (Recommended)
-
-To start only the PostgreSQL 16 database:
-```bash
-docker compose up -d db
-```
-
-To start both PostgreSQL and Redis:
-```bash
-docker compose up -d db redis
-```
-
-To start the complete full-stack environment (Database + Redis + Next.js):
-```bash
-docker compose up -d
-```
-
-To check database container logs:
-```bash
-docker compose logs -f db
-```
-
-To stop services:
-```bash
-docker compose down
-```
-
-### Option B: Connecting with GUI Client (DBeaver / TablePlus / pgAdmin)
-
-1. Open **DBeaver** or **pgAdmin 4**.
-2. Create a new **PostgreSQL Connection**:
-   - **Host:** `localhost`
-   - **Port:** `5432`
-   - **Database:** `aos100_core`
-   - **Username:** `aos_admin`
-   - **Password:** `Aos100SecurePass!`
-3. Click **Test Connection** → **Connect**.
+| Username | Role | Companies |
+| :--- | :--- | :---: |
+| `admin` | System Administrator | 3 |
+| `finance` | Finance Head / CFO | 3 |
+| `accountant` | Accountant | 2 |
+| `cashier` | Cashier / Treasury | 1 |
+| `purchasing` | Purchasing | 1 |
+| `warehouse` | Warehouse & Plant | 3 |
+| `sales` | Sales & Billing | 2 |
+| `hr` | HR & Payroll | 3 |
+| `lab` | QA Laboratory | 2 |
+| `auditor` | Internal Audit (view only) | 1 |
 
 ---
 
-## 4. In-App Database & Tables Explorer (Zero-Software Access)
-
-You can view, search, and manage all database tables live directly in your web browser:
-
-| Database Table / Entity | Local Access URL | Live Cloud URL (Vercel) |
-| :--- | :--- | :--- |
-| **Users & Permissions Table** | [http://localhost:8180/dashboard/settings/users](http://localhost:8180/dashboard/settings/users) | [`https://jcs-co-web.vercel.app/dashboard/settings/users`](https://jcs-co-web.vercel.app/dashboard/settings/users) |
-| **Chart of Accounts (COA)** | [http://localhost:8180/dashboard/masterfiles/accounts](http://localhost:8180/dashboard/masterfiles/accounts) | [`https://jcs-co-web.vercel.app/dashboard/masterfiles/accounts`](https://jcs-co-web.vercel.app/dashboard/masterfiles/accounts) |
-| **Vendors & Creditors** | [http://localhost:8180/dashboard/masterfiles/vendors](http://localhost:8180/dashboard/masterfiles/vendors) | [`https://jcs-co-web.vercel.app/dashboard/masterfiles/vendors`](https://jcs-co-web.vercel.app/dashboard/masterfiles/vendors) |
-| **Customers & Debtors** | [http://localhost:8180/dashboard/masterfiles/customers](http://localhost:8180/dashboard/masterfiles/customers) | [`https://jcs-co-web.vercel.app/dashboard/masterfiles/customers`](https://jcs-co-web.vercel.app/dashboard/masterfiles/customers) |
-| **Banks & Checkbooks** | [http://localhost:8180/dashboard/masterfiles/banks](http://localhost:8180/dashboard/masterfiles/banks) | [`https://jcs-co-web.vercel.app/dashboard/masterfiles/banks`](https://jcs-co-web.vercel.app/dashboard/masterfiles/banks) |
-| **HRIS 201 Personnel Table** | [http://localhost:8180/dashboard/hris](http://localhost:8180/dashboard/hris) | [`https://jcs-co-web.vercel.app/dashboard/hris`](https://jcs-co-web.vercel.app/dashboard/hris) |
-| **Payroll Ledger Table** | [http://localhost:8180/dashboard/payroll](http://localhost:8180/dashboard/payroll) | [`https://jcs-co-web.vercel.app/dashboard/payroll`](https://jcs-co-web.vercel.app/dashboard/payroll) |
-| **General Ledger & Trial Balance** | [http://localhost:8180/dashboard/gl/ledger](http://localhost:8180/dashboard/gl/ledger) | [`https://jcs-co-web.vercel.app/dashboard/gl/ledger`](https://jcs-co-web.vercel.app/dashboard/gl/ledger) |
-| **Journal Vouchers (Form 052)** | [http://localhost:8180/dashboard/gl/vouchers](http://localhost:8180/dashboard/gl/vouchers) | [`https://jcs-co-web.vercel.app/dashboard/gl/vouchers`](https://jcs-co-web.vercel.app/dashboard/gl/vouchers) |
-| **Vouchers Payable (Form 023)** | [http://localhost:8180/dashboard/vouchers/payables](http://localhost:8180/dashboard/vouchers/payables) | [`https://jcs-co-web.vercel.app/dashboard/vouchers/payables`](https://jcs-co-web.vercel.app/dashboard/vouchers/payables) |
-| **Check Vouchers & Cheque Print** | [http://localhost:8180/dashboard/vouchers/cheques](http://localhost:8180/dashboard/vouchers/cheques) | [`https://jcs-co-web.vercel.app/dashboard/vouchers/cheques`](https://jcs-co-web.vercel.app/dashboard/vouchers/cheques) |
-| **Cashiering & ORs** | [http://localhost:8180/dashboard/cashiering](http://localhost:8180/dashboard/cashiering) | [`https://jcs-co-web.vercel.app/dashboard/cashiering`](https://jcs-co-web.vercel.app/dashboard/cashiering) |
-| **BIR Form 2307 Withholding** | [http://localhost:8180/dashboard/reports/bir2307](http://localhost:8180/dashboard/reports/bir2307) | [`https://jcs-co-web.vercel.app/dashboard/reports/bir2307`](https://jcs-co-web.vercel.app/dashboard/reports/bir2307) |
-| **Financial Statements (P&L / BS)** | [http://localhost:8180/dashboard/reports/financial-statements](http://localhost:8180/dashboard/reports/financial-statements) | [`https://jcs-co-web.vercel.app/dashboard/reports/financial-statements`](https://jcs-co-web.vercel.app/dashboard/reports/financial-statements) |
-| **Audit Logs & Data Management** | [http://localhost:8180/dashboard/settings/data](http://localhost:8180/dashboard/settings/data) | [`https://jcs-co-web.vercel.app/dashboard/settings/data`](https://jcs-co-web.vercel.app/dashboard/settings/data) |
-
----
-
-## 5. Application Login Credentials
-
-The application includes pre-configured live enterprise test accounts:
-
-| Role | Username | Password | Access Level |
-| :--- | :--- | :--- | :--- |
-| **Administrator** | `admin` | `Password123!` | Full unrestricted access to all modules, settings & audit logs |
-| **Senior Accountant** | `accountant` | `Password123!` | General Ledger, Maker JVs, Accounts Payable & BIR Reports |
-| **HR & Payroll Officer** | `hr` | `Password123!` | Dedicated HRIS 201 Files & 2026 Statutory Payroll Engine |
-| **Cashier / Treasury** | `cashier` | `Password123!` | Official Receipts, Collections, Deposits & Cheque Vouchers |
-
-**Business Area / Tenant Selection:**
-- `8100` — JCS Chemical Industries, Inc.
-- `8200` — APF Corporation
-- `8300` — Chemag Trading Corporation
-
----
-
-## 6. Development Scripts
+## 3. Run Locally
 
 ```bash
-# Install dependencies
 npm install
+npm run dev                 # http://localhost:8180, sample data
 
-# Start local Next.js development server (Port 8180)
-npm run dev
+npm run build               # production build (standalone output)
+npm run start:standalone    # run the production build on port 8180
+```
 
-# Compile production build
-npm run build
+### Docker
 
-# Start local standalone production server
-npm run start:standalone
+```bash
+docker compose up -d web                  # Cloud AOS with sample data
+docker compose --profile mysql up -d      # plus MySQL with a restored test copy, and Adminer on :8080
+```
 
-# Run unit and integration tests
-npm test
+For the MySQL profile, put the `*.sql` backups in `database/restore/` (never committed) and fill in `.env` from [.env.example](.env.example).
+
+---
+
+## 4. Connecting to the Client's Databases
+
+Always on a **restored test copy** first (PLAN.md Section 8.3).
+
+1. Restore the backups of `jcs`, `apf`, `chemag`, `bfi` and `bfi_admin`.
+2. Run [database/mysql/001_ng_tables.sql](database/mysql/001_ng_tables.sql) in each company database. It only creates `ng_*` tables and is safe to re-run. (Before it has run, Cloud AOS still signs users in read-only; its own tables simply read as empty.)
+3. Create a least-privilege MySQL account for Cloud AOS with the client's DBA (never `root`).
+4. Set the environment variables below and start Cloud AOS. It is read-only at this point.
+5. Compare screens and reports with the legacy system, then set `DATABASE_ALLOW_WRITES=true` **on the test copy** for the parity tests.
+
+| Variable | Purpose |
+| :--- | :--- |
+| `DATABASE_HOST`, `DATABASE_PORT` | MySQL server. Empty host = sample-data mode. |
+| `DATABASE_USER`, `DATABASE_PASSWORD` | Least-privilege account. |
+| `DATABASE_SSL` | `true` to use TLS. |
+| `DATABASE_POOL_SIZE` | Connections per database (default 5). |
+| `DATABASE_ALLOW_WRITES` | `true` to allow saving. Default: read-only. |
+| `DB_JCS`, `DB_APF`, `DB_CHEMAG`, `DB_BFI`, `DB_BFI_ADMIN` | Database names (legacy defaults `jcs`, `apf`, `chemag`, `bfi`, `bfi_admin`). |
+| `JWT_SECRET` | Signs the session cookie. **Required** with a database; also recommended for the hosted preview. |
+
+Transaction codes written on documents follow the legacy code (`src/shared/codes.ts`); confirm them against the client's `tccodestbl` in Phase 1.
+
+---
+
+## 5. Project Structure
+
+```
+src/
+├─ app/                     Pages (App Router)
+│  ├─ page.tsx              Sign-in and post-sign-in company chooser
+│  ├─ api/aos/route.ts      Single RPC endpoint (sign-in, sign-out, all operations)
+│  └─ dashboard/            Home, documents (doc/[type]), masters, GL, AR/AP, inventory,
+│                           purchasing, production, HR & payroll, administration
+├─ components/
+│  ├─ shell/                App shell, customised client header, side menu, search, tasks
+│  ├─ doc/                  Config-driven document framework (14 document types),
+│  │                        print views, cheque printing
+│  └─ ui/                   UI kit and data table
+├─ server/
+│  ├─ db/                   Db interface, sample-data driver, MySQL driver
+│  ├─ services/             Business rules per module, on legacy tables
+│  ├─ seed/                 Sample companies and transaction history
+│  ├─ auth.ts               Session cookie, legacy and Argon2id passwords
+│  └─ rpc.ts                Operation registry
+└─ shared/                  Money and VAT helpers, amount in words, dates, legacy codes
+database/mysql/             ng_* tables migration
+tests/server/               Server tests on the sample books
+e2e/                        Browser tests (Playwright)
 ```
 
 ---
 
-## 7. Executive Sales Presentation
+## 6. Tests
 
-For presenting the business value, ROI comparison against SAP/NetSuite, and live demonstration script for prospective clients, see the complete guide in [Presentation.MD](Presentation.MD).
+```bash
+npm test                                   # Vitest: domain rules and the sample books
+npx playwright install                     # once, to download the test browsers
+npm run test:e2e                           # Playwright: Chromium, Firefox and WebKit
+npm run test:e2e -- --project=chromium     # one browser
+```
+
+The server tests check that every company's books balance, that AR and AP subledgers equal their control accounts, that no stock goes negative and that every document opens. The browser tests cover sign-in privacy (no company list or dropdown, the chooser for multi-company users), the main screens and the installable app.
+
+---
+
+## 7. Deployment
+
+* **Hosted preview (Vercel).** Pushing to `main` on GitHub deploys https://jcs-co-web.vercel.app. It runs on sample data; set `JWT_SECRET` in the Vercel project settings.
+* **Production.** Run the Docker image (or `npm run build && npm run start:standalone`) where it can reach the client's MySQL server, with the variables in Section 4. Use HTTPS in front of it.
+
+## 8. Installable App
+
+Cloud AOS can be installed from Chrome or Edge (install icon in the address bar), Android (*Install app*) or iOS Safari (*Share → Add to Home Screen*). Static files are cached for speed; pages and records are always loaded from the server and never stored on the device, and a plain offline page appears when the connection drops.

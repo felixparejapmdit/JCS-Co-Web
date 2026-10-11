@@ -1,73 +1,93 @@
+# Cloud AOS: local development and testing (PLAN.md section 4.6.2).
+#
+#   docker compose up -d web
+#       Cloud AOS on http://localhost:8180 with sample data (no database needed).
+#
+#   docker compose --profile mysql up -d
+#       Also starts MySQL loaded with a RESTORED COPY of the client's databases
+#       (put the *.sql backups in ./database/restore) and Adminer on :8080.
+#       Set DATABASE_HOST=db and the other values in .env (see .env.example).
+#
+# In staging and production there is no database container: Cloud AOS points at the
+# client's existing MySQL server through DATABASE_HOST, with a least-privilege account.
+
 services:
-  # Database Service: PostgreSQL 16
-  db:
-    image: postgres:16-alpine
-    container_name: aos100_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-aos_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Aos100SecurePass!}
-      POSTGRES_DB: ${POSTGRES_DB:-aos100_core}
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d
-    networks:
-      - aos100_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aos_admin} -d ${POSTGRES_DB:-aos100_core}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Cache & Lock Service: Redis 7
-  redis:
-    image: redis:7-alpine
-    container_name: aos100_redis
-    restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-RedisSecurePass!}
-    ports:
-      - "6379:6379"
-    volumes:
-      - redisdata:/data
-    networks:
-      - aos100_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-RedisSecurePass!}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Full-Stack Web App: Next.js 15 App Router
   web:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: aos100_web
+    container_name: cloud_aos_web
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 8180
-      DATABASE_URL: postgresql://${POSTGRES_USER:-aos_admin}:${POSTGRES_PASSWORD:-Aos100SecurePass!}@db:5432/${POSTGRES_DB:-aos100_core}?sslmode=disable
-      REDIS_URL: redis://:${REDIS_PASSWORD:-RedisSecurePass!}@redis:6379
-      JWT_SECRET: ${JWT_SECRET:-SuperSecretKeyForAOS100NextGenJwtAuth2026!}
+      HOSTNAME: "0.0.0.0"
+      # Leave DATABASE_HOST empty to run on sample data.
+      DATABASE_HOST: ${DATABASE_HOST:-}
+      DATABASE_PORT: ${DATABASE_PORT:-3306}
+      DATABASE_USER: ${DATABASE_USER:-}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
+      # Read-only until a module has passed its parity tests (PLAN.md section 8.3).
+      DATABASE_ALLOW_WRITES: ${DATABASE_ALLOW_WRITES:-false}
+      DB_JCS: ${DB_JCS:-jcs}
+      DB_APF: ${DB_APF:-apf}
+      DB_CHEMAG: ${DB_CHEMAG:-chemag}
+      DB_BFI: ${DB_BFI:-bfi}
+      DB_BFI_ADMIN: ${DB_BFI_ADMIN:-bfi_admin}
+      JWT_SECRET: ${JWT_SECRET:-}
     ports:
       - "8180:8180"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8180/api/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
-      - aos100_network
+      - cloud_aos
+
+  # Development only: MySQL with a restored backup of jcs / apf / chemag / bfi / bfi_admin.
+  db:
+    profiles: ["mysql"]
+    image: mysql:8.0 # match the client's server version (5.7 or 8.0) from the schema dump
+    container_name: cloud_aos_mysql_dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysqldata:/var/lib/mysql
+      - ./database/restore:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cloud_aos
+
+  # Development only: browser-based database viewer.
+  adminer:
+    profiles: ["mysql"]
+    image: adminer:4.8.1
+    container_name: cloud_aos_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      - db
+    networks:
+      - cloud_aos
 
 networks:
-  aos100_network:
+  cloud_aos:
     driver: bridge
 
 volumes:
-  pgdata:
-    driver: local
-  redisdata:
+  mysqldata:
     driver: local

@@ -1,0 +1,199 @@
+import type { Row } from './db';
+import { getDb, isMysqlMode, resetDemoCompany } from './db';
+import type { Session } from './auth';
+import { ACTION, FORM } from '@/shared/codes';
+import { Ctx, fail, requireRight } from './services/context';
+import { actOnDoc, docService, getDoc, saveDoc } from './services/docs';
+// Importing the services registers their document types.
+import * as gl from './services/gl';
+import * as masters from './services/masters';
+import * as inventory from './services/inventory';
+import * as purchasing from './services/purchasing';
+import * as sales from './services/sales';
+import * as ar from './services/receivables';
+import * as ap from './services/payables';
+import * as payroll from './services/payroll';
+import * as production from './services/production';
+import * as admin from './services/admin';
+import * as session from './services/session';
+
+type Handler = (ctx: Ctx, args: Row, s: Session) => Promise<unknown>;
+
+const ops: Record<string, Handler> = {
+  // --- session ---------------------------------------------------------------
+  'auth.session': async (_c, _a, s) => session.sessionInfo(s),
+  'auth.changePassword': (c, a) => admin.changePassword(c, String(a.current ?? ''), String(a.next ?? '')),
+
+  // --- documents (generic) -----------------------------------------------------
+  'doc.list': async (c, a) => {
+    const svc = docService(String(a.type));
+    await requireRight(c, svc.form, ACTION.VIEW, `view ${svc.title.toLowerCase()}s`);
+    return svc.list(c, a);
+  },
+  'doc.get': async (c, a) => {
+    const svc = docService(String(a.type));
+    await requireRight(c, svc.form, ACTION.VIEW, `view ${svc.title.toLowerCase()}s`);
+    return getDoc(c, svc.type, String(a.no));
+  },
+  'doc.defaults': async (c, a) => {
+    const svc = docService(String(a.type));
+    return svc.defaults ? svc.defaults(c) : {};
+  },
+  'doc.sources': async (c, a) => {
+    const svc = docService(String(a.type));
+    await requireRight(c, svc.form, ACTION.INSERT, `create ${svc.title.toLowerCase()}s`);
+    return svc.sources ? svc.sources(c, String(a.source)) : [];
+  },
+  'doc.prefill': async (c, a) => {
+    const svc = docService(String(a.type));
+    await requireRight(c, svc.form, ACTION.INSERT, `create ${svc.title.toLowerCase()}s`);
+    if (!svc.prefill) fail('This document cannot be created from another one.');
+    return svc.prefill(c, String(a.source), String(a.no));
+  },
+  'doc.save': (c, a) => saveDoc(c, String(a.type), (a.input ?? {}) as Row),
+  'doc.act': (c, a) => actOnDoc(c, String(a.type), String(a.no), String(a.action), (a.payload ?? {}) as Row),
+
+  // --- master data -------------------------------------------------------------
+  'master.meta': async (_c, a) => masters.masterMeta(String(a.id)),
+  'master.list': (c, a) => masters.listMaster(c, String(a.id)),
+  'master.save': (c, a) => masters.saveMaster(c, String(a.id), (a.row ?? {}) as Row, Boolean(a.isNew)),
+  lookup: (c, a) => masters.lookup(c, String(a.name)),
+
+  // --- general ledger ------------------------------------------------------------
+  'gl.periods': async (c, a) => {
+    await requireRight(c, FORM.PERIOD_CLOSING, ACTION.VIEW, 'view accounting periods');
+    return gl.periods(c, Number(a.year));
+  },
+  'gl.close': async (c, a) => {
+    await requireRight(c, FORM.PERIOD_CLOSING, ACTION.RELEASE, 'close accounting periods');
+    return gl.closePeriod(c, Number(a.year), Number(a.month));
+  },
+  'gl.reopen': async (c, a) => {
+    await requireRight(c, FORM.PERIOD_CLOSING, ACTION.RELEASE, 'reopen accounting periods');
+    return gl.reopenPeriod(c, Number(a.year), Number(a.month), String(a.reason ?? ''));
+  },
+  'gl.openEntries': async (c) => {
+    await requireRight(c, FORM.JV_POSTING, ACTION.VIEW, 'view JV posting');
+    return gl.openEntriesSummary(c);
+  },
+  'gl.postOpen': async (c, a) => {
+    await requireRight(c, FORM.JV_POSTING, ACTION.RELEASE, 'post journal entries');
+    return c.db.tx((db) => gl.postOpenEntries({ ...c, db }, String(a.upTo)));
+  },
+  'report.trialBalance': async (c, a) => {
+    await requireRight(c, FORM.GL_REPORTS, ACTION.VIEW, 'view GL reports');
+    return gl.trialBalance(c, { asOf: String(a.asOf), includeUnposted: Boolean(a.includeUnposted) });
+  },
+  'report.ledger': async (c, a) => {
+    await requireRight(c, FORM.GL_REPORTS, ACTION.VIEW, 'view GL reports');
+    return gl.accountLedger(c, { acctno: String(a.acctno), from: String(a.from), to: String(a.to), includeUnposted: Boolean(a.includeUnposted) });
+  },
+  'report.fs': async (c, a) => {
+    await requireRight(c, FORM.FINANCIAL_REPORTS, ACTION.VIEW, 'view financial statements');
+    return gl.financialStatements(c, { year: Number(a.year), month: Number(a.month), includeUnposted: Boolean(a.includeUnposted) });
+  },
+
+  // --- inventory, plants, purchasing, production ---------------------------------
+  'inv.stock': (c, a) => inventory.stockReport(c, a),
+  'inv.card': (c, a) => inventory.stockCard(c, a as never),
+  'inv.register': (c, a) => inventory.mmRegister(c, a as never),
+  'inv.availability': (c, a) => inventory.availability(c, String(a.plntno), String(a.codeno)),
+  'lab.queue': (c, a) => inventory.labQueue(c, String(a.status ?? 'Pending')),
+  'lab.set': (c, a) => inventory.setLabStatus(c, String(a.docno), a.result === 'Rejected' ? 'Rejected' : 'Passed', String(a.remarks ?? '')),
+  'prod.cosVsAsp': (c, a) => production.cosVsAsp(c, { from: String(a.from), to: String(a.to) }),
+  'po.monitor': async (c) => {
+    await requireRight(c, FORM.PO_REPORTS, ACTION.VIEW, 'view PO reports');
+    return purchasing.poMonitor(c);
+  },
+
+  // --- sales and receivables -----------------------------------------------------
+  'sales.register': async (c, a) => {
+    await requireRight(c, FORM.SALES_ORDER, ACTION.VIEW, 'view sales reports');
+    return sales.salesRegister(c, a as never);
+  },
+  'ar.openInvoices': async (c, a) => {
+    await requireRight(c, FORM.COLLECTION, ACTION.VIEW, 'view open invoices');
+    return ar.openInvoicesFor(c, String(a.custno));
+  },
+  'ar.aging': (c, a) => ar.arAging(c, a.asOf ? String(a.asOf) : undefined),
+  'ar.soa': (c, a) => ar.statementOfAccount(c, String(a.custno)),
+  'cdcr.candidates': async (c, a) => {
+    await requireRight(c, FORM.CDCR, ACTION.VIEW, 'view daily collections');
+    return ar.cdcrCandidates(c, String(a.asOf));
+  },
+  'cdcr.generate': (c, a) => ar.generateCdcr(c, String(a.asOf)),
+  'cdcr.list': (c) => ar.listCdcr(c),
+  'deposit.create': (c, a) => ar.createDeposit(c, a as never),
+  'deposit.list': (c) => ar.listDeposits(c),
+  'cwt.list': (c, a) => ar.cwtList(c, { year: Number(a.year), quarter: a.quarter ? Number(a.quarter) : undefined, status: (a.status as never) ?? 'all' }),
+  'cwt.mark': (c, a) => ar.markCwtReceived(c, String(a.orno), String(a.invno), Boolean(a.received)),
+
+  // --- payables --------------------------------------------------------------------
+  'ap.openVouchers': async (c, a) => {
+    await requireRight(c, FORM.CHECK_VOUCHER, ACTION.VIEW, 'view vouchers');
+    return ap.openVouchers(c.db, String(a.venno));
+  },
+  'ap.preview': async (c, a) => ap.computeVoucher(c.db, (a.lines ?? []) as Row[]),
+  'ap.aging': (c, a) => ap.apAging(c, a.asOf ? String(a.asOf) : undefined),
+  'cv.printed': async (c, a) => {
+    await requireRight(c, FORM.CHECK_VOUCHER, ACTION.VIEW, 'print cheques');
+    return ap.recordPrint(c, String(a.docno), '43');
+  },
+  'cheque.layout': (c, a) => ap.saveChequeLayout(c, String(a.acctno), (a.layout ?? {}) as Row),
+  'cheque.getLayout': async (c, a) => {
+    await requireRight(c, FORM.CHECK_VOUCHER, ACTION.VIEW, 'view cheque layouts');
+    return c.db.one('ng_cheque_layouts', { acctno: String(a.acctno) });
+  },
+
+  // --- HR & payroll ----------------------------------------------------------------
+  'hr.employees': (c) => payroll.employees(c),
+  'hr.saveEmployee': (c, a) => payroll.saveEmployee(c, (a.row ?? {}) as Row, Boolean(a.isNew)),
+  'pay.periods': (c) => payroll.payrollPeriods(c),
+  'pay.create': (c, a) => payroll.createPayrollPeriod(c, a),
+  'pay.attendance': (c, a) => payroll.attendance(c, String(a.payidno)),
+  'pay.saveAttendance': (c, a) => payroll.saveAttendance(c, String(a.payidno), (a.rows ?? []) as Row[]),
+  'pay.compute': (c, a) => payroll.computePayroll(c, String(a.payidno)),
+  'pay.register': (c, a) => payroll.payrollRegister(c, String(a.payidno)),
+  'pay.post': (c, a) => payroll.postPayroll(c, String(a.payidno)),
+  'pay.unpost': (c, a) => payroll.unpostPayroll(c, String(a.payidno)),
+  'pay.payslip': (c, a) => payroll.payslip(c, String(a.payidno), String(a.empno)),
+  'pay.adjustments': (c, a) => payroll.adjustments(c, String(a.payidno)),
+  'pay.addAdjustment': (c, a) => payroll.addAdjustment(c, a),
+
+  // --- administration --------------------------------------------------------------
+  'admin.company': async (c) => {
+    await requireRight(c, FORM.APP_CONTROL, ACTION.VIEW, 'view company settings');
+    return admin.companyProfile(c);
+  },
+  'admin.saveCompany': (c, a) => admin.saveCompanyProfile(c, a),
+  'admin.users': (c) => admin.listUsers(c),
+  'admin.saveUser': (c, a) => admin.saveUser(c, (a.row ?? {}) as Row, Boolean(a.isNew)),
+  'admin.resetUser': (c, a) => admin.resetUser(c, String(a.username)),
+  'admin.groups': (c) => admin.groupsWithRights(c),
+  'admin.saveGroup': (c, a) => admin.saveGroupRights(c, String(a.group), (a.rights ?? {}) as Record<string, number[]>, a.info as never),
+  'admin.limits': (c) => admin.approvalLimits(c),
+  'admin.saveLimit': (c, a) => admin.saveApprovalLimit(c, a),
+  'admin.voids': (c) => admin.listVoidRequests(c),
+  'admin.requestVoid': (c, a) => admin.requestVoid(c, a),
+  'admin.decideVoid': (c, a) => admin.decideVoid(c, String(a.docno), String(a.tc), Boolean(a.approve), String(a.note ?? '')),
+  'admin.audit': (c, a) => admin.auditTrail(c, a),
+  search: (c, a) => admin.findDocuments(c, String(a.q ?? '')),
+  'home.dashboard': (c) => admin.dashboard(c),
+  'home.tasks': (c) => admin.myTasks(c),
+  'demo.reset': async (c) => {
+    if (isMysqlMode()) fail('Resetting is only available on the demo data.', 403);
+    await requireRight(c, FORM.APP_CONTROL, ACTION.RELEASE, 'reset the demo data');
+    resetDemoCompany(c.ba);
+    return 'The demo data was reset to its starting state.';
+  },
+};
+
+export async function runOp(op: string, args: Row, s: Session, ip?: string): Promise<unknown> {
+  const handler = ops[op];
+  if (!handler) fail(`Unknown operation: ${op}`, 404);
+  const db = await getDb(s.ba);
+  const ctx: Ctx = { db, ba: s.ba, user: s.u, fullName: s.n, group: s.g, ip };
+  return handler(ctx, args ?? {}, s);
+}
+
+export { session };

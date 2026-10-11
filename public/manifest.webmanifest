@@ -1,0 +1,67 @@
+{
+  "name": "Cloud AOS",
+  "short_name": "Cloud AOS",
+  "description": "Accounting and operations system: finance, sales, inventory, production and payroll on your existing AOS database.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1f3a",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Home",
+      "short_name": "Home",
+      "description": "Your tasks, cash, receivables and stock at a glance",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Sales Orders",
+      "short_name": "Sales",
+      "description": "Create and approve sales orders",
+      "url": "/dashboard/doc/so",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Official Receipts",
+      "short_name": "Receipts",
+      "description": "Record customer payments",
+      "url": "/dashboard/doc/or",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Stock by Plant",
+      "short_name": "Stock",
+      "description": "Live balances per plant, warehouse and lot",
+      "url": "/dashboard/mm/stock",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["business", "finance", "productivity"]
+}

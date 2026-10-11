@@ -40,6 +40,28 @@ html.dark body {
   color: #F1F5F9;
 }
 
+/* Printing: only the document prepared in #print-area goes to paper. */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #print-area,
+  #print-area * {
+    visibility: visible !important;
+  }
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums lining-nums;
   letter-spacing: -0.02em;

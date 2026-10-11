@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
+import { isMysqlMode } from '@/server/db';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   return NextResponse.json({
     status: 'healthy',
-    service: 'AOS100 NextGen Full-Stack ERP',
-    version: '1.0.0',
+    service: 'Cloud AOS',
+    version: '2.0.0',
+    data: isMysqlMode() ? 'company database' : 'sample data',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    tenants: ['8100', '8200', '8300'],
   });
 }
