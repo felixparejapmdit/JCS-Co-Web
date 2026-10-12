@@ -23,6 +23,7 @@ export const GL = {
   INV_FG: '1140200',
   INV_PACKAGING: '1140300',
   WIP: '1140400',
+  VAN_INVENTORY: '1140500', // stock loaded on salesmen's vans (DSR)
   AP_TRADE: '2110100',
   GRNI: '2110200',
   EWT_PAYABLE: '2120100',
@@ -154,9 +155,10 @@ export async function reverseGl(ctx: Ctx, tc: string, docno: string, date: strin
   }
 }
 
-async function writeMain(db: Db, jvno: string, jvsource: string, jvtype: string, rows: Row[], user: string) {
+async function writeMain(db: Db, jvno: string, jvsource: string, jvtype: string, rows: Row[], user: string, extra: Row = {}) {
   for (const r of rows) {
     await db.insert('glmaintranstbl', {
+      ...extra,
       pk: uid(),
       acctno: r.acctno,
       ccno: r.ccno ?? '',
@@ -304,7 +306,7 @@ const jvService: DocService = {
     const h = await ctx.db.one('gljvhdrtbl', { jvno: no });
     if (!h) return null;
     const lines = await ctx.db.all('gljvdettbl', { where: { jvno: no }, orderBy: [['itmno', 'asc']] });
-    return { h, lines };
+    return { h: { ...h, prioryradjt: lines.some((l) => l.prioryradjt === 'Y') ? 'Y' : 'N' }, lines };
   },
 
   async view(ctx, { h, lines }) {
@@ -382,7 +384,7 @@ const jvService: DocService = {
           await ctx.db.insert('gltranstbl', row);
           rows.push(row);
         }
-        await writeMain(ctx.db, h.jvno, 'JV', 'Manual', rows, ctx.user);
+        await writeMain(ctx.db, h.jvno, 'JV', 'Manual', rows, ctx.user, { entrytype: 'Regular', prioryradjt: lines.some((l) => l.prioryradjt === 'Y') ? 'Y' : 'N' });
         await ctx.db.update('gljvhdrtbl', { jvno: h.jvno }, { status: 'Posted', postdate: today(), postby: ctx.user });
         await ctx.db.update('gljvdettbl', { jvno: h.jvno }, { status: 'Posted' });
         return `JV ${h.jvno} posted to the general ledger.`;
@@ -442,7 +444,8 @@ const jvService: DocService = {
       });
     }
     for (const l of numberLines(lines, 'itmno')) {
-      await ctx.db.insert('gljvdettbl', { jvno, ...l, transyear, transmon, status: 'Open', entrytype: 'MANUAL', user: ctx.user });
+      // The legacy flags a prior years' adjustment on the lines (gljvdettbl / glmaintranstbl.prioryradjt).
+      await ctx.db.insert('gljvdettbl', { jvno, ...l, transyear, transmon, status: 'Open', entrytype: 'MANUAL', prioryradjt: input.prioryradjt === 'Y' ? 'Y' : 'N', user: ctx.user });
     }
     return { no: jvno };
   },

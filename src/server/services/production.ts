@@ -1,5 +1,5 @@
 import type { Row } from '../db';
-import { ACTION, FORM, TC } from '@/shared/codes';
+import { ACTION, FORM, INVOICE_TCS, TC } from '@/shared/codes';
 import { addDays, today } from '@/shared/dates';
 import { fmtPeso, fmtQty, r2, r4, sum } from '@/shared/money';
 import { Ctx, assertOpenPeriod, fail, need, nextDocNo, num, requireRight, str, yearPrefix } from './context';
@@ -267,7 +267,7 @@ registerDoc(prodService);
 export async function cosVsAsp(ctx: Ctx, f: { from: string; to: string }) {
   await requireRight(ctx, FORM.COS_VS_ASP, ACTION.VIEW, 'view COS vs ASP');
   const mats = (await ctx.db.all('mmasttbl', { where: { mmtype: 'FG' } })).sort((a, b) => String(a.codeno).localeCompare(String(b.codeno)));
-  const invs = await ctx.db.all('saleshdrtbl', { where: { tc: TC.SALES_INVOICE, status: 'Posted', transdate: { gte: f.from, lte: f.to } } });
+  const invs = await ctx.db.all('saleshdrtbl', { where: { tc: { in: INVOICE_TCS }, status: 'Posted', transdate: { gte: f.from, lte: f.to } } });
   const sold = new Map<string, { qty: number; net: number }>();
   for (const h of invs) {
     for (const l of await ctx.db.all('salesdettbl', { where: { invno: h.invno } })) {

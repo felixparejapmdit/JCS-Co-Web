@@ -1,11 +1,13 @@
+import { matrixForms, permissionPairs } from '@/shared/permissions';
 import { openAdvances } from './funds';
+import { openDeposits } from './depapp';
 import { budgetMonitor } from './budget';
-import type { Row } from '../db';
-import { ACTION, FORM, FORM_CATALOG, TC, statusTone } from '@/shared/codes';
+import type { Db, Row } from '../db';
+import { ACTION, FORM, FORM_CATALOG, INVOICE_TCS, TC, statusTone } from '@/shared/codes';
 import { addDays, monthEnd, monthName, monthStart, nowStamp, today, ym } from '@/shared/dates';
 import { r2, sum } from '@/shared/money';
 import { hashPassword, legacyEncode, passwordProblem } from '../auth';
-import { Ctx, audit, fail, isAllowed, need, num, openPeriodDate, requireRight, rightsOf, str } from './context';
+import { Ctx, audit, fail, isAllowed, need, num, openPeriodDate, requireRight, rightsOf, str, truthy } from './context';
 import { actOnDoc, allDocServices, docService } from './docs';
 import { ledgerLines } from './gl';
 import { stockReport } from './inventory';
@@ -197,39 +199,85 @@ export async function groupsWithRights(ctx: Ctx) {
   const groups = await ctx.db.all('sys_usergroup', { orderBy: [['ug_code', 'asc']] });
   const users = await ctx.db.all('sys_userrecords');
   const out: Row[] = [];
-  for (const g of groups) out.push({ ...g, members: users.filter((u) => u.usergroup === g.ug_code).length, rights: await rightsOf(ctx.db, g.ug_code) });
-  return { groups: out, forms: FORM_CATALOG, canEdit: await isAllowed(ctx.db, ctx.group, FORM.GROUP_ACCESS, ACTION.EDIT) };
+  for (const g of groups) out.push({ ...g, members: users.filter((u) => u.usergroup === g.ug_code).length, locked: g.ug_code === ADMIN_GROUP, rights: await rightsOf(ctx.db, g.ug_code) });
+  return { groups: out, forms: FORM_CATALOG, canEdit: await isAllowed(ctx.db, ctx.group, FORM.GROUP_ACCESS, ACTION.EDIT), myGroup: ctx.group };
+}
+
+/** The administrator group always keeps every right (the matrix shows it as "always"). */
+export const ADMIN_GROUP = 'ADMIN';
+
+/**
+ * Writes the rights of one group for the given forms only. Rights of forms (and actions) the
+ * matrix does not show are kept as they are, so legacy-only forms are never lost.
+ */
+async function writeRights(db: Db, group: string, rights: Record<string, number[]>, forms: string[], shown: Map<string, Set<number>>) {
+  for (const form of forms) {
+    const old = await db.one('sys_usergrouprights', { gr_groupcode: group, gr_formcode: form });
+    const oldActs = old ? [1, 2, 3, 4, 5].filter((a) => truthy(old[RIGHT_COL[a]])) : [];
+    const visible = shown.get(form) ?? new Set([1, 2, 3, 4, 5]);
+    const acts = new Set<number>([...oldActs.filter((a) => !visible.has(a)), ...(rights[form] ?? []).filter((a) => visible.has(a))]);
+    if (old) await db.remove('sys_usergrouprights', { gr_groupcode: group, gr_formcode: form });
+    if (!acts.size && !(old && (truthy(old.gr_autosave) || truthy(old.gr_remember)))) continue;
+    await db.insert('sys_usergrouprights', {
+      gr_groupcode: group,
+      gr_formcode: form,
+      gr_viewrights: acts.has(1) ? 1 : 0,
+      gr_editrights: acts.has(2) ? 1 : 0,
+      gr_insertrights: acts.has(3) ? 1 : 0,
+      gr_deleterights: acts.has(4) ? 1 : 0,
+      gr_releaserights: acts.has(5) ? 1 : 0,
+      gr_autosave: old ? old.gr_autosave ?? 0 : 0,
+      gr_remember: old ? old.gr_remember ?? 0 : 0,
+    });
+  }
+}
+
+const RIGHT_COL: Record<number, string> = { 1: 'gr_viewrights', 2: 'gr_editrights', 3: 'gr_insertrights', 4: 'gr_deleterights', 5: 'gr_releaserights' };
+
+function shownActions(): Map<string, Set<number>> {
+  const m = new Map<string, Set<number>>();
+  for (const p of permissionPairs()) m.set(p.form, new Set([...(m.get(p.form) ?? []), p.action]));
+  return m;
 }
 
 export async function saveGroupRights(ctx: Ctx, group: string, rights: Record<string, number[]>, info?: { ug_name?: string; ug_notes?: string }): Promise<string> {
   await requireRight(ctx, FORM.GROUP_ACCESS, ACTION.EDIT, 'change group access');
-  if (group === ctx.group && !(rights[FORM.GROUP_ACCESS] ?? []).includes(ACTION.EDIT)) fail('You cannot remove your own group\'s right to edit Group Access.');
+  if (group === ctx.group && group !== ADMIN_GROUP && !(rights[FORM.GROUP_ACCESS] ?? []).includes(ACTION.EDIT)) fail("You cannot remove your own group's right to edit Group Access.");
   return ctx.db.tx(async (db) => {
     let g = await db.one('sys_usergroup', { ug_code: group });
     if (!g) {
       if (!info?.ug_name) fail('Enter a name for the new group.');
-      await db.insert('sys_usergroup', { ug_code: group, ug_name: info.ug_name, ug_notes: info.ug_notes ?? '' });
+      if (!/^[A-Z0-9_-]{2,12}$/i.test(group)) fail('The group code uses 2 to 12 letters or digits.');
+      await db.insert('sys_usergroup', { ug_code: group.toUpperCase(), ug_name: info.ug_name, ug_notes: info.ug_notes ?? '' });
       g = { ug_code: group };
     } else if (info?.ug_name) {
       await db.update('sys_usergroup', { ug_code: group }, { ug_name: info.ug_name, ug_notes: info.ug_notes ?? g.ug_notes });
     }
-    await db.remove('sys_usergrouprights', { gr_groupcode: group });
-    for (const [form, acts] of Object.entries(rights)) {
-      if (!acts.length) continue;
-      await db.insert('sys_usergrouprights', {
-        gr_groupcode: group,
-        gr_formcode: form,
-        gr_viewrights: acts.includes(1) ? 1 : 0,
-        gr_editrights: acts.includes(2) ? 1 : 0,
-        gr_insertrights: acts.includes(3) ? 1 : 0,
-        gr_deleterights: acts.includes(4) ? 1 : 0,
-        gr_releaserights: acts.includes(5) ? 1 : 0,
-        gr_autosave: 0,
-        gr_remember: 0,
-      });
-    }
+    const shown = shownActions();
+    if (group === ADMIN_GROUP) rights = Object.fromEntries([...shown.entries()].map(([f, acts]) => [f, [...acts]]));
+    const forms = [...new Set([...matrixForms(), ...Object.keys(rights)])];
+    await writeRights(db, group, rights, forms, shown);
     await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: group, trans: `Update rights of group ${group}`, table: 'sys_usergrouprights', after: rights });
     return `Rights of group ${group} saved. Members see the change when they next open a page.`;
+  });
+}
+
+/** Access Matrix: saves the changed groups in one go. */
+export async function saveAccessMatrix(ctx: Ctx, changes: Record<string, Record<string, number[]>>): Promise<string> {
+  await requireRight(ctx, FORM.GROUP_ACCESS, ACTION.EDIT, 'change group access');
+  const groups = Object.keys(changes ?? {});
+  if (!groups.length) fail('There are no changes to save.');
+  const mine = changes[ctx.group];
+  if (mine && ctx.group !== ADMIN_GROUP && !(mine[FORM.GROUP_ACCESS] ?? []).includes(ACTION.EDIT)) fail("You cannot remove your own group's right to change group access.");
+  const shown = shownActions();
+  return ctx.db.tx(async (db) => {
+    for (const group of groups) {
+      if (!(await db.one('sys_usergroup', { ug_code: group }))) fail(`Group ${group} does not exist.`);
+      const rights = group === ADMIN_GROUP ? Object.fromEntries([...shown.entries()].map(([f, a]) => [f, [...a]])) : changes[group];
+      await writeRights(db, group, rights, matrixForms(), shown);
+      await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: group, trans: `Update access matrix for ${group}`, table: 'sys_usergrouprights', after: rights });
+    }
+    return `Access saved for ${groups.length} group(s). Members see the change when they next open a page.`;
   });
 }
 
@@ -408,6 +456,34 @@ export async function myTasks(ctx: Ctx) {
       if (n) tasks.push({ label: 'Cost centers over budget this period', count: n, href: '/dashboard/fi/budget' });
     }
   }
+  if (await isAllowed(ctx.db, ctx.group, FORM.DEPOSIT_APPLICATION, ACTION.RELEASE)) {
+    const n = new Set((await ctx.db.all('depapptbl', { where: { savestat: 'Open' } })).map((r) => r.transid)).size;
+    if (n) tasks.push({ label: 'Deposit applications to post', count: n, href: '/dashboard/doc/da?status=Open' });
+  }
+  if (await isAllowed(ctx.db, ctx.group, FORM.DEPOSIT_APPLICATION, ACTION.INSERT)) {
+    const n = (await openDeposits(ctx.db)).length;
+    if (n) tasks.push({ label: 'Customer deposits not yet applied', count: n, href: '/dashboard/doc/da/new' });
+  }
+  if (await isAllowed(ctx.db, ctx.group, FORM.EVENT_SALES, ACTION.RELEASE)) {
+    const n = await ctx.db.count('dsrnotbl', { status: 'OPEN', transdate: { lt: today() } });
+    if (n) tasks.push({ label: 'Daily sales reports of past days to close', count: n, href: '/dashboard/sd/dsr' });
+  }
+  if (await isAllowed(ctx.db, ctx.group, FORM.SALES_MANAGER, ACTION.RELEASE)) {
+    const n = await ctx.db.count('reqsohdrtbl', { status: 'Requested' });
+    if (n) tasks.push({ label: 'Order requests from salesmen', count: n, href: '/dashboard/sd/requests' });
+  }
+  if (await isAllowed(ctx.db, ctx.group, FORM.CUSTOMER, ACTION.INSERT)) {
+    const n = await ctx.db.count('qryreqttbl', { reqtype: 'Customer No.', stat: 'Requested' });
+    if (n) tasks.push({ label: 'Customer number requests', count: n, href: '/dashboard/sd/customer-tools' });
+  }
+  if (await isAllowed(ctx.db, ctx.group, FORM.CLINIC, ACTION.EDIT)) {
+    const supplies = await ctx.db.all('ng_clinic_supply');
+    if (supplies.length) {
+      const moves = await ctx.db.all('ng_clinic_stock');
+      const n = supplies.filter((x) => sum(moves.filter((m) => m.code === x.code), (m) => num(m.qty)) <= num(x.reorder)).length;
+      if (n) tasks.push({ label: 'Clinic supplies to reorder', count: n, href: '/dashboard/hr/clinic' });
+    }
+  }
   return tasks;
 }
 
@@ -453,7 +529,7 @@ export async function dashboard(ctx: Ctx) {
     out.inventory = { value: s.totalValue, alerts: s.rows.filter((r) => r.alert === 'Below reorder level').length, labHold: s.rows.filter((r) => r.labHold > 0).length, byPlant: s.byPlant };
   }
   if (await can(FORM.SALES_INVOICE)) {
-    const sales = await ctx.db.all('saleshdrtbl', { where: { tc: TC.SALES_INVOICE, status: 'Posted', transdate: { gte: mFrom, lte: t } } });
+    const sales = await ctx.db.all('saleshdrtbl', { where: { tc: { in: INVOICE_TCS }, status: 'Posted', transdate: { gte: mFrom, lte: t } } });
     const cols = await ctx.db.all('colhdrtbl', { where: { tc: TC.COLLECTION, status: 'Posted', transdate: { gte: mFrom, lte: t } } });
     out.sales = { mtd: sum(sales, (s) => num(s.netamt) - num(s.vat)), invoices: sales.length, collections: sum(cols, (c) => num(c.colamt)) };
   }

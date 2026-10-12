@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
     if (op === 'auth.login') {
       const res = await session.signIn(String(args.username ?? ''), String(args.password ?? ''), args.ba ? String(args.ba) : undefined);
-      if (res.error) return NextResponse.json({ ok: false, error: res.error, locked: res.locked ?? false }, { status: res.locked ? 423 : 401 });
+      if (res.error) return NextResponse.json({ ok: false, error: res.error, locked: res.locked ?? false, maintenance: res.maintenance ?? false }, { status: res.locked ? 423 : res.maintenance ? 503 : 401 });
       if (res.choose) return NextResponse.json({ ok: true, data: { choose: res.choose } });
       const out = NextResponse.json({ ok: true, data: { signedIn: true } });
       out.cookies.set(SESSION_COOKIE, signSession(res.session!), cookie);

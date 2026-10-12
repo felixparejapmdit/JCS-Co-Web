@@ -12,10 +12,15 @@ import { ledgerLines } from '../services/gl';
 import '../services/purchasing';
 import '../services/sales';
 import { createDeposit, generateCdcr, openInvoices } from '../services/receivables';
+import '../services/depapp';
+import { decideOrderRequest, submitOrderRequest } from '../services/salesman';
+import { requestCustomer } from '../services/customers';
+import { receiveSupply, saveSupply, saveVisit } from '../services/clinic';
+import { closeDsr, dsrInvoice, dsrState, loadVan, openDsr, plantStock, returnFromVan, saveCount } from '../services/dsr';
 import '../services/payables';
 import { openFundVouchers } from '../services/funds';
 import '../services/production';
-import { computePayroll, createPayrollPeriod, postPayroll, saveAttendance } from '../services/payroll';
+import { computePayroll, createPayrollPeriod, postPayroll, saveAttendance, uploadDtr } from '../services/payroll';
 import { PROFILES, Profile } from './profiles';
 
 export const DEMO_PASSWORD = 'Demo@2026';
@@ -30,6 +35,13 @@ const VEI = [1, 2, 3];
 const VEID = [1, 2, 3, 4];
 const APPROVE = [1, 5];
 
+/** The van salesman of the daily sales report (legacy smnmtbl smntype 'Event') and his cash customer. */
+export const VAN = {
+  SALESMAN: 'S009',
+  CUSTOMER: 'C09999',
+  NAMES: { '8100': 'Dante R. Morales (Van 1)', '8200': 'Rico S. Abad (Van 1)', '8300': 'Lito P. Serrano (Van 1)' } as Record<string, string>,
+};
+
 const GROUPS: { code: string; name: string; notes: string; rights: Record<string, number[]> | 'all' | 'view' }[] = [
   { code: 'ADMIN', name: 'System Administrator', notes: 'Full access to every module and setting.', rights: 'all' },
   {
@@ -38,7 +50,8 @@ const GROUPS: { code: string; name: string; notes: string; rights: Record<string
     notes: 'Approves and posts; closes periods.',
     rights: {
       '006': ALL, '052': ALL, '038': ALL, '063': V, '079': ALL, '030': VEI, '023': ALL, '027': ALL, '024': ALL, '032': V, '026': ALL, '028': ALL,
-      '010': V, '011': ALL, '012': V, '013': ALL, '070': ALL, '066': VE, '014': V, '047': V, '020': VE, '017': V, '018': APPROVE,
+      '095': ALL, '076': V, '077': [1, 5],
+      '010': V, '011': ALL, '012': ALL, '013': ALL, '070': ALL, '066': VE, '014': V, '047': V, '020': VE, '017': V, '018': APPROVE,
       '019': V, '007': V, '050': V, '034': V, '087': V, '054': V, '058': APPROVE, '035': V, '036': APPROVE, '037': V,
       '033': V, '040': V, '059': V, '100': V, '301': V, '204': APPROVE, '205': APPROVE, '210': V, '001': V, '002': V, '003': [1, 3, 5], '045': VE,
     },
@@ -55,8 +68,8 @@ const GROUPS: { code: string; name: string; notes: string; rights: Record<string
   { code: 'CASHIER', name: 'Cashier / Treasury', notes: 'Issues official receipts, prepares the CDCR and deposits.', rights: { '010': ALL, '011': ALL, '012': VEI, '066': VE, '014': V, '047': V, '020': V, '019': V, '024': V, '026': VEI, '028': VEI, '003': [1, 3] } },
   { code: 'PURCH', name: 'Purchasing', notes: 'Raises requisitions and purchase orders.', rights: { '054': VEID, '058': V, '035': VEID, '036': APPROVE, '037': V, '030': VEI, '034': V, '050': V, '003': [1, 3] } },
   { code: 'WHSE', name: 'Warehouse & Plant', notes: 'Receives, issues, transfers and counts stock; runs production.', rights: { '050': ALL, '007': ALL, '034': VEI, '087': V, '054': VEI, '035': V, '037': V, '033': ALL, '040': V, '017': V, '003': [1, 3] } },
-  { code: 'SALES', name: 'Sales & Billing', notes: 'Takes orders and bills deliveries.', rights: { '020': VEI, '017': VEID, '018': V, '019': ALL, '007': V, '014': V, '034': V, '059': V, '010': V, '003': [1, 3] } },
-  { code: 'HR', name: 'HR & Payroll', notes: 'Maintains employees, attendance and payroll.', rights: { '100': ALL, '301': ALL, '204': VEI, '205': VEI, '210': ALL } },
+  { code: 'SALES', name: 'Sales & Billing', notes: 'Takes orders and bills deliveries.', rights: { '020': VEI, '017': VEID, '018': V, '019': ALL, '095': VEID, '076': [1, 3], '007': V, '014': V, '034': V, '059': V, '010': V, '003': [1, 3] } },
+  { code: 'HR', name: 'HR & Payroll', notes: 'Maintains employees, attendance and payroll.', rights: { '100': ALL, '301': ALL, '204': VEID, '205': VEI, '210': ALL, '088': ALL } },
   { code: 'LAB', name: 'QA Laboratory', notes: 'Records inspection results of received and produced lots.', rights: { '087': VE, '034': V, '050': V, '033': V } },
   { code: 'AUDIT', name: 'Internal Audit', notes: 'Read-only access to every module.', rights: 'view' },
 ];
@@ -135,6 +148,7 @@ const CHART: [string, string][] = [
   ['1140200', 'Inventory - Finished Goods'],
   ['1140300', 'Inventory - Packaging Materials'],
   ['1140400', 'Work in Process'],
+  ['1140500', 'Inventory - Salesmen Vans'],
   ['1150100', 'Input VAT'],
   ['1150200', 'Creditable Withholding Tax (BIR 2307)'],
   ['1160100', 'Advances to Employees'],
@@ -217,7 +231,7 @@ async function seedReference(db: Db, p: Profile) {
     ccsales: 'SLS',
     cclogis: 'LOG',
     stat: 'Active',
-    dloadstat: 'Done',
+    dloadstat: 'Open',
   });
   await db.insert('ng_company_branding', { ba: p.ba, ...p.branding, logo_data: null, show_code: 'Y', updated_by: 'system', updated_at: nowStamp() });
   for (const [tc, n] of Object.entries(TC_NAMES)) await db.insert('tccodestbl', { tc, module: n.module, document: n.document, modlongname: n.module });
@@ -243,7 +257,10 @@ async function seedReference(db: Db, p: Profile) {
     { ewtcode: 'WI011', ewtdesc: 'Professional fees - individual (gross income above P3M)', rate: 10, cotype: 'I' },
   ]);
   await db.insertMany('areatbl', p.areas.map((a) => ({ ...a, branch: 'MAIN' })));
-  await db.insertMany('smnmtbl', p.salesmen.map((s) => ({ ...s, shrtname: s.fullname.split(' ')[0], status: 'Active' })));
+  await db.insertMany('smnmtbl', p.salesmen.map((s) => ({ ...s, shrtname: s.fullname.split(' ')[0], status: 'Active', smntype: 'Regular' })));
+  // One van (event) salesman per company for the daily sales report; cash sales go to the walk-in customer.
+  await db.insert('custmasttbl', { custno: VAN.CUSTOMER, bussname: 'Walk-in / Van Cash Sales', searchname: 'WALK-IN / VAN CASH SALES', address: 'Various', areano: p.salesmen[0].areano, smnno: VAN.SALESMAN, term: 0, crlimit: 0, ewt: 0, status: 'Active', paytype: 'Cash', vat: 'VAT', custtype: 'Walk-in', accttype: 'main', user: 'system', datecreated: nowStamp(), datechange: nowStamp(), updateby: 'system' });
+  await db.insert('smnmtbl', { smnno: VAN.SALESMAN, fullname: VAN.NAMES[p.ba] ?? 'Van Salesman', shrtname: 'Van', areano: p.salesmen[0].areano, status: 'Active', smntype: 'Event', custno: VAN.CUSTOMER });
   await db.insertMany('venmasttbl', p.vendors.map((v) => ({ ...v, status: 'Active', conper: 'Accounts Department', telno: '(02) 8700-0000', emailadd: '', user: 'system', datechange: nowStamp(), updateby: 'system' })));
   const people = FUND_PEOPLE[p.ba];
   const emp = (no: string) => p.employees.find((e) => e.empno === no)!;
@@ -285,6 +302,8 @@ async function seedReference(db: Db, p: Profile) {
     { mov: '311', movdesc: 'Plant-to-plant transfer', ttype: 'TRANSFER', form: 'DO', soporeq: 'N' },
     { mov: '551', movdesc: 'Scrapping / write-off', ttype: 'OUT', form: 'DO', soporeq: 'N' },
     { mov: '561', movdesc: 'Opening stock entry', ttype: 'IN', form: 'MMRR', soporeq: 'N' },
+    { mov: '603', movdesc: 'Issue to salesman (van load)', ttype: 'OUT', form: 'DO', soporeq: 'N' },
+    { mov: '409', movdesc: 'Return from salesman (van)', ttype: 'IN', form: 'WRR', soporeq: 'N' },
   ]);
   for (const pl of p.plants.filter((x) => x.prodnplnt === 'Y')) await db.insert('movplnttbl', { mov: MOV.PRODUCTION, plntno: pl.plntno });
   for (const m of p.materials) {
@@ -557,6 +576,119 @@ async function fundsHistory(db: Db, k: Clock) {
   await liquidate(ctx, { date: D(0, 11), advance: caC, lines: [['6200110', 'PUR', 11250, 'N'], ['6200120', 'PUR', 8000]] });
 }
 
+/** Customer deposits: an advance payment applied to an open invoice, and one still waiting. */
+async function depositsHistory(db: Db, k: Clock) {
+  const ctx = (w: Who) => as(db, w);
+  const D = k.date;
+  const custs = await db.all('custmasttbl', { orderBy: [['custno', 'asc']] });
+  let made = 0;
+  for (const c of custs) {
+    const open = await openInvoices(db, c.custno);
+    if (!open.length) continue;
+    const amount = r2(Math.ceil(open[0].balance / 1000) * 1000 + (made ? 15000 : 30000));
+    const or = await doc(ctx('cashier'), 'or', { transdate: D(0, made ? 9 : 4), custno: c.custno, coltype: 'Online', bank: 'InstaPay', colamt: amount, remarks: 'Advance payment for the next orders', lines: [] });
+    await act(ctx('cashier'), 'or', or, 'post');
+    if (!made) {
+      const { lines } = autoApply([open[0]], 1e12, Number(c.ewt ?? 0));
+      const da = await doc(ctx('cashier'), 'da', { ...(await prefill(ctx('cashier'), 'da', 'deposit', or)), transdate: D(0, 8), remarks: 'Advance applied to the open invoice', lines });
+      await act(ctx('finance'), 'da', da, 'post');
+    }
+    if (++made === 2) break;
+  }
+}
+
+/** Van sales: a closed daily sales report (with a small shortage, cash remitted) and today's open one. */
+async function dsrHistory(db: Db, k: Clock) {
+  const c = as(db, 'sales');
+  const D = k.date;
+  let src = '';
+  let stock: Row[] = [];
+  for (const p of await db.all('plnttbl', { orderBy: [['plntno', 'asc']] })) {
+    const s = (await plantStock(c, p.plntno)).filter((m) => m.available >= 5);
+    if (s.length >= 2) {
+      src = p.plntno;
+      stock = s.slice(0, 3);
+      break;
+    }
+  }
+  if (!src) return;
+  const loadQty = (m: Row) => Math.max(2, Math.floor(Math.min(m.available * 0.15, 40)));
+  const onVan = async (dsrno: string, codeno: string) => (await dsrState(db, dsrno)).recon.find((r) => r.codeno === codeno)?.expected ?? 0;
+  const firstDay = D(0, 6);
+  const today0 = D(0, 12);
+  if (firstDay < today0) {
+    const dsrno = await openDsr(c, { smnno: VAN.SALESMAN, transdate: firstDay });
+    await loadVan(c, dsrno, { plntno: src, lines: stock.map((m) => ({ codeno: m.codeno, qty: loadQty(m) })) });
+    await dsrInvoice(c, dsrno, { tc: TC.EVENT_CASH_INVOICE, refno: 'Town fiesta booth', lines: [{ codeno: stock[0].codeno, qty: Math.max(1, Math.floor((await onVan(dsrno, stock[0].codeno)) * 0.4)) }] });
+    await dsrInvoice(c, dsrno, { tc: TC.EVENT_CASH_INVOICE, lines: [{ codeno: stock[1].codeno, qty: Math.max(1, Math.floor((await onVan(dsrno, stock[1].codeno)) * 0.3)) }] });
+    const firstCust = (await db.all('custmasttbl', { orderBy: [['custno', 'asc']] }))[0];
+    await dsrInvoice(c, dsrno, { tc: TC.EVENT_CHARGE_INVOICE, custno: firstCust.custno, lines: [{ codeno: stock[0].codeno, qty: 1 }] });
+    if (stock[2]) await returnFromVan(c, dsrno, { plntno: src, lines: [{ codeno: stock[2].codeno, qty: Math.max(1, Math.floor((await onVan(dsrno, stock[2].codeno)) / 2)) }] });
+    const st = await dsrState(db, dsrno);
+    await saveCount(c, dsrno, { lines: st.recon.map((r, i) => ({ codeno: r.codeno, qty: i === 0 && r.expected >= 1 ? r.expected - 1 : r.expected })) });
+    await closeDsr(as(db, 'finance'), dsrno, { note: 'One piece damaged while unloading at the event.' });
+    const cashInv = st.invoices.filter((i) => i.tc === TC.EVENT_CASH_INVOICE).map((i) => i.invno);
+    await collect((w) => as(db, w), { date: firstDay, cust: VAN.CUSTOMER, invoices: cashInv, type: 'Cash' });
+  }
+  const dsrno = await openDsr(c, { smnno: VAN.SALESMAN, transdate: today0 });
+  await loadVan(c, dsrno, { plntno: src, lines: [{ codeno: stock[0].codeno, qty: loadQty(stock[0]) }] });
+  await dsrInvoice(c, dsrno, { tc: TC.EVENT_CASH_INVOICE, lines: [{ codeno: stock[0].codeno, qty: Math.max(1, Math.floor((await onVan(dsrno, stock[0].codeno)) * 0.25)) }] });
+}
+
+/** Order requests from a salesman: one waiting for the sales manager, one already a sales order. */
+async function requestsHistory(db: Db) {
+  const c = as(db, 'sales');
+  const custs = await db.all('custmasttbl', { where: { smnno: 'S001' }, orderBy: [['custno', 'asc']] });
+  const fg = (await db.all('mmasttbl', { where: { mmtype: 'FG' }, orderBy: [['codeno', 'asc']] })).slice(0, 2);
+  if (!custs.length || !fg.length) return;
+  await submitOrderRequest(c, { smnno: 'S001', custno: custs[0].custno, remarks: 'Restock before the weekend promo', lines: fg.map((m, i) => ({ codeno: m.codeno, qty: 20 + i * 10 })) });
+  const second = custs[1] ?? custs[0];
+  await submitOrderRequest(c, { smnno: 'S001', custno: second.custno, lines: [{ codeno: fg[0].codeno, qty: 15 }] });
+  const req = (await db.all('reqsohdrtbl', { orderBy: [['sono', 'desc']] }))[0];
+  const plant = (await db.all('plnttbl', { orderBy: [['plntno', 'asc']] }))[0];
+  await decideOrderRequest(as(db, 'finance'), { reqno: req.sono, approve: true, plntno: plant.plntno });
+  await requestCustomer(c, { reqname: 'Sunrise Hardware & Sanitation Supply', type1: 'Dealer', type2: 'Charge', remarks: 'New dealer in Antipolo; owner met at the trade fair' });
+}
+
+/** Company clinic: medicines and first-aid supplies, receipts and the consultations of two months. */
+async function clinicHistory(db: Db, p: Profile, k: Clock) {
+  const nurse = as(db, 'hr');
+  const D = k.date;
+  const SUPPLIES: [string, string, number, string][] = [
+    ['Paracetamol 500 mg tablet', 'tab', 50, 'Medicine'],
+    ['Mefenamic acid 500 mg capsule', 'cap', 40, 'Medicine'],
+    ['Loperamide 2 mg capsule', 'cap', 20, 'Medicine'],
+    ['Cetirizine 10 mg tablet', 'tab', 20, 'Medicine'],
+    ['Aluminum hydroxide antacid tablet', 'tab', 30, 'Medicine'],
+    ['Povidone-iodine 15 ml', 'bottle', 3, 'First aid'],
+    ['Sterile gauze pad 4x4', 'pc', 50, 'First aid'],
+    ['Elastic bandage 3 in', 'roll', 5, 'First aid'],
+  ];
+  const codes: string[] = [];
+  for (const [name, unit, reorder, kind] of SUPPLIES) {
+    await saveSupply(nurse, { name, unit, reorder, kind });
+    codes.push((await db.all('ng_clinic_supply', { orderBy: [['code', 'desc']] }))[0].code);
+  }
+  const stock = [500, 200, 60, 60, 100, 4, 120, 6];
+  for (const [i, code] of codes.entries()) await receiveSupply(nurse, { code, qty: stock[i], transdate: D(1, 2), remarks: 'Quarterly purchase, Mercury Drug' });
+  const emp = (i: number) => p.employees[i % p.employees.length].empno;
+  const visits: [number, number, number, Row][] = [
+    [1, 5, 0, { complaint: 'Headache', bp: '120/80', temp: 36.8, diagnosis: 'Tension headache', treatment: 'Rest, paracetamol', disposition: 'Back to work', supplies: [{ code: codes[0], qty: 2 }] }],
+    [1, 9, 1, { complaint: 'Fever, body pain', bp: '110/70', temp: 38.4, diagnosis: 'Viral syndrome', treatment: 'Paracetamol every 4 hours, fluids', disposition: 'Sent home', restdays: 2, supplies: [{ code: codes[0], qty: 6 }] }],
+    [1, 14, 2, { complaint: 'Cut on left hand', bp: '120/80', temp: 36.6, diagnosis: 'Laceration, 2 cm, while opening a drum', treatment: 'Wound cleaning and dressing', disposition: 'Back to work', supplies: [{ code: codes[5], qty: 1 }, { code: codes[6], qty: 2 }] }],
+    [1, 20, 3, { complaint: 'Stomach pain', bp: '118/76', temp: 36.9, diagnosis: 'Hyperacidity', treatment: 'Antacid', disposition: 'Rest in clinic', supplies: [{ code: codes[4], qty: 2 }] }],
+    [0, 3, 4, { complaint: 'Allergy, itchy skin', bp: '120/80', temp: 36.7, diagnosis: 'Contact dermatitis (cleaning chemicals)', treatment: 'Cetirizine; use gloves', disposition: 'Back to work', supplies: [{ code: codes[3], qty: 3 }] }],
+    [0, 7, 1, { complaint: 'Headache', bp: '130/90', temp: 36.8, diagnosis: 'Elevated BP, for monitoring', treatment: 'Rest, recheck BP after 30 minutes', disposition: 'Referred to hospital', supplies: [] }],
+    [0, 10, 5, { complaint: 'Diarrhea', bp: '110/70', temp: 37.2, diagnosis: 'Acute gastroenteritis', treatment: 'Loperamide, oral rehydration', disposition: 'Sent home', restdays: 1, supplies: [{ code: codes[2], qty: 2 }] }],
+  ];
+  for (const [m, day, e, v] of visits) {
+    const date = D(m, day);
+    if (date > today()) continue;
+    await saveVisit(nurse, { ptype: 'Employee', empno: emp(e), transdate: date, timein: `${String(8 + ((day * 3) % 9)).padStart(2, '0')}:${String((day * 7) % 60).padStart(2, '0')}`, attendedby: 'R. Dizon, RN', ...v });
+  }
+  await saveVisit(nurse, { ptype: 'Visitor / contractor', patient: 'Truck helper (Mercado Trucking)', transdate: D(0, 2), timein: '13:40', complaint: 'Dizziness', bp: '100/60', temp: 36.5, diagnosis: 'Dehydration', treatment: 'Oral fluids, rest', disposition: 'Rest in clinic', attendedby: 'R. Dizon, RN', supplies: [] });
+}
+
 /** Budgets around the actual spending of each month, so the monitor shows a realistic mix. */
 async function seedBudgets(db: Db, k: Clock) {
   const factors = [1.15, 1.08, 0.93, 1.25, 1.02, 1.1, 0.97, 1.3];
@@ -671,7 +803,20 @@ async function payrollRun(ctx: (w: Who) => Ctx, p: Profile, o: { from: string; t
   const payid = (await hr.db.all('payidtbl', { where: { pdatefr: o.from } }))[0].payidno;
   const rows = p.employees.map((e, i) => ({ empno: e.empno, absent_hrs: i === 2 ? 8 : 0, late_dhrs: i % 4 === 1 ? 1.5 : 0, otime_dhrs: e.ccno === 'PRD' || e.ccno === 'LOG' ? 6 + i : 0, nightdiffhrs: e.ccno === 'PRD' ? 4 : 0, holidayhrs: 0 }));
   await saveAttendance(hr, payid, rows);
-  if (o.stage === 'attendance') return payid;
+  if (o.stage === 'attendance') {
+    // Biometric time records of the days already worked, for the DTR upload screen.
+    const dtr: Row[] = [];
+    for (let d = o.from; d <= o.to && d <= today(); d = addDays(d, 1)) {
+      const wd = parseIso(d).getDay();
+      if (wd === 0 || wd === 6) continue;
+      p.employees.forEach((e, i) => {
+        if (i === 2 && d.endsWith('3')) return; // one absence
+        dtr.push({ empno: e.empno, transdate: d, timein: i % 4 === 1 && d.endsWith('5') ? '08:24' : '07:5' + (i % 10), timeout: i === 0 && d.endsWith('6') ? '16:30' : '17:0' + (i % 10) });
+      });
+    }
+    if (dtr.length) await uploadDtr(hr, payid, dtr);
+    return payid;
+  }
   await computePayroll(hr, payid);
   if (o.stage === 'posted') await postPayroll(ctx('finance'), payid);
   return payid;
@@ -880,6 +1025,10 @@ export async function seedCompany(db: Db): Promise<void> {
 
   await history(db, p, k);
   await fundsHistory(db, k);
+  await depositsHistory(db, k);
+  await dsrHistory(db, k);
+  await requestsHistory(db);
+  await clinicHistory(db, p, k);
   await seedBudgets(db, k);
 
   // Close every month before last month so that, like real life, last month is still being closed.

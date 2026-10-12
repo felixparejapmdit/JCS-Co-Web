@@ -424,7 +424,7 @@ export default function PayrollPage() {
               <Input type="date" value={creating.pdateto} onChange={(e) => setCreating({ ...creating, pdateto: e.target.value })} />
             </Field>
             <Field label="Payroll" className="sm:col-span-2">
-              <Select value={creating.paytype} onChange={(e) => setCreating({ ...creating, paytype: e.target.value })} options={[{ value: 'Monthly', label: 'Monthly-paid employees (semi-monthly)' }, { value: 'Weekly', label: 'Weekly-paid employees' }]} />
+              <Select value={creating.paytype} onChange={(e) => setCreating({ ...creating, paytype: e.target.value })} options={[{ value: 'Monthly', label: 'Monthly-paid employees (semi-monthly)' }, { value: 'Weekly', label: 'Weekly-paid employees' }, { value: 'Confi', label: 'Confidential payroll' }, { value: '13th Month', label: '13th month pay' }, { value: 'Others', label: 'Other payroll' }]} />
             </Field>
           </div>
         )}

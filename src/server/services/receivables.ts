@@ -1,5 +1,5 @@
 import type { Db, Row } from '../db';
-import { ACTION, FORM, TC } from '@/shared/codes';
+import { ACTION, FORM, INVOICE_TCS, TC } from '@/shared/codes';
 import { addDays, daysBetween, today } from '@/shared/dates';
 import { fmtPeso, r2, sum } from '@/shared/money';
 import { OpenInvoice } from '@/shared/collections';
@@ -27,7 +27,7 @@ export async function invoiceBalance(db: Db, inv: Row): Promise<{ balance: numbe
 }
 
 export async function openInvoices(db: Db, custno?: string): Promise<(OpenInvoice & Row)[]> {
-  const where: Row = { tc: TC.SALES_INVOICE, status: 'Posted' };
+  const where: Row = { tc: { in: INVOICE_TCS }, status: 'Posted' };
   if (custno) where.custno = custno;
   const heads = await db.all('saleshdrtbl', { where, orderBy: [['transdate', 'asc']] });
   const custs = await db.all('custmasttbl');
@@ -85,7 +85,9 @@ const orService: DocService = {
   async load(ctx, no) {
     const h = await ctx.db.one('colhdrtbl', { orno: no, tc: TC.COLLECTION });
     if (!h) return null;
-    return { h, lines: await ctx.db.all('coldettbl', { where: { orno: no }, orderBy: [['itemno', 'asc']] }) };
+    // Lines of a voided deposit application no longer belong to the receipt.
+    const lines = (await ctx.db.all('coldettbl', { where: { orno: no }, orderBy: [['itemno', 'asc']] })).filter((l) => !(l.depapp && l.status === 'Void'));
+    return { h, lines };
   },
 
   async view(ctx, { h, lines }) {
@@ -109,7 +111,7 @@ const orService: DocService = {
         { label: 'Tender', value: isPdc ? `Post-dated cheque, dated ${h.pdate}` : h.coltype },
         { label: 'CDCR', value: h.cdcrno ? `${h.cdcrno} (${h.cdcrstat})` : 'Not yet in a daily collection report' },
       ],
-      links: lines.map((l) => ({ label: `Invoice ${l.invno}`, type: 'si', no: l.invno })),
+      links: [...lines.map((l) => ({ label: `Invoice ${l.invno}`, type: 'si', no: l.invno })), ...[...new Set(lines.filter((l) => l.depapp).map((l) => String(l.depapp)))].map((d) => ({ label: `Deposit application ${d}`, type: 'da', no: d }))],
       editable: h.status === 'Open',
       print: { kind: 'or' },
     };
@@ -126,7 +128,7 @@ const orService: DocService = {
     if (action === 'post') {
       await assertOpenPeriod(ctx.db, h.transdate, TC.COLLECTION);
       for (const l of lines) {
-        const inv = await ctx.db.one('saleshdrtbl', { invno: l.invno, tc: TC.SALES_INVOICE });
+        const inv = await ctx.db.one('saleshdrtbl', { invno: l.invno, tc: { in: INVOICE_TCS } });
         if (!inv || inv.status !== 'Posted') fail(`Invoice ${l.invno} is not posted.`);
         const b = await invoiceBalance(ctx.db, inv);
         // The receipt's own lines are not counted yet while it is Open, so the full settlement must fit.
@@ -139,7 +141,7 @@ const orService: DocService = {
       const entries: GlEntry[] = [{ acctno: isPdc ? GL.PDC_ON_HAND : GL.CASH_ON_HAND, dramt: num(h.colamt) }];
       if (ewt) entries.push({ acctno: GL.CWT_RECEIVABLE, dramt: ewt });
       for (const l of lines) {
-        const inv = await ctx.db.one('saleshdrtbl', { invno: l.invno, tc: TC.SALES_INVOICE });
+        const inv = await ctx.db.one('saleshdrtbl', { invno: l.invno, tc: { in: INVOICE_TCS } });
         const pc = inv?.pc ? await ctx.db.one('pctrtbl', { pc: inv.pc }) : null;
         entries.push({ acctno: str(pc?.aracctno) || GL.AR_TRADE, pc: inv?.pc, cramt: r2(num(l.oramt) + num(l.ewt)) });
       }
@@ -150,6 +152,8 @@ const orService: DocService = {
       return `Receipt ${h.orno} issued for ${fmtPeso(num(h.colamt))}.${unapplied > 0 ? ` ${fmtPeso(unapplied)} is kept as a customer deposit.` : ''}`;
     }
     if (action === 'void') {
+      const applied = lines.find((l) => l.depapp && l.status !== 'Void');
+      if (applied) fail(`Part of this receipt was applied in deposit application ${applied.depapp}. Void that application first.`);
       if (h.status === 'Posted') await reverseGl(ctx, TC.COLLECTION, h.orno, today());
       await ctx.db.update('colhdrtbl', { orno: h.orno, tc: TC.COLLECTION }, { status: 'Void', valstat: 'Void' });
       await ctx.db.update('coldettbl', { orno: h.orno }, { status: 'Void' });
@@ -371,7 +375,7 @@ function memoService(kind: 'cm' | 'dm'): DocService {
         const entries: GlEntry[] = [];
         for (const l of lines) {
           if (isCm) {
-            const inv = await ctx.db.one('saleshdrtbl', { invno: l.invno, tc: TC.SALES_INVOICE });
+            const inv = await ctx.db.one('saleshdrtbl', { invno: l.invno, tc: { in: INVOICE_TCS } });
             if (!inv) fail(`Invoice ${l.invno} was not found.`);
             const b = await invoiceBalance(ctx.db, inv);
             if (num(l.amt) > b.balance + 0.009) fail(`Credit for ${l.invno} is more than its ${fmtPeso(b.balance)} balance.`);
@@ -405,7 +409,7 @@ function memoService(kind: 'cm' | 'dm'): DocService {
       const lines: Row[] = [];
       for (const [i, l] of raw.entries()) {
         const invno = need(str(l.invno), `Line ${i + 1}: choose the invoice.`);
-        const inv = await ctx.db.one('saleshdrtbl', { invno, tc: TC.SALES_INVOICE });
+        const inv = await ctx.db.one('saleshdrtbl', { invno, tc: { in: INVOICE_TCS } });
         if (!inv || inv.custno !== c.custno || inv.status !== 'Posted') fail(`Line ${i + 1}: ${invno} is not a posted invoice of ${c.bussname}.`);
         const amt = r2(num(l.amt));
         if (amt <= 0) fail(`Line ${i + 1}: enter the amount.`);

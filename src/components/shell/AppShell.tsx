@@ -11,11 +11,14 @@ import {
   Home,
   KeyRound,
   LayoutGrid,
+  LifeBuoy,
   LogOut,
   Menu,
   Moon,
   Search,
+  Star,
   Sun,
+  Wrench,
   X,
 } from 'lucide-react';
 import { ApiError, clearLookups, rpc } from '@/lib/api';
@@ -41,6 +44,8 @@ export interface SessionInfo {
   rights: Record<string, number[]>;
   openPeriod: string;
   mode: 'demo' | 'mysql';
+  favourites: { href: string; label: string; section: string; form: string }[];
+  maintenance: { on: boolean; message: string; bypass: boolean };
 }
 
 interface SessionCtxValue {
@@ -142,6 +147,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
   const groups = NAV.filter((g) => g.id !== 'reports')
     .map((g) => ({ ...g, items: g.items.filter((i) => can(i.form) && (!filter || `${i.label} ${g.label} ${i.keywords ?? ''}`.toLowerCase().includes(filter.toLowerCase()))) }))
     .filter((g) => g.items.length);
+  const favs = (info.favourites ?? []).filter((f) => !filter || `${f.label} ${f.section}`.toLowerCase().includes(filter.toLowerCase()));
 
   return (
     <div className="glass flex h-full flex-col overflow-hidden rounded-3xl text-slate-700 dark:text-slate-300">
@@ -166,6 +172,30 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
           <Home className="h-4 w-4" />
           Home
         </Link>
+        {favs.length > 0 && (
+          <div className="pb-1">
+            <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-900 dark:text-white">
+              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              Favourites
+            </div>
+            <div className="mb-1 ml-5 border-l border-black/[0.08] pl-2 dark:border-white/[0.08]">
+              {favs.map((f) => {
+                const active = pathname === f.href || pathname.startsWith(f.href + '/');
+                return (
+                  <Link
+                    key={f.href}
+                    href={f.href}
+                    onClick={onNavigate}
+                    title={f.section}
+                    className={cx('relative block truncate rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'text-slate-500 hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white')}
+                  >
+                    {f.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {groups.map((g) => {
           const Icon = g.icon;
           const isOpen = filter ? true : open[g.id];
@@ -204,10 +234,13 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
         {!groups.length && <p className="px-3 py-4 text-sm text-slate-400">No screen matches “{filter}”.</p>}
       </nav>
       <div className="border-t border-black/[0.06] px-4 py-3 text-[11px] text-slate-500 dark:border-white/[0.07] dark:text-slate-400">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <span className="font-semibold tracking-wide text-slate-700 dark:text-slate-200">
             Cloud <span className="neon-text">AOS</span>
           </span>
+          <Link href="/dashboard/help" onClick={onNavigate} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 hover:bg-black/[0.04] hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white">
+            <LifeBuoy className="h-3.5 w-3.5" /> Help
+          </Link>
           <span>{info.mode === 'demo' ? 'Sample data' : 'Company database'}</span>
         </div>
       </div>
@@ -391,6 +424,9 @@ function UserMenu({ info, onSwitch }: { info: SessionInfo; onSwitch: () => void 
           <Link href="/dashboard/account" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-black/[0.04] dark:text-slate-200 dark:hover:bg-white/5">
             <KeyRound className="h-4 w-4" /> Change password
           </Link>
+          <Link href="/dashboard/help" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-black/[0.04] dark:text-slate-200 dark:hover:bg-white/5">
+            <LifeBuoy className="h-4 w-4" /> Help &amp; About
+          </Link>
           <button onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10">
             <LogOut className="h-4 w-4" /> Sign out
           </button>
@@ -425,6 +461,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [load]);
 
   useEffect(() => setDrawer(false), [pathname]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const can = useCallback((form: string, action = 1) => Boolean(info?.rights[form]?.includes(action)), [info]);
   const ctx = useMemo(() => (info ? { info, can, refresh: load } : null), [info, can, load]);
@@ -442,6 +488,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     );
   if (!info || !ctx) return <Spinner label="Opening your workspace…" />;
+  if (info.maintenance?.on && !info.maintenance.bypass) return <MaintenanceScreen info={info} onRetry={load} />;
 
   const here = findNav(pathname);
   const doSwitch = async (ba: string) => {
@@ -501,6 +548,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </>
                 )}
               </div>
+              {here.item && <FavStar href={here.item.href} label={here.item.label} info={info} onChanged={load} />}
               <div className="ml-auto hidden w-full max-w-md sm:block">
                 <GlobalSearch />
               </div>
@@ -513,7 +561,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <UserMenu info={info} onSwitch={() => setSwitchOpen(true)} />
               </div>
             </header>
-            <main className="mx-auto max-w-[1440px] px-4 pb-24 pt-6 sm:px-6 lg:px-6 lg:pb-10 lg:pt-8">{children}</main>
+            <main className="mx-auto max-w-[1440px] px-4 pb-24 pt-6 sm:px-6 lg:px-6 lg:pb-10 lg:pt-8">
+              {info.maintenance?.on && (
+                <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200" role="status">
+                  <Wrench className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <b>Maintenance mode is on.</b> Only administrators can work in this company until it is switched off.
+                  </span>
+                  <Link href="/dashboard/admin/maintenance" className="font-semibold underline-offset-2 hover:underline">
+                    Manage
+                  </Link>
+                </div>
+              )}
+              {children}
+            </main>
           </div>
 
           {/* Mobile bottom bar */}
@@ -548,6 +609,66 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </ToastProvider>
     </SessionCtx.Provider>
+  );
+}
+
+/** Adds or removes the current page from the user's Favourites (legacy sys_mymenu). */
+function FavStar({ href, label, info, onChanged }: { href: string; label: string; info: SessionInfo; onChanged: () => Promise<void> }) {
+  const on = (info.favourites ?? []).some((f) => f.href === href);
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    setBusy(true);
+    try {
+      await rpc('system.favToggle', { href });
+      await onChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      onClick={toggle}
+      disabled={busy}
+      aria-pressed={on}
+      aria-label={on ? `Remove ${label} from Favourites` : `Add ${label} to Favourites`}
+      title={on ? 'Remove from Favourites' : 'Add to Favourites'}
+      className="hidden rounded-lg p-1.5 text-slate-400 transition hover:bg-black/[0.04] hover:text-amber-500 disabled:opacity-50 dark:hover:bg-white/5 md:block"
+    >
+      <Star className={cx('h-4 w-4', on && 'fill-amber-400 text-amber-400')} />
+    </button>
+  );
+}
+
+function MaintenanceScreen({ info, onRetry }: { info: SessionInfo; onRetry: () => Promise<void> }) {
+  const router = useRouter();
+  const signOut = async () => {
+    try {
+      await rpc('auth.logout');
+    } catch {}
+    clearLookups();
+    router.replace('/');
+  };
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="glass w-full max-w-lg rounded-3xl p-8 text-center">
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-500/15 text-amber-500 ring-1 ring-inset ring-amber-500/30">
+          <Wrench className="h-7 w-7" />
+        </span>
+        <h1 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">{info.company.display_name} is under maintenance</h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{info.maintenance.message}</p>
+        <p className="mt-2 text-xs text-slate-500">Your work is safe. You can sign in again once maintenance is finished.</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <button onClick={() => onRetry()} className="rounded-xl bg-gradient-to-b from-brand-500 to-brand-600 px-4 py-2 text-sm font-semibold text-white hover:shadow-glow">
+            Try again
+          </button>
+          <button onClick={signOut} className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-black/10 hover:bg-black/[0.04] dark:text-slate-200 dark:ring-white/15 dark:hover:bg-white/5">
+            Sign out
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -64,9 +64,11 @@ These are already in place across all modules and are what the client sees in th
   * the Home page and the tasks bell list what is waiting for each user (approvals, postings, lab results).
 * **Customised client header.** Each company's logo or initials, display name, tagline and accent colour sit at the top of the side menu, maintained in *Administration → Company & Branding* with a live preview (`ng_company_branding`). There is no company dropdown anywhere.
 * **Audit.** Every action writes the legacy `translog` row plus a before / after snapshot in `ng_audit_log`.
+* **Access Matrix.** Group Access lists every page and button of Cloud AOS by module, with tri-state ticks per module and per group, a filter, Discard and Save. It writes the legacy `sys_usergrouprights` rows, so both systems check the same rights; rights of legacy forms Cloud AOS does not show are left untouched.
+* **Report Library.** Registers and summaries of the legacy report pages open in one viewer: parameters, totals, cards or list, a printed copy with the company header, and CSV export for Excel.
 * **Visual identity.** Deep dark mode (true black, deep slate grays) and light mode, neon Electric Blue and Emerald Green accents, macOS-style Liquid Glass surfaces (`backdrop-blur-2xl`, ultra-thin borders), and an elastic grid of Notion-style blocks. Lists and document lines are interactive cards; a Cards / List switch keeps a compact list for people who scan many rows.
 * **Works on desktop, tablet and phone,** with light and dark themes. It can be installed as an app (PWA), and a plain offline page appears when the connection drops. Pages and data are never cached on the device.
-* **Tests.** Server tests check that the sample books balance, that AR / AP subledgers equal their control accounts, that no stock goes negative and that every document opens (`npm test`). Browser tests cover sign-in privacy, the main screens and the installable app (`npm run test:e2e`).
+* **Tests.** Server tests (199) check that the sample books balance, that AR / AP subledgers equal their control accounts, that no stock goes negative, that every document opens, that every report adds up, that the van inventory account equals the stock on the vans and that the schedule P&L gives the same net income as the standard statement (`npm test`). Browser tests (43) cover sign-in privacy, every screen, the Access Matrix, favourites, the report viewer and the installable app (`npm run test:e2e`).
 
 ---
 
@@ -82,7 +84,7 @@ These are already in place across all modules and are what the client sees in th
 | 1.2 | Next.js 15 / React 19 / TypeScript / Tailwind app, Dockerfile and `docker-compose.yml` | ✅ | |
 | 1.3 | Database layer: one `mysql2` pool per company database, least-privilege MySQL account | 🟡 | Connect `bfi` / `bfi_admin`; generate typed table definitions from the schema dump; create the least-privilege account with the client's DBA. |
 | 1.4 | Domain rules: money rounding, VAT and EWT, TIN format, amounts in words (exact port of `AmtWords.vb`) | ✅ | |
-| 1.8 | Additive `ng_*` tables (`ng_user_credentials`, `ng_audit_log`, `ng_cheque_layouts`, `ng_company_branding`, `ng_sessions`, `ng_schema_migrations`) | 🟡 | Script ready in `database/mysql/001_ng_tables.sql`; add the versioned migration runner. |
+| 1.8 | Additive `ng_*` tables (`ng_user_credentials`, `ng_audit_log`, `ng_cheque_layouts`, `ng_company_branding`, `ng_sessions`, `ng_schema_migrations`; then `ng_settings`, `ng_dsr_amstock`, `ng_clinic_supply`, `ng_clinic_visit`, `ng_clinic_stock`) | 🟡 | Scripts ready in `database/mysql/001_ng_tables.sql` and `002_ng_modules.sql`; add the versioned migration runner. |
 
 ### Sprint 2 (W3-W4): Sign-in, Rights & Application Shell
 
@@ -99,13 +101,13 @@ These are already in place across all modules and are what the client sees in th
 | `Login.aspx`, `logout.aspx` | Sign-in page, post-sign-in company chooser, Sign out | ✅ |
 | `ChangePassword.aspx`, `NewPass.aspx`, `UserDetails.aspx` | My Account (profile, change password) | ✅ |
 | `UserMaintenance.aspx` | Administration → Users (create, temporary password, unlock) | ✅ |
-| `UserGrpAccess.aspx` | Administration → Group Access (rights matrix per form) | ✅ |
+| `UserGrpAccess.aspx` | Administration → Group Access: Access Matrix of every page and button per group (tri-state module ticks, filter, Discard / Save, Administrator always complete; rights of forms Cloud AOS does not show are kept) | ✅ |
 | `AuthConfig.aspx` | Administration → Approval Limits | ✅ |
 | `AOSappConfig.aspx`, `Administrator.aspx` | Administration → Company & Branding | ✅ |
 | `Home.aspx`, `AOS100_main.Master`, `MyMenu.master`, `Admin.master` | Home page and the application shell | ✅ |
-| `MyFavorites.aspx` | Favourites in the side menu | ⬜ |
-| `DocConfig.aspx`, `Maintenance.aspx` | Document settings and maintenance tools | ⬜ |
-| `Help.aspx` (compiled as `About`) | Help and About | ⬜ |
+| `MyFavorites.aspx` | Favourites at the top of the side menu, star on every page (`sys_mymenu`, shared with legacy) | ✅ |
+| `DocConfig.aspx`, `Maintenance.aspx` | Administration → Document Setup (numbering of every document type, AOS app download hold `batbl.dloadstat`) and Maintenance Mode (message, only administrators keep working, also at sign-in; `ng_settings`) | ✅ |
+| `Help.aspx` (compiled as `About`) | Help & About (tips, document steps, shortcuts incl. Ctrl + K, questions, about) | ✅ |
 
 **Gate:** sign-in, rights and menus checked against legacy for every user group on the test copy.
 
@@ -150,9 +152,9 @@ These are already in place across all modules and are what the client sees in th
 | `VoucherPayables.aspx`, `APapp.aspx` | Payables → Vouchers Payable (approval inside the document) | ✅ |
 | `CheckVoucher.aspx` | Payables → Check Vouchers; Administration → Cheque Printing Setup | ✅ |
 | `VendorMast.aspx` | Payables → Vendors | ✅ |
-| `APReports.aspx` | Payables → A/P Aging | 🟡 |
+| `APReports.aspx` | Payables → A/P Aging and A/P Reports (VP, CV and fund registers, payment monitoring, expense query and per account, EWT summary) | ✅ |
 | `FinancialAccounting.aspx`, `FI.master` | Home page and the side menu | ✅ |
-| `FIreportViewer.aspx`, `ReportViewer.aspx` | Print view on every document and report | 🟡 |
+| `FIreportViewer.aspx`, `ReportViewer.aspx` | Print view on every document; the Report Library viewer (cards / list, company header on paper, CSV export) for every register; GL Registers | ✅ |
 | `CashDisb.aspx` | Payables → Petty Cash Vouchers and Revolving Fund Vouchers (the legacy page was a screen layout without server code; built on `exphdrtbl` tc 40 / 44 as the other legacy pages read it) | ✅ |
 | `FundRepl.aspx` | Payables → Fund Replenishment | ✅ |
 | `Liquidation.aspx` | Payables → Cash Advance Liquidation (the legacy Save was not implemented; completed here) | ✅ |
@@ -178,15 +180,15 @@ These are already in place across all modules and are what the client sees in th
 | # | Task | Status | Remaining |
 | :--- | :--- | :---: | :--- |
 | 3.3 | Customer debit and credit memos against open invoices; customer 2307 tracking (received / pending) | ✅ | |
-| 3.4 | Customer master with change history (`custmasttbl_update`), price list, salesmen, areas | ✅ | Excel import, change requests and special prices. |
+| 3.4 | Customer master with change history (`custmasttbl_update`), price list, salesmen, areas; Customer Tools: Excel update, salesman transfer, customer-number requests (`qryreqttbl`) | ✅ | Special prices per customer (`custmmtbl`). |
 | 3.6 | A/R aging and statement of account computed directly (no `tempaging*` tables) | ✅ | |
 
 ### Sprint 8 (W15-W16): Sales Orders & Invoices
 
 | # | Task | Status | Remaining |
 | :--- | :--- | :---: | :--- |
-| 3.5 | Sales orders with price list, credit-limit, overdue and stock checks; approval above the limit with remarks; sales invoices created from deliveries with VAT split and automatic GL | ✅ | Salesman and sales-manager module; event sales report. |
-| 3.6 | Sales register and SD reports | 🟡 | Remaining report variants from `SDReports.aspx` and `DailySalesReport.aspx`. |
+| 3.5 | Sales orders with price list, credit-limit, overdue and stock checks; approval above the limit with remarks; sales invoices created from deliveries with VAT split and automatic GL; salesman's workspace and order requests (`reqsohdrtbl`); daily sales report for van / event sales | ✅ | |
+| 3.6 | Sales register and SD reports: invoice register, per salesman, per area, per product, open sales orders | ✅ | Compare each variant with its Crystal Report on the test copy. |
 | 3.7 | Printed forms: OR, CDCR, deposit summary, DM / CM, SO, SI, shrinkage report | 🟡 | Match each one to its Crystal Reports output. |
 
 **Legacy pages and their Cloud AOS screens**
@@ -195,16 +197,16 @@ These are already in place across all modules and are what the client sees in th
 | :--- | :--- | :---: |
 | `Collection.aspx` | Cashiering → Official Receipts | ✅ |
 | `CDCR.aspx`, `BankDep.aspx` | Cashiering → CDCR & Bank Deposits | ✅ |
-| `DepApp.aspx`, `CashierReports.aspx` | Deposit application, cashier reports | 🟡 |
+| `DepApp.aspx`, `CashierReports.aspx` | Cashiering → Deposit Applications (`depapptbl`, lines added to the receipt with `depapp`) and Cashier's Reports (collection and deposit registers and summaries, CDCR register) | ✅ |
 | `CustDMCM.aspx` | Cashiering → Credit Memos, Debit Memos | ✅ |
 | `CustEWT.aspx` | Cashiering → Customer 2307 | ✅ |
 | `ARreports.aspx`, `ARrepViewer.aspx` | Cashiering → A/R Aging & Statements | ✅ |
-| `CustMast.aspx` | Sales → Customers, Price List, Salesmen, Sales Areas | 🟡 |
+| `CustMast.aspx` | Sales → Customers, Price List, Salesmen, Sales Areas, Customer Tools | ✅ |
 | `SalesOrder.aspx`, `SOapp.aspx` | Sales → Sales Orders (approval inside the document) | ✅ |
 | `SalesInvoice.aspx` | Sales → Sales Invoices | ✅ |
-| `SDReports.aspx`, `SDrepViewer.aspx`, `DailySalesReport.aspx` | Sales → Sales Reports | 🟡 |
+| `SDReports.aspx`, `SDrepViewer.aspx`, `DailySalesReport.aspx` | Sales → Sales Reports, Sales Registers, Daily Sales Reports (Van): van loads (mov 603), cash and charge invoices (tc 84 / 85), returns (tc 88, mov 409), PM count, shrinkage report, AM-stock carry-forward | ✅ |
 | `SalesAndDist.aspx`, `SD.master` | Home page and the side menu | ✅ |
-| `SalesmanModule.aspx` | Salesman and sales-manager views | ⬜ |
+| `SalesmanModule.aspx` | Sales → Salesman's Workspace (customers, credit left, sales, order requests) and Order Requests for the sales manager (forms 076 / 077) | ✅ |
 | `SmnAccessMobile.aspx` | Not needed: every screen works on phones | ✅ |
 
 **Gate:** AR open balances, CDCR totals and deposits show zero difference against legacy for the sample days.
@@ -274,14 +276,14 @@ These are already in place across all modules and are what the client sees in th
 
 | Legacy page | Cloud AOS | Status |
 | :--- | :--- | :---: |
-| `Attendance.aspx`, `PayrollID.aspx` | HR & Payroll → Payroll (periods, attendance) | 🟡 |
+| `Attendance.aspx`, `PayrollID.aspx` | HR & Payroll → Payroll (attendance), DTR Upload (`paydtrtbl`, lates / undertime / absences applied to attendance) and Payroll IDs (legacy numbering, pay types and sequences, one open ID per pay type, close / reopen, delete unused) | ✅ |
 | `PayrollAcctg.aspx`, `PayrollAdjt.aspx` | HR & Payroll → Payroll (post to GL, adjustments) | ✅ |
 | `HRIShome.aspx`, `HRIS.master` | HR & Payroll → Employees and the side menu | ✅ |
 | `GLReports.aspx` (compiled as `GLReportsNew`) | General Ledger → GL Reports | ✅ |
-| `FS.aspx` (compiled as `FS_JCS`), `FSChemag.aspx` | General Ledger → Financial Statements | 🟡 |
-| `DocQuery.aspx` | Find a document (top bar) | 🟡 |
+| `FS.aspx` (compiled as `FS_JCS`), `FSChemag.aspx` | General Ledger → Financial Statements with P&L by schedule, cost of sales schedule, expense schedules per cost-centre group and prior years' adjustments | ✅ |
+| `DocQuery.aspx` | Find a document (top bar) and General Ledger → Document Query (ledger entries, correction history, guarded corrections logged in `updatetbl`) | ✅ |
 | `VoidReq.aspx`, `VoidApproval.aspx` | Administration → Void Requests | ✅ |
-| `ClinicMonitoring.aspx` | Clinic monitoring | ⬜ |
+| `ClinicMonitoring.aspx` | HR & Payroll → Clinic (consultations, medicines and supplies, reports; new `ng_clinic_*` tables because the legacy page had none) | ✅ |
 
 **Gate:** the full parity checklist passes for every module (PLAN.md Section 8.3, step 3); then the legacy application is set to read-only.
 
@@ -300,7 +302,7 @@ These are already in place across all modules and are what the client sees in th
 
 * [ ] Schema-only dump of `jcs`, `apf`, `chemag`, `bfi`, `bfi_admin`, plus a recent full backup for the test copy.
 * [ ] A least-privilege MySQL account for Cloud AOS (never `root`).
-* [ ] Confirm the transaction codes against the client's `tccodestbl`. Cloud AOS uses the codes found in the legacy code (JV 00, MMRR 10, DO 30, petty cash 40, weekly expense 41, VP 42, CV 43, revolving fund 44, payroll 45, CA liquidation 46, SI 53, OR 60, bank deposit 64, CM 90, DM 92); the codes for production receipts, transfers, adjustments, RIV, PO and SO were not found in the code and are marked "confirm" in `src/shared/codes.ts`.
-* [ ] Run `database/mysql/001_ng_tables.sql` on the test copy only.
+* [ ] Confirm the transaction codes against the client's `tccodestbl`. Cloud AOS uses the codes found in the legacy code (JV 00, MMRR 10, DO 30, petty cash 40, weekly expense 41, VP 42, CV 43, revolving fund 44, payroll 45, CA liquidation 46, SI 53, OR 60, bank deposit 64, event cash invoice 84, event charge invoice 85, return receipt 88, CM 90, DM 92); the codes for production receipts, transfers, adjustments, RIV, PO and SO were not found in the code and are marked "confirm" in `src/shared/codes.ts`.
+* [ ] Run `database/mysql/001_ng_tables.sql` and `002_ng_modules.sql` on the test copy only.
 * [ ] Start read-only (leave `DATABASE_ALLOW_WRITES` unset), compare screens and reports with legacy, then enable writes on the test copy for the parity tests.
 * [ ] Sample printed forms (Crystal Reports output) for every document type.

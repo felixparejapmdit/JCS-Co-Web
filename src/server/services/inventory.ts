@@ -87,8 +87,38 @@ async function movements(db: Db, f: { plntno?: string; codeno?: string; asOf?: s
     }
   }
 
+  const retH = await db.all('wrrhdrtbl', { where: { status: 'Posted', mov: MOV.VAN_RETURN, ...plantWhere } });
+  const retMap = new Map(retH.map((h) => [String(h.wrrno), h]));
+  if (retH.length) {
+    const retD = await db.all('wrrdettbl', { where: codeWhere });
+    const costs = await vanUnitCosts(db);
+    for (const d of retD) {
+      const h = retMap.get(String(d.wrrno));
+      if (!h) continue;
+      const uc = costs.get(`${h.smnno}|${d.codeno}`) ?? 0;
+      out.push({ date: str(h.transdate), order: 0, plntno: str(h.plntno), codeno: str(d.codeno), lotno: str(d.lotno), qty: num(d.qty), uc, kind: 'IN', tc: str(h.tc), mov: str(h.mov), docno: str(h.wrrno), party: str(h.smnno), labstat: 'Passed' });
+    }
+  }
+
   const filtered = f.asOf ? out.filter((m) => m.date <= f.asOf!) : out;
   return filtered.sort((a, b) => a.date.localeCompare(b.date) || a.order - b.order || a.docno.localeCompare(b.docno));
+}
+
+/** Cost of stock on each salesman's van: everything ever loaded (issdettbl.cosamt of mov 603), per salesman and material. */
+export async function vanUnitCosts(db: Db): Promise<Map<string, number>> {
+  const loads = await db.all('isshdrtbl', { where: { mov: MOV.VAN_LOAD, status: 'Posted' } });
+  const smnOf = new Map(loads.map((l) => [String(l.dono), str(l.smnno)]));
+  const lines = await db.all('issdettbl', { where: { dono: { in: loads.map((l) => l.dono) } } });
+  const qty = new Map<string, number>();
+  const val = new Map<string, number>();
+  for (const l of lines) {
+    const k = `${smnOf.get(String(l.dono))}|${l.codeno}`;
+    qty.set(k, (qty.get(k) ?? 0) + num(l.qty));
+    val.set(k, (val.get(k) ?? 0) + num(l.cosamt));
+  }
+  const out = new Map<string, number>();
+  for (const [k, q] of qty) out.set(k, q ? r4((val.get(k) ?? 0) / q) : 0);
+  return out;
 }
 
 export interface LotBalance {
@@ -174,20 +204,20 @@ export function pickLots(b: StockBalance, qty: number, lotno?: string): { alloca
   return { allocations, short: left > 0 ? left : 0 };
 }
 
-async function material(db: Db, codeno: string): Promise<Row> {
+export async function material(db: Db, codeno: string): Promise<Row> {
   const m = await db.one('mmasttbl', { codeno });
   if (!m) fail(`Material ${codeno} is not in the material master.`);
   return m;
 }
 
-async function plant(db: Db, plntno: string): Promise<Row> {
+export async function plant(db: Db, plntno: string): Promise<Row> {
   const p = await db.one('plnttbl', { plntno });
   if (!p) fail(`Plant ${plntno} does not exist.`);
   if (String(p.status ?? 'Active').toLowerCase() === 'inactive') fail(`Plant ${plntno} is inactive.`);
   return p;
 }
 
-function inventoryAccount(p: Row, m: Row): string {
+export function inventoryAccount(p: Row, m: Row): string {
   if (m.mmtype === 'FG') return str(p.fginv) || GL.INV_FG;
   if (m.mmtype === 'PM') return GL.INV_PACKAGING;
   return str(p.rminv) || GL.INV_RAW;
@@ -443,7 +473,7 @@ registerDoc(receivingService);
 // ===========================================================================
 // Issuance / delivery orders (DeliveryOrder.aspx, form 007, tc 53)
 // ===========================================================================
-export const MOV = { SALES: '201', PRODUCTION: '261', TRANSFER: '311', SCRAP: '551' } as const;
+export const MOV = { SALES: '201', PRODUCTION: '261', TRANSFER: '311', SCRAP: '551', VAN_LOAD: '603', VAN_RETURN: '409' } as const;
 
 export async function soRemaining(db: Db, sono: string): Promise<Map<string, number>> {
   const lines = await db.all('sodettbl', { where: { sono } });
@@ -647,6 +677,9 @@ const issuanceService: DocService = {
         }
         await ctx.db.update('isshdrtbl', { dono: h.dono }, { refdoc: trno });
         await writeGl(ctx, { tc: TC.DELIVERY, docno: h.dono, transdate: h.transdate, source: 'TRANSFER' }, [...debits, ...credits]);
+      } else if (h.mov === MOV.VAN_LOAD) {
+        // Stock moves to the salesman's van; it stays company inventory until sold on the DSR.
+        await writeGl(ctx, { tc: TC.DELIVERY, docno: h.dono, transdate: h.transdate, source: 'VANLOAD' }, [{ acctno: GL.VAN_INVENTORY, ccno: p.ccno, dramt: cost }, ...credits]);
       } else {
         await writeGl(ctx, { tc: TC.DELIVERY, docno: h.dono, transdate: h.transdate, source: 'ISSUE' }, [{ acctno: GL.INVENTORY_VARIANCE, ccno: p.ccno, dramt: cost }, ...credits]);
       }

@@ -2,7 +2,7 @@ import type { Db, Row } from '../db';
 import { ACTION, FORM, TC } from '@/shared/codes';
 import { nowStamp, parseIso, today, toIso } from '@/shared/dates';
 import { fmtPeso, r2, sum } from '@/shared/money';
-import { Ctx, assertOpenPeriod, audit, fail, need, num, requireRight, str } from './context';
+import { Ctx, assertOpenPeriod, audit, fail, isAllowed, need, num, requireRight, str } from './context';
 import { GL, GlEntry, reverseGl, writeGl } from './gl';
 
 // Statutory rates are read from the legacy government tables (paygovtphtbl for SSS /
@@ -88,12 +88,17 @@ export async function createPayrollPeriod(ctx: Ctx, input: Row): Promise<string>
   const to = need(str(input.pdateto), 'Enter the last day of the period.');
   if (to < from) fail('The period end is before its start.');
   const paytype = str(input.paytype) || 'Monthly';
+  if (!PAY_TYPES.includes(paytype)) fail(`Pay type must be one of: ${PAY_TYPES.join(', ')}.`);
   return ctx.db.tx(async (db) => {
     const clash = await db.all('payidtbl', { where: { paytype, pdatefr: { lte: to }, pdateto: { gte: from } } });
     if (clash.length) fail(`This period overlaps payroll ${clash[0].payidno}.`);
+    // Legacy PayrollID.aspx: only one OPEN payroll ID per pay type at a time.
+    const open = (await db.all('payidtbl', { where: { paytype } })).find((x) => String(x.idstat ?? '').toUpperCase() === 'OPEN');
+    if (open) fail(`Payroll ${open.payidno} (${paytype}) is still open. Close it in Payroll IDs first.`);
     const d = parseIso(from);
-    const payseq = d.getDate() <= 15 ? 1 : 2;
-    const payidno = `P${from.slice(2, 4)}${from.slice(5, 7)}-${payseq}${paytype === 'Weekly' ? 'W' : ''}`;
+    const payseq = str(input.payseq) || defaultSeq(paytype, from);
+    if (!PAY_SEQS.includes(payseq) && payseq) fail(`Pay sequence must be one of: ${PAY_SEQS.join(', ')}.`);
+    const payidno = payrollIdNo(paytype, from, to);
     if (await db.one('payidtbl', { payidno })) fail(`Payroll ${payidno} already exists.`);
     await db.insert('payidtbl', {
       payidno,
@@ -104,7 +109,10 @@ export async function createPayrollPeriod(ctx: Ctx, input: Row): Promise<string>
       year: d.getFullYear(),
       monyear: `${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}`,
       payseq,
+      idstat: 'OPEN',
       paystat: 'Open',
+      commdate1: str(input.commdate1) || null,
+      commdate2: str(input.commdate2) || null,
       workdays: workdays(from, to),
       user: ctx.user,
       datecreate: nowStamp(),
@@ -114,6 +122,217 @@ export async function createPayrollPeriod(ctx: Ctx, input: Row): Promise<string>
     await audit({ ...ctx, db }, { form: FORM.PAYROLL_MONTHLY, tc: TC.PAYROLL, docno: payidno, trans: `Create payroll ${payidno}`, table: 'payidtbl' });
     return `Payroll ${payidno} created for ${from} to ${to}.`;
   });
+}
+
+export const PAY_TYPES = ['Monthly', 'Weekly', 'Confi', '13th Month', 'Others'];
+export const PAY_SEQS = ['15th', '30th', '1stWeek', '2ndWeek', '3rdWeek', '4thWeek', '5thWeek'];
+const ID_PREFIX: Record<string, string> = { Monthly: 'M', Weekly: 'W', Confi: 'C', Others: 'PR', '13th Month': '13' };
+
+/** Legacy numbering: prefix + MMdd of the start + MMddyy of the end, e.g. M10011015 26 -> M1001101526. */
+export function payrollIdNo(paytype: string, from: string, to: string): string {
+  return `${ID_PREFIX[paytype] ?? 'PR'}${from.slice(5, 7)}${from.slice(8, 10)}${to.slice(5, 7)}${to.slice(8, 10)}${to.slice(2, 4)}`;
+}
+
+function defaultSeq(paytype: string, from: string): string {
+  const day = Number(from.slice(8, 10));
+  if (paytype === 'Weekly') return PAY_SEQS[1 + Math.min(5, Math.ceil(day / 7))];
+  if (paytype === 'Monthly' || paytype === 'Confi') return day <= 15 ? '15th' : '30th';
+  return '';
+}
+
+function mustBeOpenId(p: Row) {
+  if (String(p.idstat ?? 'OPEN').toUpperCase() === 'CLOSE') fail(`Payroll ID ${p.payidno} is closed. Reopen it in Payroll IDs to change it.`);
+}
+
+// ---------------------------------------------------------------------------
+// Payroll ID management (PayrollID.aspx): edit, close / reopen, delete unused IDs.
+// ---------------------------------------------------------------------------
+export async function payrollIds(ctx: Ctx) {
+  await requireRight(ctx, FORM.PAYROLL_MONTHLY, ACTION.VIEW, 'view payroll IDs');
+  const ids = await ctx.db.all('payidtbl', { orderBy: [['transdate', 'desc'], ['payidno', 'desc']] });
+  const used = new Set([...(await ctx.db.all('payearntbl')).map((r) => r.payidno), ...(await ctx.db.all('paysliptbl')).map((r) => r.payidno), ...(await ctx.db.all('payadjttbl')).map((r) => r.payidno)]);
+  const emps = await ctx.db.all('payemployeetbl');
+  return {
+    rows: ids.map((p): Row => ({ ...p, idstat: String(p.idstat ?? 'OPEN').toUpperCase(), used: used.has(p.payidno), employees: emps.filter((e) => e.paytype === p.paytype && String(e.empstat).toLowerCase() !== 'resigned').length })),
+    payTypes: PAY_TYPES,
+    paySeqs: PAY_SEQS,
+    can: {
+      add: await isAllowed(ctx.db, ctx.group, FORM.PAYROLL_MONTHLY, ACTION.INSERT),
+      edit: await isAllowed(ctx.db, ctx.group, FORM.PAYROLL_MONTHLY, ACTION.EDIT),
+      del: await isAllowed(ctx.db, ctx.group, FORM.PAYROLL_MONTHLY, ACTION.DELETE),
+    },
+  };
+}
+
+export async function updatePayrollId(ctx: Ctx, payidno: string, input: Row): Promise<string> {
+  await requireRight(ctx, FORM.PAYROLL_MONTHLY, ACTION.EDIT, 'change payroll IDs');
+  const p = await period(ctx.db, payidno);
+  mustBeOpenId(p);
+  if (p.paystat === 'Posted') fail(`Payroll ${payidno} is posted.`);
+  const payseq = str(input.payseq);
+  if (payseq && !PAY_SEQS.includes(payseq)) fail(`Pay sequence must be one of: ${PAY_SEQS.join(', ')}.`);
+  const patch: Row = { payseq: payseq || p.payseq, commdate1: str(input.commdate1) || null, commdate2: str(input.commdate2) || null };
+  if (input.workdays !== undefined && input.workdays !== '') {
+    const wd = num(input.workdays);
+    if (wd <= 0 || wd > 31) fail('Working days must be between 1 and 31.');
+    patch.workdays = wd;
+  }
+  await ctx.db.update('payidtbl', { payidno }, { ...patch, userupdate: ctx.user, dateupdate: nowStamp() });
+  await audit(ctx, { form: FORM.PAYROLL_MONTHLY, tc: TC.PAYROLL, docno: payidno, trans: 'Update payroll ID', table: 'payidtbl', before: p, after: patch });
+  return `Payroll ID ${payidno} updated.`;
+}
+
+export async function setPayrollIdStatus(ctx: Ctx, payidno: string, status: string): Promise<string> {
+  await requireRight(ctx, FORM.PAYROLL_MONTHLY, ACTION.EDIT, 'close or reopen payroll IDs');
+  const idstat = status.toUpperCase();
+  if (idstat !== 'OPEN' && idstat !== 'CLOSE') fail('Status must be OPEN or CLOSE.');
+  const p = await period(ctx.db, payidno);
+  if (String(p.idstat ?? 'OPEN').toUpperCase() === idstat) fail(`Payroll ID ${payidno} is already ${idstat === 'OPEN' ? 'open' : 'closed'}.`);
+  if (idstat === 'OPEN') {
+    const other = (await ctx.db.all('payidtbl', { where: { paytype: p.paytype } })).find((x) => x.payidno !== payidno && String(x.idstat ?? '').toUpperCase() === 'OPEN');
+    if (other) fail(`Payroll ${other.payidno} (${p.paytype}) is open. Close it first.`);
+  }
+  await ctx.db.update('payidtbl', { payidno }, { idstat, datechngstat: nowStamp(), userchngstat: ctx.user });
+  await audit(ctx, { form: FORM.PAYROLL_MONTHLY, tc: TC.PAYROLL, docno: payidno, trans: `${idstat === 'OPEN' ? 'Reopen' : 'Close'} payroll ID`, table: 'payidtbl' });
+  return `Payroll ID ${payidno} ${idstat === 'OPEN' ? 'reopened' : 'closed'}.`;
+}
+
+export async function deletePayrollId(ctx: Ctx, payidno: string): Promise<string> {
+  await requireRight(ctx, FORM.PAYROLL_MONTHLY, ACTION.DELETE, 'delete payroll IDs');
+  const p = await period(ctx.db, payidno);
+  if (p.paystat === 'Posted') fail(`Payroll ${payidno} is posted and cannot be deleted.`);
+  for (const t of ['payearntbl', 'paysliptbl', 'payadjttbl', 'paydeducttbl']) if (await ctx.db.count(t, { payidno })) fail(`Payroll ${payidno} already has attendance or pay data. Only unused IDs can be deleted.`);
+  return ctx.db.tx(async (db) => {
+    await db.remove('payidnostattbl', { payidno });
+    await db.remove('payidtbl', { payidno });
+    await db.update('paydtrtbl', { payidno }, { payidno: '' });
+    await audit({ ...ctx, db }, { form: FORM.PAYROLL_MONTHLY, tc: TC.PAYROLL, docno: payidno, trans: 'Delete unused payroll ID', table: 'payidtbl', before: p });
+    return `Payroll ID ${payidno} deleted.`;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// DTR upload (Attendance.aspx "DTR/Time Keeping"): biometric time records into paydtrtbl,
+// then summed into the period's attendance (absences and lates / undertime).
+// ---------------------------------------------------------------------------
+export const SHIFT = { in: '08:00', out: '17:00', breakHrs: 1, graceMin: 0 };
+
+const minutes = (t: string) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t.trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+const clock = (t: unknown): string => {
+  const v = str(t).replace('.', ':');
+  const m = /^(\d{1,2}):?(\d{2})\s*(am|pm)?$/i.exec(v);
+  if (!m) return '';
+  let h = Number(m[1]);
+  if (m[3]?.toLowerCase() === 'pm' && h < 12) h += 12;
+  if (m[3]?.toLowerCase() === 'am' && h === 12) h = 0;
+  return h > 23 || Number(m[2]) > 59 ? '' : `${String(h).padStart(2, '0')}:${m[2]}`;
+};
+
+export function dtrHours(timein: string, timeout: string) {
+  const i = minutes(timein);
+  const o = minutes(timeout);
+  const si = minutes(SHIFT.in)!;
+  const so = minutes(SHIFT.out)!;
+  const late = i === null ? 0 : Math.max(0, i - si - SHIFT.graceMin);
+  const ut = o === null ? 0 : Math.max(0, so - o);
+  return { late: Math.round((late / 60) * 100) / 100, undertime: Math.round((ut / 60) * 100) / 100, absent: i === null && o === null, incomplete: (i === null) !== (o === null) };
+}
+
+export async function dtrPreview(ctx: Ctx, payidno: string, rows: Row[]) {
+  await requireRight(ctx, FORM.ATTENDANCE, ACTION.INSERT, 'upload DTR');
+  const p = await period(ctx.db, payidno);
+  const emps = await ctx.db.all('payemployeetbl');
+  return rows.map((r, i) => {
+    const empno = str(r.empno);
+    const e = emps.find((x) => x.empno === empno);
+    const transdate = str(r.transdate);
+    const timein = clock(r.timein);
+    const timeout = clock(r.timeout);
+    const problems: string[] = [];
+    if (!e) problems.push('employee not found');
+    else if (e.paytype !== p.paytype) problems.push(`not on the ${p.paytype} payroll`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(transdate)) problems.push('date must be YYYY-MM-DD');
+    else if (transdate < p.pdatefr || transdate > p.pdateto) problems.push('date outside the payroll period');
+    if (str(r.timein) && !timein) problems.push('time in is not a time');
+    if (str(r.timeout) && !timeout) problems.push('time out is not a time');
+    const h = dtrHours(timein, timeout);
+    return { line: i + 1, empno, name: e ? `${e.lastname}, ${e.firstname}` : '', ccno: e?.ccno ?? '', transdate, timein, timeout, ...h, problem: problems.join('; '), ok: problems.length === 0 };
+  });
+}
+
+export async function uploadDtr(ctx: Ctx, payidno: string, rows: Row[]): Promise<string> {
+  const preview = await dtrPreview(ctx, payidno, rows);
+  const good = preview.filter((r) => r.ok);
+  if (!good.length) fail('No valid DTR line to upload.');
+  const p = await period(ctx.db, payidno);
+  mustBeOpenId(p);
+  return ctx.db.tx(async (db) => {
+    for (const r of good) {
+      await db.remove('paydtrtbl', { empno: r.empno, transdate: r.transdate });
+      await db.insert('paydtrtbl', {
+        empno: r.empno,
+        transdate: r.transdate,
+        ccno: r.ccno,
+        payidno,
+        shiftcode2: 'DAY',
+        stdin: SHIFT.in,
+        stdout: SHIFT.out,
+        inam: r.timein || null,
+        outpm: r.timeout || null,
+        tot_late_hrs: r.late,
+        tot_ut_hrs: r.undertime,
+        eq_hrs_late: r.late,
+        eq_hrs_ut: r.undertime,
+        in_rem: r.absent ? 'Absent' : r.timein ? (r.late ? 'Late' : 'On time') : 'No time in',
+        out_rem: r.timeout ? (r.undertime ? 'Undertime' : 'On time') : 'No time out',
+      });
+    }
+    await audit({ ...ctx, db }, { form: FORM.ATTENDANCE, tc: TC.PAYROLL, docno: payidno, trans: `Upload DTR (${good.length} line(s))`, table: 'paydtrtbl' });
+    return `${good.length} DTR line(s) saved.${preview.length - good.length ? ` ${preview.length - good.length} skipped.` : ''} Apply them to the attendance when the period is complete.`;
+  });
+}
+
+/** Totals of the uploaded DTR per employee for a payroll period. */
+export async function dtrSummary(ctx: Ctx, payidno: string) {
+  await requireRight(ctx, FORM.ATTENDANCE, ACTION.VIEW, 'view attendance');
+  const p = await period(ctx.db, payidno);
+  const emps = (await ctx.db.all('payemployeetbl', { where: { paytype: p.paytype } })).filter((e) => String(e.empstat).toLowerCase() !== 'resigned');
+  const dtr = await ctx.db.all('paydtrtbl', { where: { transdate: { gte: p.pdatefr, lte: p.pdateto } } });
+  // Only the working days that have already passed can be absences.
+  const upTo = p.pdateto < today() ? p.pdateto : today();
+  const days = p.pdateto < today() ? num(p.workdays) : upTo >= p.pdatefr ? workdays(p.pdatefr, upTo) : 0;
+  return {
+    period: { ...p, idstat: String(p.idstat ?? 'OPEN').toUpperCase() },
+    lines: dtr.length,
+    daysSoFar: days,
+    complete: p.pdateto < today(),
+    rows: emps
+      .sort((a, b) => String(a.lastname).localeCompare(String(b.lastname)))
+      .map((e) => {
+        const mine = dtr.filter((d) => d.empno === e.empno);
+        const present = mine.filter((d) => d.inam || d.outpm).length;
+        const late = Math.round(sum(mine, (d) => num(d.tot_late_hrs) + num(d.tot_ut_hrs)) * 100) / 100;
+        return { empno: e.empno, name: `${e.lastname}, ${e.firstname}`, ccno: e.ccno, records: mine.length, present, absentDays: mine.length ? Math.max(0, days - present) : 0, lateHrs: late };
+      }),
+  };
+}
+
+/** Puts the DTR totals into the period's attendance: absences and lates / undertime; overtime stays as entered. */
+export async function applyDtr(ctx: Ctx, payidno: string): Promise<string> {
+  const s = await dtrSummary(ctx, payidno);
+  mustBeOpenId(s.period);
+  const withDtr = s.rows.filter((r) => r.records > 0);
+  if (!withDtr.length) fail('No DTR has been uploaded for this period.');
+  const current = await ctx.db.all('payearntbl', { where: { payidno } });
+  const rows = withDtr.map((r) => {
+    const x = current.find((c) => c.empno === r.empno) ?? {};
+    return { empno: r.empno, absent_hrs: r.absentDays * HOURS_PER_DAY, late_dhrs: r.lateHrs, otime_dhrs: num(x.otime_dhrs), nightdiffhrs: num(x.nightdiffhrs), holidayhrs: num(x.holidayhrs) };
+  });
+  await saveAttendance(ctx, payidno, rows);
+  return `Attendance of ${rows.length} employee(s) updated from the DTR. Compute the payroll to update the payslips.`;
 }
 
 function workdays(from: string, to: string): number {
@@ -152,6 +371,7 @@ export async function saveAttendance(ctx: Ctx, payidno: string, rows: Row[]): Pr
   return ctx.db.tx(async (db) => {
     const p = await period(db, payidno);
     if (p.paystat === 'Posted') fail(`Payroll ${payidno} is already posted.`);
+    mustBeOpenId(p);
     const maxHrs = num(p.workdays) * HOURS_PER_DAY;
     for (const r of rows) {
       const vals = { absent_hrs: num(r.absent_hrs), late_dhrs: num(r.late_dhrs), otime_dhrs: num(r.otime_dhrs), nightdiffhrs: num(r.nightdiffhrs), holidayhrs: num(r.holidayhrs) };
@@ -189,6 +409,7 @@ export async function computePayroll(ctx: Ctx, payidno: string): Promise<string>
     const c = { ...ctx, db };
     const p = await period(db, payidno);
     if (p.paystat === 'Posted') fail(`Payroll ${payidno} is already posted.`);
+    mustBeOpenId(p);
     const emps = (await db.all('payemployeetbl', { where: { paytype: p.paytype } })).filter((e) => String(e.empstat).toLowerCase() !== 'resigned');
     if (!emps.length) fail('There are no employees on this payroll.');
     const maxHrs = num(p.workdays) * HOURS_PER_DAY;
@@ -385,7 +606,7 @@ export async function postPayroll(ctx: Ctx, payidno: string): Promise<string> {
     for (const [acctno, amt] of Object.entries(loanAcct)) if (amt) entries.push({ acctno, cramt: amt });
     entries.push({ acctno: GL.SALARIES_PAYABLE, cramt: sum(ded, (d) => num(d.netpay)) });
     await writeGl(c, { tc: TC.PAYROLL, docno: payidno, transdate: p.pdateto, source: 'PAYROLL' }, entries);
-    await db.update('payidtbl', { payidno }, { paystat: 'Posted', datechngstat: nowStamp(), userchngstat: ctx.user });
+    await db.update('payidtbl', { payidno }, { paystat: 'Posted', idstat: 'CLOSE', datechngstat: nowStamp(), userchngstat: ctx.user });
     await audit(c, { form: FORM.PAYROLL_MONTHLY, tc: TC.PAYROLL, docno: payidno, trans: 'Post payroll to GL', table: 'payidtbl' });
     return `Payroll ${payidno} posted to the general ledger.`;
   });
@@ -397,7 +618,7 @@ export async function unpostPayroll(ctx: Ctx, payidno: string): Promise<string> 
     const p = await period(db, payidno);
     if (p.paystat !== 'Posted') fail('Only a posted payroll can be reversed.');
     await reverseGl({ ...ctx, db }, TC.PAYROLL, payidno, today());
-    await db.update('payidtbl', { payidno }, { paystat: 'Computed' });
+    await db.update('payidtbl', { payidno }, { paystat: 'Computed', idstat: 'OPEN' });
     await audit({ ...ctx, db }, { form: FORM.PAYROLL_MONTHLY, tc: TC.PAYROLL, docno: payidno, trans: 'Reverse payroll posting', table: 'payidtbl' });
     return `Posting of payroll ${payidno} reversed. You can correct and post it again.`;
   });

@@ -91,6 +91,7 @@ export const DOCS: Record<string, DocConfig> = {
     header: [
       { key: 'transdate', label: 'JV date', type: 'date', required: true },
       { key: 'sourcedoc', label: 'Reference', type: 'text', hint: 'Optional: the document this entry relates to.' },
+      { key: 'prioryradjt', label: "Prior years' adjustment", type: 'select', options: [{ value: 'N', label: 'No' }, { value: 'Y', label: 'Yes, corrects a closed year' }], hint: "Shown in the prior years' adjustments schedule of the financial statements." },
       { key: 'remarks', label: 'Description', type: 'textarea', required: true, span: 3, placeholder: 'What is this entry for?' },
     ],
     lines: {
@@ -308,6 +309,57 @@ export const DOCS: Record<string, DocConfig> = {
       { key: 'oramt', label: 'Paid', kind: 'money' },
       { key: 'ewt', label: '2307 tax', kind: 'money' },
       { key: 'pdc', label: 'PDC' },
+    ],
+  },
+
+  da: {
+    type: 'da',
+    title: 'Deposit Application',
+    plural: 'Deposit Applications',
+    form: '012',
+    description: 'Apply a customer deposit (the unapplied part of an issued receipt) to their open invoices. Posting debits customer deposits and credits receivables.',
+    newLabel: 'Apply a deposit',
+    tabs: ['Open', 'Posted', 'Void'],
+    sources: [{ id: 'deposit', label: 'Pick a receipt with a deposit', help: 'Receipts that still hold an unapplied amount are listed; the customer and the deposit left are filled in.' }],
+    listCols: [
+      { key: 'no', label: 'DA no.', kind: 'mono' },
+      { key: 'transdate', label: 'Date', kind: 'date' },
+      { key: 'party', label: 'Customer' },
+      { key: 'orno', label: 'Receipt', kind: 'mono', hideOnMobile: true },
+      { key: 'amount', label: 'Invoices settled', kind: 'money' },
+      { key: 'status', label: 'Status', kind: 'status' },
+    ],
+    header: [
+      { key: 'orno', label: 'Receipt with the deposit', type: 'text', required: true, readOnly: () => true, hint: 'Use “Pick a receipt with a deposit” above.' },
+      { key: 'custno', label: 'Customer', type: 'lookup', lookup: 'customers', required: true, span: 2, readOnly: () => true },
+      { key: 'transdate', label: 'Application date', type: 'date', required: true },
+      { key: 'colamt', label: 'Deposit to apply', type: 'money', hint: 'Starts with the whole deposit left on the receipt.' },
+      { key: 'remarks', label: 'Remarks', type: 'text', span: 2 },
+    ],
+    custom: 'apply-invoices',
+    saveThen: { action: 'post', label: 'Save & apply deposit' },
+    totals: (d) => {
+      const applied = lineTotal(d, (l) => n(l.oramt));
+      const ewt = lineTotal(d, (l) => n(l.ewt));
+      return [
+        { label: 'Deposit to apply', value: n(d.colamt) },
+        { label: 'Applied to invoices', value: applied },
+        { label: 'Tax withheld (2307)', value: ewt },
+        { label: 'Deposit left', value: r2(n(d.colamt) - applied), strong: true, warn: n(d.colamt) - applied < -0.005 },
+      ];
+    },
+    viewHeader: [
+      { key: 'bussname', label: 'Customer' },
+      { key: 'orno', label: 'Receipt', kind: 'mono' },
+      { key: 'ordate', label: 'Receipt date', kind: 'date' },
+      { key: 'transdate', label: 'Applied on', kind: 'date' },
+      { key: 'remarks', label: 'Remarks' },
+    ],
+    viewLines: [
+      { key: 'invno', label: 'Invoice', kind: 'mono' },
+      { key: 'ewtform', label: '2307 form' },
+      { key: 'ewt', label: '2307 tax', kind: 'money' },
+      { key: 'oramt', label: 'Applied', kind: 'money' },
     ],
   },
 

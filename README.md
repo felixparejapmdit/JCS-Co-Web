@@ -20,7 +20,8 @@ Cloud AOS is the modern web version of AOS100, the accounting and operations sys
 ```
 Browser ──POST /api/aos {op, args}──▶ src/server/rpc.ts ──▶ services (GL, AP, AR, sales,
                                                              inventory, purchasing, production,
-                                                             payroll, admin)
+                                                             payroll, DSR, clinic, reports,
+                                                             system, admin)
                                                                    │
                                                                    ▼
                                                          Db interface (legacy tables)
@@ -32,6 +33,7 @@ Browser ──POST /api/aos {op, args}──▶ src/server/rpc.ts ──▶ serv
 * **Legacy rights.** Menus, buttons and approvals follow `IsAllowed(group, form, action)` over `sys_usergrouprights`, exactly as the old system does.
 * **Automation.** Documents number themselves; *Create from* fills a document from its source; VAT, withholding tax, amounts in words, moving-average cost and lot picking are computed; credit, stock and approval-limit checks run before saving; GL entries are written automatically and bundled by JV Posting; each document shows its next step; Home and the tasks bell list what is waiting for each user.
 * **Finance tools.** Petty cash and revolving fund vouchers with a live fund balance, fund replenishment (legacy numbering and remarks) paid through a voucher and cheque, cash-advance liquidation with automatic refund or reimbursement, budget monitoring against actual spending, and correction of automatic JV entries before JV Posting.
+* **Cross-module tools.** Access Matrix for group rights (every page and button per group, kept in `sys_usergrouprights`), Favourites, Help, Maintenance Mode, Document Setup, a Report Library (registers and summaries with print and CSV), Document Query with guarded corrections, deposit applications, van sales (daily sales report), the salesman's and sales manager's workspace, customer tools, payroll IDs, DTR upload, the clinic and the FS schedules.
 * **Look and feel.** Deep dark mode (true black) and light mode, Electric Blue and Emerald Green accents, Liquid Glass surfaces and an elastic grid of Notion-style blocks. Lists and document lines are interactive cards, with a Cards / List switch for compact scanning.
 
 ### Data modes
@@ -95,7 +97,7 @@ For the MySQL profile, put the `*.sql` backups in `database/restore/` (never com
 Always on a **restored test copy** first (PLAN.md Section 8.3).
 
 1. Restore the backups of `jcs`, `apf`, `chemag`, `bfi` and `bfi_admin`.
-2. Run [database/mysql/001_ng_tables.sql](database/mysql/001_ng_tables.sql) in each company database. It only creates `ng_*` tables and is safe to re-run. (Before it has run, Cloud AOS still signs users in read-only; its own tables simply read as empty.)
+2. Run [database/mysql/001_ng_tables.sql](database/mysql/001_ng_tables.sql) and then [002_ng_modules.sql](database/mysql/002_ng_modules.sql) in each company database. They only create `ng_*` tables and are safe to re-run. (Before it has run, Cloud AOS still signs users in read-only; its own tables simply read as empty.)
 3. Create a least-privilege MySQL account for Cloud AOS with the client's DBA (never `root`).
 4. Set the environment variables below and start Cloud AOS. It is read-only at this point.
 5. Compare screens and reports with the legacy system, then set `DATABASE_ALLOW_WRITES=true` **on the test copy** for the parity tests.
@@ -111,7 +113,7 @@ Always on a **restored test copy** first (PLAN.md Section 8.3).
 | `JWT_SECRET` | Signs the session cookie. **Required** with a database; also recommended for the hosted preview. |
 | `COOKIE_SECURE` | The session cookie is `Secure` automatically on HTTPS. Set `true` to force it behind a TLS proxy that does not send `X-Forwarded-Proto`. |
 
-Transaction codes written on documents follow the legacy code (`src/shared/codes.ts`); confirm them against the client's `tccodestbl` in Phase 1.
+Transaction codes written on documents follow the legacy code (`src/shared/codes.ts`), including `84` / `85` for the van cash and charge invoices and `88` for van returns; confirm them against the client's `tccodestbl` in Phase 1. A few columns that the new modules write were not seen in the legacy code (for example `dsrnotbl` and `reqsohdrtbl` details); Cloud AOS writes only the columns listed in PLAN.md Appendix A, but check them against the schema dump before `DATABASE_ALLOW_WRITES` is turned on.
 
 ---
 
@@ -126,8 +128,10 @@ src/
 │                           purchasing, production, HR & payroll, administration
 ├─ components/
 │  ├─ shell/                App shell, customised client header, side menu, search, tasks
-│  ├─ doc/                  Config-driven document framework (14 document types),
+│  ├─ doc/                  Config-driven document framework (19 document types),
 │  │                        print views, cheque printing
+│  ├─ reports/              Report Library viewer, FS schedules, aging
+│  ├─ sales/                Order request card
 │  └─ ui/                   UI kit and data table
 ├─ server/
 │  ├─ db/                   Db interface, sample-data driver, MySQL driver
@@ -152,7 +156,7 @@ npm run test:e2e                           # Playwright: Chromium, Firefox and W
 npm run test:e2e -- --project=chromium     # one browser
 ```
 
-The server tests check that every company's books balance, that AR and AP subledgers equal their control accounts, that no stock goes negative that every document opens, and that the petty cash fund, replenishments, liquidations, budgets and automatic-JV corrections behave as the legacy pages do. The browser tests cover sign-in privacy (no company list or dropdown, the chooser for multi-company users), the main screens and the installable app.
+The server tests (199) check that every company's books balance, that AR and AP subledgers equal their control accounts, that no stock goes negative, that every document opens, that every report adds up, that the van inventory account equals the stock on the vans, that the schedule P&L gives the same net income as the standard statement, and that funds, deposit applications, payroll IDs, the DTR, the clinic, maintenance mode and the Access Matrix behave as intended. The browser tests (43) cover sign-in privacy (no company list or dropdown, the chooser for multi-company users), every screen, the Access Matrix, favourites, the report viewer and the installable app.
 
 ---
 

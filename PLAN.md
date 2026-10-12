@@ -115,6 +115,7 @@
 
 | Rev | Date | Change |
 | :--- | :--- | :--- |
+| 6 | 2026-10-13 | Remaining legacy pages built in the project: Access Matrix for Group Access (every page and button per group; rights of forms Cloud AOS does not show are preserved), Favourites (`sys_mymenu`), Help & About, Maintenance Mode (`ng_settings`, replaces `App_Data/MainStat.txt` for Cloud AOS), Document Setup (`batbl.dloadstat`), Report Library (APReports, CashierReports, SD and FI report viewers), Deposit Application (`depapptbl`), Daily Sales Report for van / event sales, Salesman's and Sales Manager's workspace (`reqsohdrtbl` keyed by `sono`), Customer Tools (Excel update, salesman transfer, `qryreqttbl` customer-number requests), Payroll IDs (legacy numbering prefix + MMdd + MMddyy), DTR upload (`paydtrtbl`), Clinic (`ng_clinic_*`, the legacy page had no tables), FS schedules (P&L by schedule, cost of sales, expense schedules by cost-centre group, prior years' adjustments on `gljvdettbl.prioryradjt`) and Document Query corrections (logged in `updatetbl`). Transaction codes corrected: `84` and `85` are the DSR cash and charge invoices (ETCSI / ETCI, collected on ORs like `53`) and the return receipt is `88` (it was `84`). Section 7.2 gains `ng_settings`, `ng_dsr_amstock` and the clinic tables (`database/mysql/002_ng_modules.sql`). Appendix A gains `smnmtbl.smntype` and the `paydtrtbl` time-record columns. |
 | 5 | 2026-10-12 | Finance Core gaps closed in the project: Petty Cash / Revolving Fund vouchers (`CashDisb.aspx`, which had no server code in the legacy project), Fund Replenishment, CA Liquidation, Budget Monitoring and Edit Auto JV Entry. Transaction codes re-checked against the legacy source: JV is `00`, petty cash `40`, weekly expense report `41`, revolving fund `44`, payroll `45`, CA liquidation `46`, gas PO `48`, delivery order `30`, sales invoice `53`, bank deposit `64`. Appendix A gains `buddettbl.year`, `dateto`, `budamt` (BudgetMonitor.aspx.vb) and `venmasttbl.pcfcust` (FundRepl.aspx.vb). Visual identity updated (Section 6.1.0). |
 | 4 | 2026-10-12 | Plan applied to the project. The hosted preview is rebuilt as **Cloud AOS** on the legacy table and column names (Appendix A), with a sample-data driver and a MySQL driver for the client's databases. Sign-in no longer lists or names companies: the company comes from the account, and only users who belong to several companies get a chooser after signing in, limited to their own companies (Section 5.1). Each company has its own customised header at the top of the side menu, with no company dropdown (Section 6.2, `ng_company_branding` in Section 7.2). `SPRINTS_ROADMAP.md` rewritten to match Section 8. |
 | 3 | 2026-10-11 | REA verification of the compiled `bin/AOS100web.dll` (SHA-256 `80d663a6…39ae8`, assembly `AOS100web` 3.101.1.101, .NET Framework 4.6). Confirmed: 78 page classes + 7 master pages, the 23 pages with code only in the DLL, and 88 report templates (77 embedded + 16 on disk, 3 in both, 2 test templates excluded). Added `mmplnttbl` (187 tables). Corrected the code-availability note for `POreports.aspx` and recorded menu behaviour for Costing (040), Financial Reports (063) and the commented-out Chart of Accounts (051) / Cost Center (031) entries. Product name for the client: **Cloud AOS**. |
@@ -1785,6 +1786,38 @@ CREATE TABLE ng_company_branding (
 ) ENGINE=InnoDB;
 ```
 
+Second migration (`database/mysql/002_ng_modules.sql`), for the cross-module tools:
+
+```sql
+-- Company settings kept by Cloud AOS only; skey 'maintenance' holds the maintenance switch and message
+CREATE TABLE ng_settings (
+    ba          VARCHAR(10)  NOT NULL,                  -- = batbl.ba
+    skey        VARCHAR(50)  NOT NULL,
+    svalue      TEXT         NOT NULL,                  -- JSON
+    updated_by  VARCHAR(50)  NOT NULL,
+    updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (ba, skey)
+) ENGINE=InnoDB;
+
+-- Opening (AM) van stock of each daily sales report, so a closed report still shows it
+CREATE TABLE ng_dsr_amstock (
+    dsrno VARCHAR(30) NOT NULL, smnno VARCHAR(10) NOT NULL, codeno VARCHAR(30) NOT NULL,
+    qty DECIMAL(18,4) NOT NULL DEFAULT 0, wt DECIMAL(18,4) NOT NULL DEFAULT 0,
+    PRIMARY KEY (dsrno, codeno)
+) ENGINE=InnoDB;
+
+-- Clinic monitoring (ClinicMonitoring.aspx had no tables): supplies, consultations, supply movements
+CREATE TABLE ng_clinic_supply (code VARCHAR(10) PRIMARY KEY, name VARCHAR(120) NOT NULL, unit VARCHAR(20), kind VARCHAR(30), reorder DECIMAL(12,2), status VARCHAR(10)) ENGINE=InnoDB;
+CREATE TABLE ng_clinic_visit  (visitno VARCHAR(20) PRIMARY KEY, ba VARCHAR(10), transdate DATE, timein CHAR(5), ptype VARCHAR(30), empno VARCHAR(20), patient VARCHAR(120),
+                               ccno VARCHAR(10), complaint VARCHAR(200), bp VARCHAR(10), temp DECIMAL(4,1), pulse INT, diagnosis VARCHAR(300), treatment VARCHAR(300),
+                               disposition VARCHAR(30), restdays DECIMAL(4,1), returndate DATE, attendedby VARCHAR(80), status VARCHAR(10), voidreason VARCHAR(200),
+                               voidby VARCHAR(50), user VARCHAR(50), created_at DATETIME) ENGINE=InnoDB;
+CREATE TABLE ng_clinic_stock  (id BIGINT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(10), transdate DATE, qty DECIMAL(12,2), visitno VARCHAR(20), remarks VARCHAR(200),
+                               expiry DATE, user VARCHAR(50), created_at DATETIME) ENGINE=InnoDB;
+```
+
+Medical records in the clinic tables are opened only through form `088`, and the audit trail records the visit number, never the diagnosis.
+
 `JSON` columns need MySQL 5.7.8 or later; on an older server `before_json` / `after_json` become `LONGTEXT`. Optional enhancements (Section 3.3.2) that need new data, for example 13th-month accumulation or bank payroll export files, will add their own `ng_*` tables when approved.
 
 ## 7.3 NextGen Domain Model to Legacy Table Mapping
@@ -2035,7 +2068,7 @@ Columns recovered from the legacy code: `INSERT` / `UPDATE` statements, single-t
 - `saleshdrtbl`: arflag, arflagdate, arflaguser, basecodeno, bato, branch, codeno, currstat, custno, discamt, dmcmno, docno, doctype, dono, dsrno, dsrstat, fhamt, glstat, grossamt, invno, invstat, netamt, pc, postdate, postupdate, remarks, shipto, smnno, sp, status, sysver, tc, transdate, updateby, user, user2, vat, web
 - `saleshdrtbl_update`: branch, custno, discamt, docno, doctype, dono, dsrno, dsrstat, fhamt, glstat, grossamt, invno, netamt, otherbadoc, pc, postdate, postupdate, remarks, shipto, smnno, status, tc, transdate, updateby, updateid, user, vat
 - `shrinkreporttbl`: amqty, amstock, availablestck, codeno, description, doqty, dos, dsrno, pcnt, pmstock, qty, qty2, qty3, qty4, sales, shrinkage, smnno, transdate, user, varqty, wrr
-- `smnmtbl`: areano, custno, fullname, shrtname, smnno, status
+- `smnmtbl`: areano, custno, fullname, shrtname, smnno, smntype, status *(smntype 'Event' = van / event salesman, found in DailySalesReport.aspx.vb)*
 - `sodettbl`: codeno, discamt, issby, issdate, issqty, isswt, itmamt, itmno, netamt, prodreq, qtbal, qty, sloc, sono, sp, status, transid, um, wt, wtbal
 - `sohdrtbl`: apprdate, apprem, apprvdby, branch, custno, deldate, delstat, deposit, dsrno, invno, pdate, pdc, plntno, pono, remarks, shipto, smnno, soamt, sono, status, sysver, totar, transdate, user
 - `splpricetbl`: custno, sp
@@ -2090,7 +2123,7 @@ Columns recovered from the legacy code: `INSERT` / `UPDATE` statements, single-t
 - `payadjttbl`: adjtamt, branch, ccno, empno, id, paycodeno, payidno, pdate, taxopt, user, web
 - `paycommtbl`: empno, payidno
 - `paydeducttbl`: basictax, basictaxamt, branch, cashadvance, ccno, earnforcontn, ecc, empno, excesstaxamt, grossearn, hdmfexp, hdmfprem, idno, monyear, netpay, otdtaxable, otherdeduct, payidno, payseq, phprem, remarks, sssexp, sssprem, sysver, taxableamt, taxablegross, taxableupdate, taxdednfrearn, taxdue, taxrate, totaldeduct, transdate, user, web, year
-- `paydtrtbl`: empno, payidno, transdate
+- `paydtrtbl`: ccno, empno, eq_hrs_late, eq_hrs_ut, id, in_rem, inam, out_rem, outpm, payidno, shiftcode2, stdin, stdout, terminam, termoutpm, tot_late_hrs, tot_ut_hrs, transdate *(time-record columns found in Attendance.aspx.vb)*
 - `payearnmasttbl`: codeno, earndesc, type
 - `payearntbl`: absent_amt, absent_hrs, ba, branch, ca, cbond, ccno, comm_amt, elamt, elhrs, empno, extratime_amt, extratime_dhrs, hdmfhousloan, hdmfsalloan, holidayamt, holidayhrs, id, late_amt, late_dhrs, mealallow, nightdiffamt, nightdiffhrs, otataxable, otdtaxable, othearn_amt, othrleaveamt, othrleavehrs, otime_amt, otime_dhrs, payidno, rateperhr, ratereg, regtime_amt, regtime_dhrs, remarks, sl_amt, sl_dhrs, splotamt, splothrs, ssssalaryloan, taxablegross, telallow, totalearn, transdate, transpoallow, user, vl_amt, vl_dhrs, web, year
 - `payemployeetbl`: ccno, empno, empstat, firstname, lastname, paytype, venno

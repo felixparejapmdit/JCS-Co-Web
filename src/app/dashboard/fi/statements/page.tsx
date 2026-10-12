@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { Printer } from 'lucide-react';
+import { CosSchedule, ExpenseSchedules, PnlBySchedule, PriorYearAdjustments } from '@/components/reports/FsSchedules';
 import { useRpc } from '@/lib/api';
 import { monthName, today } from '@/shared/dates';
 import { fmtMoney } from '@/shared/money';
 import { RequireRight, useSession } from '@/components/shell/AppShell';
-import { Alert, Badge, Button, Card, PageHeader, Select, Spinner, cx } from '@/components/ui/kit';
+import { Alert, Badge, Button, Card, PageHeader, Select, Spinner, Tabs, cx } from '@/components/ui/kit';
 
 function Section({ title, rows, total, totalLabel }: { title: string; rows: any[]; total: number; totalLabel: string }) {
   return (
@@ -63,7 +64,9 @@ export default function StatementsPage() {
   const [year, setYear] = useState(Number(t.slice(0, 4)));
   const [month, setMonth] = useState(Number(t.slice(5, 7)));
   const [unposted, setUnposted] = useState(true);
+  const [tab, setTab] = useState('fs');
   const { data, loading, error } = useRpc<any>('report.fs', { year, month, includeUnposted: unposted });
+  const sch = useRpc<any>(tab === 'fs' ? null : 'report.fsSchedules', { year, month, includeUnposted: unposted }, [tab]);
   return (
     <RequireRight form="063">
       <PageHeader
@@ -84,7 +87,35 @@ export default function StatementsPage() {
           Include entries that are still waiting for JV posting (real-time view)
         </label>
       </PageHeader>
-      {loading && !data ? (
+      <div className="mb-5">
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { id: 'fs', label: 'Statements' },
+            { id: 'pnl', label: 'P&L by schedule' },
+            { id: 'cos', label: 'Cost of sales' },
+            { id: 'exp', label: 'Expense schedules' },
+            { id: 'pya', label: "Prior years' adjustments" },
+          ]}
+        />
+      </div>
+      {tab !== 'fs' ? (
+        sch.loading && !sch.data ? (
+          <Spinner />
+        ) : sch.error ? (
+          <Alert tone="danger">{sch.error}</Alert>
+        ) : (
+          sch.data && (
+            <div id="print-area">
+              {tab === 'pnl' && <PnlBySchedule d={sch.data} />}
+              {tab === 'cos' && <CosSchedule d={sch.data} />}
+              {tab === 'exp' && <ExpenseSchedules d={sch.data} />}
+              {tab === 'pya' && <PriorYearAdjustments d={sch.data} />}
+            </div>
+          )
+        )
+      ) : loading && !data ? (
         <Spinner />
       ) : error ? (
         <Alert tone="danger">{error}</Alert>

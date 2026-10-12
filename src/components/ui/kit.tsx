@@ -314,7 +314,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
             className={cx('flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-medium transition-all', active ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06] dark:bg-white/[0.1] dark:text-white dark:ring-white/[0.1]' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200')}
           >
             {Icon ? <Icon className="h-4 w-4" /> : null}
-            <span className="hidden sm:inline">{o.label}</span>
+            <span className={Icon ? 'hidden sm:inline' : undefined}>{o.label}</span>
           </button>
         );
       })}

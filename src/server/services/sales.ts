@@ -1,5 +1,5 @@
 import type { Db, Row } from '../db';
-import { ACTION, FORM, TC } from '@/shared/codes';
+import { ACTION, FORM, INVOICE_TCS, TC } from '@/shared/codes';
 import { addDays, today } from '@/shared/dates';
 import { fmtPeso, fmtQty, r2, r4, splitVat, sum } from '@/shared/money';
 import { Ctx, assertOpenPeriod, fail, need, nextDocNo, num, numberLines, str, yearPrefix } from './context';
@@ -8,7 +8,7 @@ import { GL, GlEntry, reverseGl, writeGl } from './gl';
 import { balanceOf } from './inventory';
 import { customerExposure } from './receivables';
 
-async function priceOf(db: Db, codeno: string): Promise<number> {
+export async function priceOf(db: Db, codeno: string): Promise<number> {
   const p = await db.one('plsttbl', { codeno });
   if (p) return num(p.currprc);
   const m = await db.one('mmasttbl', { codeno });
@@ -201,7 +201,7 @@ registerDoc(soService);
 // ===========================================================================
 // Sales invoices (SalesInvoice.aspx form 019, tc 62)
 // ===========================================================================
-function invoiceLine(l: Row, vatable: boolean) {
+export function invoiceLine(l: Row, vatable: boolean) {
   const qty = r4(num(l.qty));
   const sp = r4(num(l.sp));
   const gross = r2(qty * sp);
@@ -396,7 +396,7 @@ const siService: DocService = {
 registerDoc(siService);
 
 export async function salesRegister(ctx: Ctx, f: { from: string; to: string; groupBy: 'customer' | 'product' | 'invoice' }) {
-  const heads = await ctx.db.all('saleshdrtbl', { where: { tc: TC.SALES_INVOICE, status: 'Posted', transdate: { gte: f.from, lte: f.to } } });
+  const heads = await ctx.db.all('saleshdrtbl', { where: { tc: { in: INVOICE_TCS }, status: 'Posted', transdate: { gte: f.from, lte: f.to } } });
   const custs = await ctx.db.all('custmasttbl');
   const mats = await ctx.db.all('mmasttbl');
   if (f.groupBy === 'invoice') {

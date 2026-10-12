@@ -41,6 +41,8 @@ export const NAV: NavGroup[] = [
       { label: 'GL Reports', href: '/dashboard/fi/gl-reports', form: '052', keywords: 'trial balance ledger' },
       { label: 'Financial Statements', href: '/dashboard/fi/statements', form: '063', keywords: 'balance sheet income statement profit loss' },
       { label: 'Budget Monitoring', href: '/dashboard/fi/budget', form: '079', keywords: 'budget actual variance cost center' },
+      { label: 'GL Registers', href: '/dashboard/reports/gl', form: '052', keywords: 'gl transactions chart of accounts report viewer fireportviewer' },
+      { label: 'Document Query', href: '/dashboard/fi/doc-query', form: '052', keywords: 'docquery find document correct date customer vendor history' },
     ],
   },
   {
@@ -55,6 +57,7 @@ export const NAV: NavGroup[] = [
       { label: 'Fund Replenishment', href: '/dashboard/doc/fr', form: '028', keywords: 'replenish petty cash revolving fund' },
       { label: 'Cash Advance Liquidation', href: '/dashboard/doc/liq', form: '038', keywords: 'liquidation cash advance ca refund reimburse' },
       { label: 'A/P Aging', href: '/dashboard/fi/ap', form: '032', keywords: 'payables due' },
+      { label: 'A/P Reports', href: '/dashboard/reports/ap', form: '032', keywords: 'register payment monitoring expense query ewt apreports' },
       { label: 'Vendors', href: '/dashboard/master/vendors', form: '030', keywords: 'suppliers' },
     ],
   },
@@ -65,10 +68,12 @@ export const NAV: NavGroup[] = [
     items: [
       { label: 'Official Receipts', href: '/dashboard/doc/or', form: '010', keywords: 'collection payment or' },
       { label: 'CDCR & Bank Deposits', href: '/dashboard/fi/cdcr', form: '011', keywords: 'daily collection deposit' },
+      { label: 'Deposit Applications', href: '/dashboard/doc/da', form: '012', keywords: 'customer deposit advance payment unapplied depapp' },
       { label: 'Credit Memos', href: '/dashboard/doc/cm', form: '070', keywords: 'returns allowance' },
       { label: 'Debit Memos', href: '/dashboard/doc/dm', form: '013', keywords: 'charges' },
       { label: 'Customer 2307', href: '/dashboard/fi/cwt', form: '066', keywords: 'bir withholding certificate ewt' },
       { label: 'A/R Aging & Statements', href: '/dashboard/fi/ar', form: '014', keywords: 'receivables soa overdue' },
+      { label: "Cashier's Reports", href: '/dashboard/reports/ar', form: '047', keywords: 'collection register deposit summary cdcr cashierreports' },
     ],
   },
   {
@@ -78,8 +83,13 @@ export const NAV: NavGroup[] = [
     items: [
       { label: 'Sales Orders', href: '/dashboard/doc/so', form: '017', keywords: 'so order' },
       { label: 'Sales Invoices', href: '/dashboard/doc/si', form: '019', keywords: 'billing invoice' },
+      { label: 'Daily Sales Reports (Van)', href: '/dashboard/sd/dsr', form: '095', keywords: 'dsr van event sales etcsi etci am pm stock shrinkage' },
+      { label: "Salesman's Workspace", href: '/dashboard/sd/salesman', form: '076', keywords: 'my customers order request salesman module' },
+      { label: 'Order Requests', href: '/dashboard/sd/requests', form: '077', keywords: 'sales manager approve request' },
       { label: 'Sales Reports', href: '/dashboard/sd/reports', form: '017', keywords: 'register analysis' },
+      { label: 'Sales Registers', href: '/dashboard/reports/sd', form: '017', keywords: 'invoice register salesman area product open orders sdrepviewer' },
       { label: 'Customers', href: '/dashboard/master/customers', form: '020', keywords: 'clients credit limit' },
+      { label: 'Customer Tools', href: '/dashboard/sd/customer-tools', form: '020', keywords: 'excel upload bulk update transfer salesman customer request custmast' },
       { label: 'Price List', href: '/dashboard/master/priceList', form: '020', keywords: 'prices' },
       { label: 'Salesmen', href: '/dashboard/master/salesmen', form: '020' },
       { label: 'Sales Areas', href: '/dashboard/master/areas', form: '020' },
@@ -126,6 +136,9 @@ export const NAV: NavGroup[] = [
     items: [
       { label: 'Employees', href: '/dashboard/hr/employees', form: '100', keywords: 'staff personnel' },
       { label: 'Payroll', href: '/dashboard/hr/payroll', form: '204', keywords: 'attendance payslip sss philhealth pagibig tax' },
+      { label: 'Payroll IDs', href: '/dashboard/hr/payroll-ids', form: '204', keywords: 'payroll period cutoff open close payrollid' },
+      { label: 'DTR Upload', href: '/dashboard/hr/dtr', form: '301', keywords: 'biometric time keeping attendance late undertime absent' },
+      { label: 'Clinic', href: '/dashboard/hr/clinic', form: '088', keywords: 'nurse consultation medicine supplies sick clinicmonitoring' },
     ],
   },
   {
@@ -152,6 +165,8 @@ export const NAV: NavGroup[] = [
       { label: 'Approval Limits', href: '/dashboard/admin/limits', form: '045', keywords: 'authorization' },
       { label: 'Void Requests', href: '/dashboard/admin/voids', form: '003', keywords: 'cancel' },
       { label: 'Audit Trail', href: '/dashboard/admin/audit', form: '001', keywords: 'log history translog' },
+      { label: 'Document Setup', href: '/dashboard/admin/doc-setup', form: '001', keywords: 'numbering series docconfig upload download hold app' },
+      { label: 'Maintenance Mode', href: '/dashboard/admin/maintenance', form: '001', keywords: 'downtime server note offline' },
       { label: 'Chart of Accounts', href: '/dashboard/master/accounts', form: '052', keywords: 'gl accounts coa' },
       { label: 'Cost Centers', href: '/dashboard/master/costCenters', form: '052' },
       { label: 'Profit Centers', href: '/dashboard/master/profitCenters', form: '052' },

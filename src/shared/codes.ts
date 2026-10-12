@@ -17,6 +17,9 @@ export const FORM = {
   FUND_REPLENISHMENT: '028',
   CA_LIQUIDATION: '038', // legacy menu uses the JV Posting code for CA Liquidation
   CLINIC: '088',
+  EVENT_SALES: '095', // Daily / Event Sales Report (DSR)
+  SALESMAN: '076', // Salesman's Access
+  SALES_MANAGER: '077', // Sales Manager's Access
   PERIOD_CLOSING: '006',
   JOURNAL_VOUCHER: '052',
   JV_POSTING: '038',
@@ -76,7 +79,9 @@ export const TC = {
   SALES_INVOICE: '53', // charge sales invoice (saleshdrtbl)
   COLLECTION: '60',
   BANK_DEPOSIT: '64',
-  RETURN_IN: '84', // customer / salesman return (wrrhdrtbl)
+  EVENT_CASH_INVOICE: '84', // ETCSI: van / event cash sales invoice of a DSR (saleshdrtbl)
+  EVENT_CHARGE_INVOICE: '85', // ETCI: van / event charge invoice of a DSR (saleshdrtbl)
+  RETURN_IN: '88', // warehouse return receipt of a DSR (wrrhdrtbl, mov 409)
   CREDIT_MEMO: '90',
   DEBIT_MEMO: '92',
   ADJUSTMENT: '72', // inventory adjustment (invadjhdrtbl) - not found in legacy code, confirm
@@ -85,6 +90,9 @@ export const TC = {
   SALES_ORDER: '17', // not found in legacy code, confirm
 } as const;
 
+/** Invoice types collected on official receipts (legacy Collection.aspx: Case "53", "84", "85"). */
+export const INVOICE_TCS: string[] = [TC.SALES_INVOICE, TC.EVENT_CASH_INVOICE, TC.EVENT_CHARGE_INVOICE];
+
 /** Display names written to tccodestbl in the demo data. */
 export const TC_NAMES: Record<string, { module: string; document: string }> = {
   [TC.RECEIVING]: { module: 'MM', document: 'Material Receiving Report' },
@@ -92,6 +100,8 @@ export const TC_NAMES: Record<string, { module: string; document: string }> = {
   [TC.TRANSFER_IN]: { module: 'MM', document: 'Plant Transfer Receipt' },
   [TC.PROD_RECEIPT]: { module: 'MM', document: 'Production Receipt' },
   [TC.RETURN_IN]: { module: 'SD', document: 'Warehouse Return Receipt' },
+  [TC.EVENT_CASH_INVOICE]: { module: 'SD', document: 'Event Cash Sales Invoice (ETCSI)' },
+  [TC.EVENT_CHARGE_INVOICE]: { module: 'SD', document: 'Event Charge Invoice (ETCI)' },
   [TC.JOURNAL_VOUCHER]: { module: 'FI', document: 'Journal Voucher' },
   [TC.PETTY_CASH]: { module: 'FI', document: 'Petty Cash Fund Voucher' },
   [TC.WEEKLY_EXPENSE]: { module: 'FI', document: 'Weekly Expense Report' },
@@ -151,6 +161,9 @@ export const FORM_CATALOG: Array<{ code: string; description: string; group: str
   { code: '035', description: 'PO Processing', group: 'Purchasing' },
   { code: '036', description: 'PO Approval', group: 'Purchasing' },
   { code: '037', description: 'PO Reports', group: 'Purchasing' },
+  { code: '095', description: 'Event / Daily Sales Report (DSR)', group: 'Sales & Distribution' },
+  { code: '076', description: "Salesman's Access", group: 'Sales & Distribution' },
+  { code: '077', description: "Sales Manager's Access", group: 'Sales & Distribution' },
   { code: '033', description: 'Production Worksheet', group: 'Production & Costing' },
   { code: '040', description: 'Costing Module', group: 'Production & Costing' },
   { code: '059', description: 'COS vs ASP Analysis', group: 'Production & Costing' },
@@ -159,6 +172,7 @@ export const FORM_CATALOG: Array<{ code: string; description: string; group: str
   { code: '204', description: 'Payroll Processing - Monthly', group: 'HR & Payroll' },
   { code: '205', description: 'Payroll Processing - Weekly', group: 'HR & Payroll' },
   { code: '210', description: 'Payroll Adjustment', group: 'HR & Payroll' },
+  { code: '088', description: 'Clinic Monitoring', group: 'HR & Payroll' },
 ];
 
 /** Which document page opens for a GL entry of a given transaction code. */

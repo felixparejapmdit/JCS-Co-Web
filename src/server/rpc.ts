@@ -5,6 +5,15 @@ import { ACTION, FORM } from '@/shared/codes';
 import { Ctx, fail, requireRight } from './services/context';
 import { actOnDoc, docService, getDoc, saveDoc } from './services/docs';
 // Importing the services registers their document types.
+import * as dsr from './services/dsr';
+import * as salesman from './services/salesman';
+import * as customers from './services/customers';
+import * as clinic from './services/clinic';
+import * as fs from './services/fs';
+import * as docquery from './services/docquery';
+import * as reports from './services/reports';
+import './services/depapp';
+import * as system from './services/system';
 import * as gl from './services/gl';
 import * as masters from './services/masters';
 import * as inventory from './services/inventory';
@@ -24,6 +33,52 @@ type Handler = (ctx: Ctx, args: Row, s: Session) => Promise<unknown>;
 const ops: Record<string, Handler> = {
   // --- session ---------------------------------------------------------------
   'auth.session': async (_c, _a, s) => session.sessionInfo(s),
+  'dsr.list': (c, a) => dsr.dsrList(c, { status: a.status ? String(a.status) : undefined }),
+  'dsr.open': (c, a) => dsr.openDsr(c, a),
+  'dsr.get': (c, a) => dsr.dsrDetail(c, String(a.dsrno ?? '')),
+  'dsr.load': (c, a) => dsr.loadVan(c, String(a.dsrno ?? ''), a),
+  'dsr.invoice': (c, a) => dsr.dsrInvoice(c, String(a.dsrno ?? ''), a),
+  'dsr.voidInvoice': (c, a) => dsr.voidDsrInvoice(c, String(a.dsrno ?? ''), String(a.invno ?? '')),
+  'dsr.return': (c, a) => dsr.returnFromVan(c, String(a.dsrno ?? ''), a),
+  'dsr.count': (c, a) => dsr.saveCount(c, String(a.dsrno ?? ''), a),
+  'dsr.close': (c, a) => dsr.closeDsr(c, String(a.dsrno ?? ''), a),
+  'dsr.plantStock': (c, a) => dsr.plantStock(c, String(a.plntno ?? '')),
+  'salesman.workspace': (c, a) => salesman.salesmanWorkspace(c, String(a.smnno ?? '')),
+  'salesman.request': (c, a) => salesman.submitOrderRequest(c, a),
+  'salesman.cancel': (c, a) => salesman.cancelOrderRequest(c, String(a.reqno ?? '')),
+  'salesman.queue': (c) => salesman.managerQueue(c),
+  'salesman.decide': (c, a) => salesman.decideOrderRequest(c, a),
+  'cust.tools': (c) => customers.customerTools(c),
+  'cust.previewBulk': (c, a) => customers.previewBulkUpdate(c, (a.rows ?? []) as customers.BulkRow[], (a.defaults ?? {}) as customers.BulkRow),
+  'cust.applyBulk': (c, a) => customers.applyBulkUpdate(c, (a.rows ?? []) as customers.BulkRow[], (a.defaults ?? {}) as customers.BulkRow),
+  'cust.transfer': (c, a) => customers.transferCustomers(c, a),
+  'cust.request': (c, a) => customers.requestCustomer(c, a),
+  'cust.decideRequest': (c, a) => customers.decideCustomerRequest(c, a),
+  'pay.ids': (c) => payroll.payrollIds(c),
+  'pay.updateId': (c, a) => payroll.updatePayrollId(c, String(a.payidno ?? ''), a),
+  'pay.setIdStatus': (c, a) => payroll.setPayrollIdStatus(c, String(a.payidno ?? ''), String(a.status ?? '')),
+  'pay.deleteId': (c, a) => payroll.deletePayrollId(c, String(a.payidno ?? '')),
+  'dtr.preview': (c, a) => payroll.dtrPreview(c, String(a.payidno ?? ''), (a.rows ?? []) as Row[]),
+  'dtr.upload': (c, a) => payroll.uploadDtr(c, String(a.payidno ?? ''), (a.rows ?? []) as Row[]),
+  'dtr.summary': (c, a) => payroll.dtrSummary(c, String(a.payidno ?? '')),
+  'dtr.apply': (c, a) => payroll.applyDtr(c, String(a.payidno ?? '')),
+  'clinic.dashboard': (c) => clinic.clinicDashboard(c),
+  'clinic.saveVisit': (c, a) => clinic.saveVisit(c, a),
+  'clinic.voidVisit': (c, a) => clinic.voidVisit(c, String(a.visitno ?? ''), String(a.reason ?? '')),
+  'clinic.saveSupply': (c, a) => clinic.saveSupply(c, a),
+  'clinic.receive': (c, a) => clinic.receiveSupply(c, a),
+  'clinic.report': (c, a) => clinic.clinicReport(c, String(a.from ?? ''), String(a.to ?? '')),
+  'report.fsSchedules': (c, a) => fs.fsSchedules(c, { year: Number(a.year), month: Number(a.month), includeUnposted: Boolean(a.includeUnposted) }),
+  'dq.search': (c, a) => docquery.queryDocuments(c, String(a.q ?? '')),
+  'dq.info': (c, a) => docquery.correctionInfo(c, String(a.type ?? ''), String(a.no ?? '')),
+  'dq.correct': (c, a) => docquery.applyCorrection(c, a),
+  'report.catalog': (c) => reports.reportCatalog(c),
+  'report.run': (c, a) => reports.runReport(c, String(a.id ?? ''), (a.params ?? {}) as Record<string, unknown>),
+  'system.favToggle': (c, a) => system.toggleFavourite(c, String(a.href ?? '')),
+  'system.maintenance': (c) => system.maintenancePage(c),
+  'system.setMaintenance': (c, a) => system.setMaintenance(c, a),
+  'system.docSetup': (c) => system.docSetup(c),
+  'system.setDownload': (c, a) => system.setDownloadHold(c, Boolean(a.hold)),
   'auth.changePassword': (c, a) => admin.changePassword(c, String(a.current ?? ''), String(a.next ?? '')),
 
   // --- documents (generic) -----------------------------------------------------
@@ -195,6 +250,7 @@ const ops: Record<string, Handler> = {
   'admin.resetUser': (c, a) => admin.resetUser(c, String(a.username)),
   'admin.groups': (c) => admin.groupsWithRights(c),
   'admin.saveGroup': (c, a) => admin.saveGroupRights(c, String(a.group), (a.rights ?? {}) as Record<string, number[]>, a.info as never),
+  'admin.saveMatrix': (c, a) => admin.saveAccessMatrix(c, (a.changes ?? {}) as Record<string, Record<string, number[]>>),
   'admin.limits': (c) => admin.approvalLimits(c),
   'admin.saveLimit': (c, a) => admin.saveApprovalLimit(c, a),
   'admin.voids': (c) => admin.listVoidRequests(c),
@@ -212,11 +268,15 @@ const ops: Record<string, Handler> = {
   },
 };
 
+/** Operations that still work while the company is in maintenance (the shell shows the notice). */
+const OPEN_IN_MAINTENANCE = new Set(['auth.session']);
+
 export async function runOp(op: string, args: Row, s: Session, ip?: string): Promise<unknown> {
   const handler = ops[op];
   if (!handler) fail(`Unknown operation: ${op}`, 404);
   const db = await getDb(s.ba);
   const ctx: Ctx = { db, ba: s.ba, user: s.u, fullName: s.n, group: s.g, ip };
+  if (!OPEN_IN_MAINTENANCE.has(op)) await system.guardMaintenance(db, s.g);
   return handler(ctx, args ?? {}, s);
 }
 

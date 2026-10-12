@@ -1,3 +1,4 @@
+import { bypassesMaintenance, favourites, maintenance, maintenanceText } from './system';
 import type { Db } from '../db';
 import { companies, getDb } from '../db';
 import { nowStamp } from '@/shared/dates';
@@ -63,6 +64,7 @@ export interface LoginResult {
   choose?: { ba: string; name: string }[];
   error?: string;
   locked?: boolean;
+  maintenance?: boolean;
 }
 
 /**
@@ -92,6 +94,9 @@ export async function signIn(usernameRaw: string, password: string, chosenBa?: s
   }
   const pick = chosenBa ? matched.find((m) => m.ba === chosenBa) : matched.length === 1 ? matched[0] : undefined;
   if (!pick) return { choose: matched.map((m) => ({ ba: m.ba, name: m.name })) };
+  const pdb = await getDb(pick.ba);
+  const m = await maintenance(pdb);
+  if (m.on && !(await bypassesMaintenance(pdb, pick.group))) return { error: `Under maintenance: ${maintenanceText(m)}`, maintenance: true };
   return { session: { u: username, n: pick.fullName, g: pick.group, ba: pick.ba, cos: matched.map((m) => m.ba) } };
 }
 
@@ -109,6 +114,7 @@ export async function sessionInfo(s: Session) {
     others.push({ ba, name: b.display_name });
   }
   const cred = await db.one('ng_user_credentials', { username: s.u });
+  const m = await maintenance(db);
   return {
     user: { username: s.u, fullName: s.n, group: s.g, groupName: group?.ug_name ?? s.g },
     company: branding,
@@ -119,6 +125,8 @@ export async function sessionInfo(s: Session) {
     mode: db.mode,
     mustChangePassword: false,
     passwordUpgraded: Boolean(cred),
+    favourites: await favourites(db, s.u, s.g),
+    maintenance: { on: m.on, message: maintenanceText(m), bypass: m.on ? await bypassesMaintenance(db, s.g) : false },
   };
 }
 
