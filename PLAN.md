@@ -115,6 +115,7 @@
 
 | Rev | Date | Change |
 | :--- | :--- | :--- |
+| 5 | 2026-10-12 | Finance Core gaps closed in the project: Petty Cash / Revolving Fund vouchers (`CashDisb.aspx`, which had no server code in the legacy project), Fund Replenishment, CA Liquidation, Budget Monitoring and Edit Auto JV Entry. Transaction codes re-checked against the legacy source: JV is `00`, petty cash `40`, weekly expense report `41`, revolving fund `44`, payroll `45`, CA liquidation `46`, gas PO `48`, delivery order `30`, sales invoice `53`, bank deposit `64`. Appendix A gains `buddettbl.year`, `dateto`, `budamt` (BudgetMonitor.aspx.vb) and `venmasttbl.pcfcust` (FundRepl.aspx.vb). Visual identity updated (Section 6.1.0). |
 | 4 | 2026-10-12 | Plan applied to the project. The hosted preview is rebuilt as **Cloud AOS** on the legacy table and column names (Appendix A), with a sample-data driver and a MySQL driver for the client's databases. Sign-in no longer lists or names companies: the company comes from the account, and only users who belong to several companies get a chooser after signing in, limited to their own companies (Section 5.1). Each company has its own customised header at the top of the side menu, with no company dropdown (Section 6.2, `ng_company_branding` in Section 7.2). `SPRINTS_ROADMAP.md` rewritten to match Section 8. |
 | 3 | 2026-10-11 | REA verification of the compiled `bin/AOS100web.dll` (SHA-256 `80d663a6…39ae8`, assembly `AOS100web` 3.101.1.101, .NET Framework 4.6). Confirmed: 78 page classes + 7 master pages, the 23 pages with code only in the DLL, and 88 report templates (77 embedded + 16 on disk, 3 in both, 2 test templates excluded). Added `mmplnttbl` (187 tables). Corrected the code-availability note for `POreports.aspx` and recorded menu behaviour for Costing (040), Financial Reports (063) and the commented-out Chart of Accounts (051) / Cost Center (031) entries. Product name for the client: **Cloud AOS**. |
 | 2 | 2026-10-08 | Aligned with `PresentationNew.MD`: existing MySQL database retained (PostgreSQL migration and ETL removed); phased side-by-side rollout replaces the 30-day migration cutover. Table catalog rebuilt from the full code base and compiled DLL (186 tables; 10 tables that did not exist removed). Complete form inventory added (78 pages, 7 master pages, 88 printed forms, menu placeholders). Database credentials removed from this document. |
@@ -1418,6 +1419,12 @@ graph TD
 
 ## 6.1 Design System & Visual Identity ("FinTech Precision")
 
+### 6.1.0 Cloud AOS Visual Identity (current)
+Premium, developer-focused and frictionless. This supersedes the palette below where they differ.
+* **Theme:** deep dark mode (true black `#000` with deep slate grays) and a light mode (`#f3f4f7`), both with neon accents: **Electric Blue** (`brand-500 #2f7fff`) and **Emerald Green** (`#10b981`, neon `#19e6a0`).
+* **Liquid Glass:** macOS-inspired surfaces for cards, the side menu, the top bar, menus and dialogs: translucent fill, `backdrop-blur-2xl`, ultra-thin semi-transparent borders (`black/6%`, `white/8%`) and a soft ambient blue / emerald glow behind the app. Typeface: Geist Sans and Geist Mono (self-hosted).
+* **Layout:** an elastic, responsive grid of Notion-style blocks. Lists, document lines, pickers and reports are interactive cards instead of cluttered tables; a Cards / List switch keeps a compact list for users who scan many rows. Printed forms keep their document layout.
+
 ### 6.1.1 Aesthetic Philosophy
 The visual identity of AOS100 NextGen is **FinTech Precision**: a purpose-built, high-density corporate aesthetic engineered for accounting, treasury, and inventory personnel who spend 8+ hours a day in data grids. It emphasizes high information density, strict tabular alignment, clear typographic hierarchy, and instant error detection.
 
@@ -1770,7 +1777,7 @@ CREATE TABLE ng_company_branding (
     display_name  VARCHAR(100) NOT NULL,
     tagline       VARCHAR(80)  NULL,
     logo_text     VARCHAR(3)   NULL,                   -- initials shown when there is no logo
-    accent        CHAR(7)      NOT NULL DEFAULT '#0d9488',
+    accent        CHAR(7)      NOT NULL DEFAULT '#2f7fff',
     logo_data     MEDIUMTEXT   NULL,                   -- data: URI, PNG / JPG / SVG / WebP under 200 KB
     show_code     CHAR(1)      NOT NULL DEFAULT 'Y',   -- show the BA chip and open period
     updated_by    VARCHAR(50)  NOT NULL,
@@ -1973,7 +1980,7 @@ Columns recovered from the legacy code: `INSERT` / `UPDATE` statements, single-t
 **General Ledger, Controlling & Period Control**
 
 - `acctcharttbl`: acctdesc, acctno, acctno2, acctnopre, baxchrgs, cv, invcos, pc, subacct, taxitm, upperacct
-- `buddettbl`: acctno, ccno, currstat, datefr
+- `buddettbl`: acctno, budamt, ccno, currstat, datefr, dateto, year *(budamt, dateto and year found in BudgetMonitor.aspx.vb)*
 - `cctrnotbl`: acctnopre, amt, attsource, ba, branch, brcode, budccno, ccdesc, ccdesc2, ccno, ccno2, ccnogrp, cosexp, currstat, empno, paycodeno, payidno, prodgrp
 - `gljvdettbl`: acctno, ccno, cos, cramt, cv, dramt, entrytype, id, itmno, jvno, pc, pk, prioryradjt, sourcedoc, status, subacct, transmon, transyear, user, yearend
 - `gljvdettbl_update`: acctno, astag, astagdate, astaguser, ccno, cos, cramt, cv, dramt, entrytype, itmno, jvno, jvno2, pc, pk, prioryradjt, sourcedoc, status, subacct, subaccttype, transmon, transyear, updateby, updatedate, user, vatstat, voidtransid, yearend
@@ -1996,7 +2003,7 @@ Columns recovered from the legacy code: `INSERT` / `UPDATE` statements, single-t
 - `exphdrtbl`: amortamt, auditby, ba, bato, branch, branchto, caend, caseq, castart, caterms, cvby, cvdate, cvno, cvstat, dateaudit, datechange, datefr, datepost, dateto, dept, docamt, docno, forliq, invdate, liqstat, mmrrno, parkdate, pono, postedby, recur, refdoc, reflabel, remarks, replno, reprtcounter, status, tc, transdate, updateby, user, venno, vpbals, vpno2, web, webapp
 - `fundrepltbl`: ba, branch, changeby, docnofr, docnoto, postingdate, remarks, replno, status, tc, totalamt, transdate, user, venno, vpno
 - `subdoctbl`: grpdoc
-- `venmasttbl`: address, address2, branch, cgtype, chname, conper, cotype, custno, custven, datechange, docno, emailadd, ewtcode, headcash, mmrrreq, poreq, status, telno, terms, tin, tin2, tin3, tin4, updateby, user, vat, venname, venno, ventype, ventype2, whtax, zip1, zip2
+- `venmasttbl`: address, address2, branch, cgtype, chname, conper, cotype, custno, custven, datechange, docno, emailadd, ewtcode, headcash, mmrrreq, pcfcust, poreq, status, telno, terms, tin, tin2, tin3, tin4, updateby, user, vat, venname, venno, ventype, ventype2, whtax, zip1, zip2 *(pcfcust = fund custodian flag, found in FundRepl.aspx.vb)*
 - `view_exphdr`: docno, tc
 
 **Cashiering, Collections & Receivables**

@@ -6,7 +6,7 @@ import { rpc, useRpc } from '@/lib/api';
 import { ClientHeader, RequireRight, useSession } from '@/components/shell/AppShell';
 import { Alert, Button, Card, Field, Input, Modal, PageHeader, Select, Spinner, useToast } from '@/components/ui/kit';
 
-const SWATCHES = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#dc2626', '#d97706', '#16a34a', '#0f172a'];
+const SWATCHES = ['#2f7fff', '#10b981', '#0d9488', '#7c3aed', '#db2777', '#dc2626', '#d97706', '#0f172a'];
 
 export default function CompanyPage() {
   const toast = useToast();
@@ -107,13 +107,13 @@ export default function CompanyPage() {
                       {SWATCHES.map((c) => (
                         <button key={c} type="button" disabled={!editable} onClick={() => set('accent', c)} className={`h-8 w-8 rounded-full ring-offset-2 ring-offset-white dark:ring-offset-[#111a2e] ${form.accent === c ? 'ring-2 ring-slate-900 dark:ring-white' : ''}`} style={{ background: c }} aria-label={`Use color ${c}`} />
                       ))}
-                      <input type="color" value={form.accent} disabled={!editable} onChange={(e) => set('accent', e.target.value)} className="h-8 w-12 cursor-pointer rounded border border-slate-300 bg-transparent dark:border-[#2a3a5c]" aria-label="Custom color" />
+                      <input type="color" value={form.accent} disabled={!editable} onChange={(e) => set('accent', e.target.value)} className="h-8 w-12 cursor-pointer rounded border border-black/[0.1] bg-transparent dark:border-white/[0.1]" aria-label="Custom color" />
                       <span className="font-mono text-xs text-slate-500">{form.accent}</span>
                     </div>
                   </Field>
                   <Field label="Logo" hint="PNG, JPG, SVG or WebP under 200 KB. Square images look best." className="sm:col-span-2">
                     <div className="flex flex-wrap items-center gap-3">
-                      <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:border-[#2a3a5c] dark:hover:bg-white/5 ${!editable ? 'pointer-events-none opacity-60' : ''}`}>
+                      <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border border-black/[0.1] px-3 py-2 text-sm font-medium hover:bg-black/[0.04] dark:border-white/[0.1] dark:hover:bg-white/5 ${!editable ? 'pointer-events-none opacity-60' : ''}`}>
                         <Upload className="h-4 w-4" /> Choose logo
                         <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="hidden" onChange={(e) => onLogo(e.target.files?.[0])} />
                       </label>
@@ -161,11 +161,11 @@ export default function CompanyPage() {
             </div>
             <div className="xl:sticky xl:top-24 xl:self-start">
               <Card title="Live preview">
-                <div className="overflow-hidden rounded-xl bg-[#0b1f3a] shadow-lg">
+                <div className="glass overflow-hidden rounded-3xl">
                   <ClientHeader b={{ ...form, ba: info.company.ba }} period={form.show_code === 'Y' ? info.openPeriod : undefined} />
                   <div className="space-y-1 px-3 py-3">
                     {['Home', 'General Ledger', 'Payables', 'Inventory & Plants'].map((l, i) => (
-                      <div key={l} className={`rounded-lg px-3 py-2 text-sm ${i === 0 ? 'bg-white/10 text-white' : 'text-slate-300'}`}>
+                      <div key={l} className={`rounded-xl px-3 py-2 text-sm ${i === 0 ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'text-slate-600 dark:text-slate-300'}`}>
                         {l}
                       </div>
                     ))}

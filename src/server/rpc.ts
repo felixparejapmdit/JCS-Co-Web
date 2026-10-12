@@ -13,6 +13,8 @@ import * as sales from './services/sales';
 import * as ar from './services/receivables';
 import * as ap from './services/payables';
 import * as payroll from './services/payroll';
+import * as funds from './services/funds';
+import * as budget from './services/budget';
 import * as production from './services/production';
 import * as admin from './services/admin';
 import * as session from './services/session';
@@ -51,6 +53,7 @@ const ops: Record<string, Handler> = {
     return svc.prefill(c, String(a.source), String(a.no));
   },
   'doc.save': (c, a) => saveDoc(c, String(a.type), (a.input ?? {}) as Row),
+  'doc.summary': (c, a) => funds.fundSummary(c, String(a.type)),
   'doc.act': (c, a) => actOnDoc(c, String(a.type), String(a.no), String(a.action), (a.payload ?? {}) as Row),
 
   // --- master data -------------------------------------------------------------
@@ -80,6 +83,19 @@ const ops: Record<string, Handler> = {
     await requireRight(c, FORM.JV_POSTING, ACTION.RELEASE, 'post journal entries');
     return c.db.tx((db) => gl.postOpenEntries({ ...c, db }, String(a.upTo)));
   },
+  'jvedit.list': async (c, a) => {
+    await requireRight(c, FORM.JOURNAL_VOUCHER, ACTION.VIEW, 'view automatic JV entries');
+    return gl.jvEditList(c, { from: a.from ? String(a.from) : undefined, to: a.to ? String(a.to) : undefined, source: a.source ? String(a.source) : undefined });
+  },
+  'jvedit.load': async (c, a) => {
+    await requireRight(c, FORM.JOURNAL_VOUCHER, ACTION.VIEW, 'view automatic JV entries');
+    return gl.jvEditLoad(c, String(a.tc), String(a.docno));
+  },
+  'jvedit.save': (c, a) => gl.jvEditSave(c, a),
+  'budget.periods': (c) => budget.budgetPeriods(c),
+  'budget.monitor': (c, a) => budget.budgetMonitor(c, String(a.datefr ?? ''), String(a.dateto ?? '')),
+  'budget.detail': (c, a) => budget.budgetDetail(c, String(a.datefr), String(a.dateto), String(a.ccno), String(a.acctno)),
+  'budget.save': (c, a) => budget.saveBudget(c, a),
   'report.trialBalance': async (c, a) => {
     await requireRight(c, FORM.GL_REPORTS, ACTION.VIEW, 'view GL reports');
     return gl.trialBalance(c, { asOf: String(a.asOf), includeUnposted: Boolean(a.includeUnposted) });
@@ -134,6 +150,14 @@ const ops: Record<string, Handler> = {
     return ap.openVouchers(c.db, String(a.venno));
   },
   'ap.preview': async (c, a) => ap.computeVoucher(c.db, (a.lines ?? []) as Row[]),
+  'fund.openVouchers': async (c, a) => {
+    await requireRight(c, FORM.FUND_REPLENISHMENT, ACTION.VIEW, 'view fund replenishments');
+    return funds.openFundVouchers(c, String(a.tc), String(a.user ?? c.user), String(a.replno ?? ''));
+  },
+  'fund.custodians': async (c, a) => {
+    await requireRight(c, FORM.FUND_REPLENISHMENT, ACTION.VIEW, 'view fund replenishments');
+    return funds.fundCustodians(c, String(a.tc));
+  },
   'ap.aging': (c, a) => ap.apAging(c, a.asOf ? String(a.asOf) : undefined),
   'cv.printed': async (c, a) => {
     await requireRight(c, FORM.CHECK_VOUCHER, ACTION.VIEW, 'print cheques');

@@ -61,7 +61,7 @@ export default function CwtPage() {
               columns={[
                 { key: 'transdate', header: 'Paid on', render: (r) => fmtDate(r.transdate) },
                 { key: 'bussname', header: 'Customer' },
-                { key: 'orno', header: 'OR', render: (r) => <Link href={`/dashboard/doc/or/${encodeURIComponent(r.orno)}`} className="font-mono text-[13px] text-teal-700 hover:underline dark:text-teal-400">{r.orno}</Link> },
+                { key: 'orno', header: 'OR', render: (r) => <Link href={`/dashboard/doc/or/${encodeURIComponent(r.orno)}`} className="font-mono text-[13px] text-brand-700 hover:underline dark:text-brand-400">{r.orno}</Link> },
                 { key: 'invno', header: 'Invoice', hideOnMobile: true },
                 { key: 'quarter', header: 'Quarter', hideOnMobile: true, render: (r) => `Q${r.quarter}` },
                 { key: 'ewt', header: 'Tax withheld', align: 'right', render: (r) => fmtMoney(r.ewt) },
@@ -71,7 +71,7 @@ export default function CwtPage() {
                   render: (r) =>
                     can('066', 2) ? (
                       <label className="flex items-center gap-2">
-                        <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={r.received} onChange={() => toggle(r)} />
+                        <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={r.received} onChange={() => toggle(r)} />
                         {r.received ? <Badge tone="success">Received</Badge> : <Badge tone="warning">Missing</Badge>}
                       </label>
                     ) : r.received ? (

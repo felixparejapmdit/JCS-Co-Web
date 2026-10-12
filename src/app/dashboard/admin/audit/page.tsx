@@ -17,7 +17,7 @@ export default function AuditPage() {
     <RequireRight form="001">
       <PageHeader title="Audit Trail" description="Who did what, when and on which document. Every save, approval, posting, void and print is recorded, in the legacy translog and with before/after snapshots." />
       <Card padded={false}>
-        <div className="grid gap-3 border-b border-slate-100 p-4 dark:border-[#1e2a44] md:grid-cols-4">
+        <div className="grid gap-3 border-b border-slate-100 p-4 dark:border-white/[0.07] md:grid-cols-4">
           <SearchInput value={q} onChange={setQ} placeholder="Document or action…" />
           <Combobox lookup="users" value={user} onChange={setUser} placeholder="Any user" />
           <Field>

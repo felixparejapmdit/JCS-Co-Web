@@ -18,14 +18,18 @@ test.describe('Installable app (PWA)', () => {
     expect(response.status()).toBe(200);
     const text = await response.text();
     expect(text).toContain('Cloud AOS Service Worker');
-    expect(text).toContain('/offline');
+    expect(text).toContain('/offline.html');
   });
 
-  test('renders the offline page', async ({ page }) => {
-    await page.goto('/offline');
-    await expect(page.getByRole('heading', { name: /offline/i })).toBeVisible();
+  test('renders the self-contained offline page', async ({ page }) => {
+    const scripts: string[] = [];
+    page.on('request', (r) => r.resourceType() === 'script' && scripts.push(r.url()));
+    await page.goto('/offline.html');
+    await expect(page.getByRole('heading', { name: /Cannot reach Cloud AOS/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Try again/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /Go to Home/i })).toBeVisible();
+    // It must work with the server down, so it may not depend on any downloaded script.
+    expect(scripts).toEqual([]);
   });
 
   test('serves the app icons', async ({ request }) => {

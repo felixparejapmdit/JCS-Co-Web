@@ -1,7 +1,8 @@
 // Legacy permission form codes (checked with IsAllowed(group, form, action) against
 // sys_usergrouprights) and transaction codes (tc) written on documents. Form codes come
-// from the legacy menus (PLAN.md section 2.7). Transaction codes follow the values seen in
-// the legacy code; confirm them against the client's tccodestbl during Phase 1.
+// from the legacy menus (PLAN.md section 2.7). Transaction codes come from the legacy VB
+// source (DocQuery, FundRepl, JournalVoucher, APReports, BudgetMonitor, DeliveryOrder,
+// Collection); the few marked "not found" must be confirmed against tccodestbl in Phase 1.
 
 export const ACTION = { VIEW: 1, EDIT: 2, INSERT: 3, DELETE: 4, RELEASE: 5 } as const;
 export type ActionNo = (typeof ACTION)[keyof typeof ACTION];
@@ -12,6 +13,9 @@ export const FORM = {
   GROUP_ACCESS: '002',
   VOID: '003',
   AUTH_CONFIG: '045',
+  PETTY_CASH: '026',
+  FUND_REPLENISHMENT: '028',
+  CA_LIQUIDATION: '038', // legacy menu uses the JV Posting code for CA Liquidation
   CLINIC: '088',
   PERIOD_CLOSING: '006',
   JOURNAL_VOUCHER: '052',
@@ -56,25 +60,29 @@ export const FORM = {
 } as const;
 
 export const TC = {
+  JOURNAL_VOUCHER: '00', // DocQuery "Journal Voucher"
   RECEIVING: '10', // MMRR / goods receipt (invhdrtbl)
   OPENING: '11', // opening stock entry (demo data only)
-  TRANSFER_IN: '20', // plant transfer receipt (invhdrtbl)
-  PROD_RECEIPT: '30', // finished goods from production (invhdrtbl)
-  RETURN_IN: '84', // customer / salesman return (wrrhdrtbl)
-  JOURNAL_VOUCHER: '40',
-  CASH_ADVANCE: '41',
+  TRANSFER_IN: '20', // plant transfer receipt (invhdrtbl); legacy also uses 20 on production inputs - confirm
+  DELIVERY: '30', // DocQuery "Delivery Order" (isshdrtbl)
+  PROD_RECEIPT: '31', // finished goods from production (invhdrtbl, mov 801) - not found in legacy code, confirm
+  PETTY_CASH: '40', // Petty Cash Fund voucher (exphdrtbl)
+  WEEKLY_EXPENSE: '41', // Weekly Expense Report (exphdrtbl)
   VOUCHER_PAYABLE: '42',
   CHECK_VOUCHER: '43',
-  DELIVERY: '53', // issuance / delivery order (isshdrtbl)
+  REVOLVING_FUND: '44', // Revolving Fund voucher (exphdrtbl)
+  PAYROLL: '45', // payroll GL entries (BudgetMonitor)
+  CA_LIQUIDATION: '46', // cash advance liquidation (exphdrtbl)
+  SALES_INVOICE: '53', // charge sales invoice (saleshdrtbl)
   COLLECTION: '60',
-  SALES_INVOICE: '62',
+  BANK_DEPOSIT: '64',
+  RETURN_IN: '84', // customer / salesman return (wrrhdrtbl)
   CREDIT_MEMO: '90',
   DEBIT_MEMO: '92',
-  ADJUSTMENT: '72', // inventory adjustment (invadjhdrtbl)
-  PAYROLL: '88',
-  REQUISITION: '54',
-  PURCHASE_ORDER: '35',
-  SALES_ORDER: '17',
+  ADJUSTMENT: '72', // inventory adjustment (invadjhdrtbl) - not found in legacy code, confirm
+  REQUISITION: '54', // not found in legacy code, confirm
+  PURCHASE_ORDER: '35', // not found in legacy code, confirm
+  SALES_ORDER: '17', // not found in legacy code, confirm
 } as const;
 
 /** Display names written to tccodestbl in the demo data. */
@@ -85,7 +93,11 @@ export const TC_NAMES: Record<string, { module: string; document: string }> = {
   [TC.PROD_RECEIPT]: { module: 'MM', document: 'Production Receipt' },
   [TC.RETURN_IN]: { module: 'SD', document: 'Warehouse Return Receipt' },
   [TC.JOURNAL_VOUCHER]: { module: 'FI', document: 'Journal Voucher' },
-  [TC.CASH_ADVANCE]: { module: 'FI', document: 'Cash Advance' },
+  [TC.PETTY_CASH]: { module: 'FI', document: 'Petty Cash Fund Voucher' },
+  [TC.WEEKLY_EXPENSE]: { module: 'FI', document: 'Weekly Expense Report' },
+  [TC.REVOLVING_FUND]: { module: 'FI', document: 'Revolving Fund Voucher' },
+  [TC.CA_LIQUIDATION]: { module: 'FI', document: 'Cash Advance Liquidation' },
+  [TC.BANK_DEPOSIT]: { module: 'FI', document: 'Bank Deposit' },
   [TC.VOUCHER_PAYABLE]: { module: 'FI', document: 'Voucher Payable' },
   [TC.CHECK_VOUCHER]: { module: 'FI', document: 'Check Voucher' },
   [TC.DELIVERY]: { module: 'MM', document: 'Delivery Order / Issuance' },
@@ -106,9 +118,11 @@ export const FORM_CATALOG: Array<{ code: string; description: string; group: str
   { code: '002', description: 'Group Access', group: 'Administration' },
   { code: '003', description: 'Void Request / Void Approval', group: 'Administration' },
   { code: '045', description: 'Authorization Configuration', group: 'Administration' },
+  { code: '026', description: 'Petty Cash / Revolving Fund Voucher', group: 'Payables' },
+  { code: '028', description: 'Fund Replenishment', group: 'Payables' },
   { code: '006', description: 'Period Closing', group: 'General Ledger' },
   { code: '052', description: 'Journal Voucher / GL Reports', group: 'General Ledger' },
-  { code: '038', description: 'JV Posting', group: 'General Ledger' },
+  { code: '038', description: 'JV Posting / CA Liquidation', group: 'General Ledger' },
   { code: '063', description: 'Financial Reports', group: 'General Ledger' },
   { code: '079', description: 'Budget Monitoring', group: 'General Ledger' },
   { code: '030', description: 'Vendor Master', group: 'Payables' },
@@ -146,6 +160,24 @@ export const FORM_CATALOG: Array<{ code: string; description: string; group: str
   { code: '205', description: 'Payroll Processing - Weekly', group: 'HR & Payroll' },
   { code: '210', description: 'Payroll Adjustment', group: 'HR & Payroll' },
 ];
+
+/** Which document page opens for a GL entry of a given transaction code. */
+export const TC_DOC: Record<string, string> = {
+  [TC.JOURNAL_VOUCHER]: 'jv',
+  [TC.RECEIVING]: 'mmrr',
+  [TC.DELIVERY]: 'do',
+  [TC.PROD_RECEIPT]: 'prod',
+  [TC.PETTY_CASH]: 'pcv',
+  [TC.REVOLVING_FUND]: 'rfv',
+  [TC.VOUCHER_PAYABLE]: 'vp',
+  [TC.CHECK_VOUCHER]: 'cv',
+  [TC.CA_LIQUIDATION]: 'liq',
+  [TC.SALES_INVOICE]: 'si',
+  [TC.COLLECTION]: 'or',
+  [TC.CREDIT_MEMO]: 'cm',
+  [TC.DEBIT_MEMO]: 'dm',
+  [TC.ADJUSTMENT]: 'adj',
+};
 
 export type StatusTone = 'neutral' | 'info' | 'warning' | 'success' | 'danger' | 'accent';
 

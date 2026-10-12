@@ -179,30 +179,18 @@ export default function CdcrPage() {
 
       <Modal open={Boolean(open)} onClose={() => setOpen(null)} title={`CDCR ${open?.cdcrno ?? ''}`} description={open ? `${fmtDate(open.transdate)} · prepared by ${open.headcash}` : ''} size="lg">
         {open && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-[#24324f]">
-                <th className="py-2">OR no.</th>
-                <th className="py-2">Customer</th>
-                <th className="py-2">Tender</th>
-                <th className="py-2 text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-[#1a2540]">
-              {open.receipts.map((r: any) => (
-                <tr key={r.orno}>
-                  <td className="py-2">
-                    <Link href={`/dashboard/doc/or/${encodeURIComponent(r.orno)}`} className="font-mono text-xs text-teal-700 hover:underline dark:text-teal-400">
-                      {r.orno}
-                    </Link>
-                  </td>
-                  <td className="py-2">{r.bussname}</td>
-                  <td className="py-2">{r.coltype === 'Check' ? `${r.bank} #${r.chno}` : r.coltype}</td>
-                  <td className="py-2 text-right tabular-nums">{fmtMoney(r.colamt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {open.receipts.map((r: any) => (
+              <Link key={r.orno} href={`/dashboard/doc/or/${encodeURIComponent(r.orno)}`} className="tile-interactive flex items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="font-mono text-xs font-semibold text-slate-900 dark:text-white">{r.orno}</div>
+                  <div className="truncate text-sm text-slate-600 dark:text-slate-300">{r.bussname}</div>
+                  <div className="text-xs text-slate-500">{r.coltype === 'Check' ? `${r.bank} #${r.chno}` : r.coltype}</div>
+                </div>
+                <div className="text-right font-semibold tabular-nums text-slate-900 dark:text-white">{fmtMoney(r.colamt)}</div>
+              </Link>
+            ))}
+          </div>
         )}
       </Modal>
     </RequireRight>

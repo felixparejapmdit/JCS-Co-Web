@@ -80,7 +80,7 @@ export default function SalesReportsPage() {
                       hideOnMobile: true,
                       render: (r: any) => (
                         <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                          <div className="h-full rounded-full bg-teal-500" style={{ width: `${(r.total / max) * 100}%` }} />
+                          <div className="h-full rounded-full bg-brand-500" style={{ width: `${(r.total / max) * 100}%` }} />
                         </div>
                       ),
                     },

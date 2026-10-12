@@ -51,7 +51,7 @@ export default function EmployeesPage() {
         }
       />
       <Card padded={false}>
-        <div className="border-b border-slate-100 p-4 dark:border-[#1e2a44]">
+        <div className="border-b border-slate-100 p-4 dark:border-white/[0.07]">
           <SearchInput value={q} onChange={setQ} placeholder="Search employees…" className="max-w-md" />
         </div>
         {loading && !data ? (

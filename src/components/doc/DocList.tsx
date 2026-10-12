@@ -3,13 +3,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FileSearch, Plus, Wand2 } from 'lucide-react';
+import { CircleDollarSign, FileSearch, Hourglass, Plus, Wallet, Wand2 } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/api';
 import { fmtDate } from '@/shared/dates';
 import { fmtMoney } from '@/shared/money';
 import { RequireRight, useSession } from '@/components/shell/AppShell';
 import { DataTable } from '@/components/ui/DataTable';
-import { Alert, Button, Card, EmptyState, Input, Modal, PageHeader, SearchInput, Spinner, Tabs } from '@/components/ui/kit';
+import { Alert, Button, Card, EmptyState, Input, Modal, PageHeader, SearchInput, Spinner, Stat, Tabs } from '@/components/ui/kit';
 import { DOCS } from './configs';
 import { fmtCell, isNumericKind } from './format';
 
@@ -38,12 +38,12 @@ export function SourcePicker({ type, source, label, help, open, onClose }: { typ
       ) : (
         <div className="space-y-3">
           <SearchInput value={q} onChange={setQ} placeholder="Filter…" />
-          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-[#1a2540] dark:border-[#24324f]">
+          <div className="grid gap-2">
             {shown.map((r) => (
               <button
                 key={r.no}
                 onClick={() => router.push(`/dashboard/doc/${type}/new?from=${source}&no=${encodeURIComponent(r.no)}`)}
-                className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-teal-50/60 dark:hover:bg-teal-500/10"
+                className="tile-interactive flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
               >
                 <div className="min-w-0">
                   <div className="font-mono text-sm font-semibold text-slate-900 dark:text-white">{r.no}</div>
@@ -73,6 +73,7 @@ export function DocList({ type }: { type: string }) {
   const [to, setTo] = useState('');
   const [picker, setPicker] = useState<string | null>(null);
   const { data, loading, error } = useRpc<{ rows: any[]; counts: Record<string, number> }>(cfg ? 'doc.list' : null, { type });
+  const { data: summary } = useRpc<{ label: string; value: number; sub?: string; tone?: any; href?: string }[]>(cfg?.summary ? 'doc.summary' : null, { type });
 
   useEffect(() => setStatus(params.get('status') ?? 'all'), [params]);
 
@@ -112,17 +113,24 @@ export function DocList({ type }: { type: string }) {
           )
         }
       />
+      {summary && summary.length > 0 && (
+        <div className="mb-6 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
+          {summary.map((b, i) => (
+            <Stat key={b.label} label={b.label} value={`₱${fmtMoney(b.value)}`} sub={b.sub} tone={b.tone} href={b.href && canCreate ? b.href : undefined} icon={[Wallet, Hourglass, CircleDollarSign][i % 3]} />
+          ))}
+        </div>
+      )}
       <Card padded={false}>
-        <div className="px-4 pt-2">
+        <div className="px-4 pt-4">
           <Tabs tabs={tabs} value={status} onChange={setStatus} />
         </div>
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 dark:border-[#1e2a44] md:flex-row md:items-center">
+        <div className="flex flex-col gap-3 px-4 pb-1 pt-3 md:flex-row md:items-center">
           <SearchInput value={q} onChange={setQ} placeholder={`Search ${cfg.plural.toLowerCase()}…`} className="md:max-w-sm md:flex-1" />
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm text-slate-500 sm:flex">
             <span>From</span>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="sm:w-40" />
             <span>to</span>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="sm:w-40" />
           </div>
         </div>
         {loading && !data ? (
@@ -135,7 +143,7 @@ export function DocList({ type }: { type: string }) {
           <DataTable
             rows={rows}
             rowHref={(r) => `/dashboard/doc/${type}/${encodeURIComponent(r.no)}`}
-            columns={cfg.listCols.map((c) => ({ key: c.key, header: c.label, align: isNumericKind(c.kind) ? 'right' : 'left', hideOnMobile: c.hideOnMobile, render: (r: any) => fmtCell(r[c.key], c.kind) }))}
+            columns={cfg.listCols.map((c) => ({ key: c.key, header: c.label, align: isNumericKind(c.kind) ? 'right' : 'left', hideOnMobile: c.hideOnMobile, render: (r: any) => fmtCell(r[c.key], c.kind), card: c.kind === 'status' ? 'badge' : undefined }))}
             empty={
               <EmptyState
                 icon={FileSearch}
@@ -152,7 +160,7 @@ export function DocList({ type }: { type: string }) {
       ))}
       <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
         Tip: click any row to open it. Documents number themselves; you never need to type a document number.{' '}
-        <Link href="/dashboard" className="text-teal-700 hover:underline dark:text-teal-400">
+        <Link href="/dashboard" className="text-brand-700 hover:underline dark:text-brand-400">
           Back to Home
         </Link>
       </p>

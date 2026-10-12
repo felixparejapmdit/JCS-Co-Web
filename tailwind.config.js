@@ -9,19 +9,51 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        fintech: {
-          shell: '#0B132B',
-          surface: '#1C2541',
-          border: '#3A506B',
-          accent: '#06B6D4',
-          credit: '#059669',
-          debit: '#DC2626',
-          pending: '#D97706',
+        // Electric Blue: the Cloud AOS accent.
+        brand: {
+          50: '#eef6ff',
+          100: '#d9eaff',
+          200: '#bcdbff',
+          300: '#8ec4ff',
+          400: '#59a2ff',
+          500: '#2f7fff',
+          600: '#1a62f5',
+          700: '#144de1',
+          800: '#173fb6',
+          900: '#19388f',
+          950: '#142357',
+        },
+        // Deep slate grays used on true-black surfaces.
+        ink: {
+          950: '#000000',
+          900: '#07080a',
+          850: '#0c0d10',
+          800: '#121317',
+          700: '#1a1c21',
+        },
+        neon: {
+          blue: '#3d8bff',
+          green: '#19e6a0',
         },
       },
       fontFamily: {
-        mono: ['var(--font-mono)', 'monospace'],
-        sans: ['var(--font-sans)', 'sans-serif'],
+        sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        mono: ['var(--font-geist-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      boxShadow: {
+        glow: '0 0 0 1px rgba(47,127,255,0.35), 0 10px 32px -8px rgba(47,127,255,0.55)',
+        'glow-green': '0 0 0 1px rgba(16,185,129,0.35), 0 10px 32px -8px rgba(16,185,129,0.45)',
+        lift: '0 18px 40px -18px rgba(15,23,42,0.35)',
+      },
+      borderRadius: {
+        '2xl': '1.125rem',
+        '3xl': '1.5rem',
+      },
+      keyframes: {
+        'fade-up': { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+      },
+      animation: {
+        'fade-up': 'fade-up 0.35s ease-out both',
       },
     },
   },

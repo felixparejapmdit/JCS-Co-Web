@@ -2,46 +2,93 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Cloud AOS visual identity
+ * - Light mode and deep dark mode (true black with deep slate grays)
+ * - Neon accents: Electric Blue (brand) and Emerald Green
+ * - "Liquid Glass" surfaces: translucent fill, backdrop-blur-2xl, ultra-thin borders
+ */
 :root {
-  --bg-app: #0B132B;
-  --bg-surface: #1C2541;
-  --bg-page: #F8FAFC;
-  --bg-card: #FFFFFF;
-  --border-grid: #CBD5E1;
-  --primary-blue: #2563EB;
-  --financial-credit: #059669;
-  --financial-debit: #DC2626;
-  --financial-pending: #D97706;
+  --page: #f3f4f7;
+  --glow-blue: rgba(47, 127, 255, 0.16);
+  --glow-green: rgba(16, 185, 129, 0.12);
 }
 
 html {
-  background-color: #F8FAFC;
+  background-color: var(--page);
   color-scheme: light;
 }
 
 html.dark {
-  background-color: #0F1115;
+  --page: #000000;
+  --glow-blue: rgba(47, 127, 255, 0.2);
+  --glow-green: rgba(16, 185, 129, 0.13);
   color-scheme: dark;
-  --bg-page: #0F1115;
-  --bg-card: #141416;
-  --border-grid: #1F2937;
 }
 
 body {
-  background-color: var(--bg-page);
-  color: #0F172A;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   margin: 0;
   padding: 0;
+  background-color: var(--page);
+  color: #0f172a;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
 }
 
 html.dark body {
-  background-color: #0F1115;
-  color: #F1F5F9;
+  color: #e8ebf0;
+}
+
+/* Ambient light behind the glass: a soft electric-blue and emerald glow. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 600px at 0% 0%, var(--glow-blue), transparent 60%),
+    radial-gradient(800px 600px at 100% 100%, var(--glow-green), transparent 60%),
+    radial-gradient(700px 500px at 85% 5%, rgba(47, 127, 255, 0.06), transparent 60%);
+}
+
+@layer components {
+  /* Liquid Glass surface: cards, panels, the side menu and the top bar. */
+  .glass {
+    @apply border border-black/[0.06] bg-white/60 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.08] dark:bg-white/[0.035];
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.7), 0 10px 30px -14px rgba(15, 23, 42, 0.18);
+  }
+  .dark .glass {
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 24px 60px -28px rgba(0, 0, 0, 0.95);
+  }
+  /* Menus, dialogs and toasts float above everything: a denser glass. */
+  .glass-strong {
+    @apply border border-black/[0.07] bg-white/85 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.1] dark:bg-ink-850/85;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.6), 0 30px 70px -20px rgba(15, 23, 42, 0.35);
+  }
+  .dark .glass-strong {
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 30px 80px -20px rgba(0, 0, 0, 1);
+  }
+  /* A card inside a glass panel: no extra blur, just a thin tint. */
+  .tile {
+    @apply rounded-2xl border border-black/[0.06] bg-white/70 dark:border-white/[0.07] dark:bg-white/[0.03];
+  }
+  .tile-interactive {
+    @apply tile cursor-pointer transition duration-200 hover:-translate-y-0.5 hover:border-brand-400/50 hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:hover:border-brand-400/40 dark:hover:bg-white/[0.06];
+  }
+  .tile-interactive:hover {
+    box-shadow: 0 0 0 1px rgba(47, 127, 255, 0.18), 0 16px 36px -18px rgba(47, 127, 255, 0.55);
+  }
+  .neon-text {
+    @apply bg-gradient-to-r from-brand-500 to-emerald-500 bg-clip-text text-transparent dark:from-neon-blue dark:to-neon-green;
+  }
 }
 
 /* Printing: only the document prepared in #print-area goes to paper. */
 @media print {
+  body::before {
+    display: none;
+  }
   body * {
     visibility: hidden !important;
   }
@@ -64,30 +111,38 @@ html.dark body {
 
 .tabular-nums {
   font-variant-numeric: tabular-nums lining-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
-/* Custom scrollbar for high-density tables */
+::selection {
+  background: rgba(47, 127, 255, 0.28);
+}
+
+/* Thin, quiet scrollbars. */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
-}
-.dark ::-webkit-scrollbar-track {
-  background: #141416;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #94A3B8;
-  border-radius: 3px;
-}
-.dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748B;
+  background: rgba(100, 116, 139, 0.6);
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

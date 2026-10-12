@@ -65,28 +65,29 @@ function initials(name: string) {
 /** The client's own header at the top of the sidebar. It shows only the signed-in company. */
 export function ClientHeader({ b, period }: { b: Branding; period?: string }) {
   return (
-    <div className="relative border-b border-white/10 px-4 pb-4 pt-5">
-      <div className="absolute inset-x-0 top-0 h-1" style={{ background: b.accent }} />
-      <div className="flex items-center gap-3">
+    <div className="relative overflow-hidden px-4 pb-4 pt-5">
+      <div className="pointer-events-none absolute -left-10 -top-16 h-40 w-40 rounded-full opacity-30 blur-3xl" style={{ background: b.accent }} />
+      <div className="absolute inset-x-4 top-0 h-[2px] rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${b.accent}, transparent)` }} />
+      <div className="relative flex items-center gap-3">
         {b.logo_data ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={b.logo_data} alt={`${b.display_name} logo`} className="h-11 w-11 flex-shrink-0 rounded-xl bg-white object-contain p-1" />
+          <img src={b.logo_data} alt={`${b.display_name} logo`} className="h-11 w-11 flex-shrink-0 rounded-2xl bg-white object-contain p-1 shadow-sm ring-1 ring-black/[0.06]" />
         ) : (
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[15px] font-black tracking-tight text-white shadow-lg" style={{ background: b.accent }}>
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl text-[15px] font-bold tracking-tight text-white ring-1 ring-white/20" style={{ background: b.accent, boxShadow: `0 8px 24px -6px ${b.accent}` }}>
             {b.logo_text}
           </div>
         )}
         <div className="min-w-0">
-          <div className="truncate text-[15px] font-semibold leading-tight text-white">{b.display_name}</div>
-          {b.tagline && <div className="mt-0.5 truncate text-xs text-slate-300/80">{b.tagline}</div>}
+          <div className="truncate text-[15px] font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">{b.display_name}</div>
+          {b.tagline && <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{b.tagline}</div>}
         </div>
       </div>
       {(b.show_code === 'Y' || period) && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-300/90">
-          {b.show_code === 'Y' && <span className="rounded-md bg-white/10 px-2 py-0.5 font-medium">BA {b.ba}</span>}
+        <div className="relative mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+          {b.show_code === 'Y' && <span className="rounded-lg bg-black/[0.05] px-2 py-0.5 font-medium dark:bg-white/[0.07]">BA {b.ba}</span>}
           {period && (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2 py-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-black/[0.05] px-2 py-0.5 dark:bg-white/[0.07]">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
               Open period: {monthName(Number(period.slice(5, 7)))} {period.slice(0, 4)}
             </span>
           )}
@@ -109,7 +110,7 @@ function useTheme() {
     } catch {}
     document.documentElement.classList.toggle('dark', next);
     document.documentElement.style.colorScheme = next ? 'dark' : 'light';
-    document.documentElement.style.backgroundColor = next ? '#0b1220' : '#f4f6fa';
+    document.documentElement.style.backgroundColor = next ? '#000000' : '#f3f4f7';
   };
   return { dark, toggle };
 }
@@ -143,7 +144,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
     .filter((g) => g.items.length);
 
   return (
-    <div className="flex h-full flex-col bg-[#0b1f3a] text-slate-200">
+    <div className="glass flex h-full flex-col overflow-hidden rounded-3xl text-slate-700 dark:text-slate-300">
       <ClientHeader b={info.company} period={info.openPeriod} />
       <div className="px-3 py-3">
         <div className="relative">
@@ -152,7 +153,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Find a screen…"
-            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white placeholder-slate-400 focus:border-teal-400/60 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+            className="h-9 w-full rounded-xl border border-black/[0.07] bg-white/60 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-brand-500/60 focus:outline-none focus:ring-4 focus:ring-brand-500/15 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
           />
         </div>
       </div>
@@ -160,7 +161,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
         <Link
           href="/dashboard"
           onClick={onNavigate}
-          className={cx('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors', pathname === '/dashboard' ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white')}
+          className={cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', pathname === '/dashboard' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'hover:bg-black/[0.04] hover:text-slate-900 dark:hover:bg-white/[0.05] dark:hover:text-white')}
         >
           <Home className="h-4 w-4" />
           Home
@@ -172,15 +173,15 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
             <div key={g.id}>
               <button
                 onClick={() => toggle(g.id)}
-                className={cx('flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors', current === g.id ? 'text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white')}
+                className={cx('flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', current === g.id ? 'text-slate-900 dark:text-white' : 'hover:bg-black/[0.04] hover:text-slate-900 dark:hover:bg-white/[0.05] dark:hover:text-white')}
                 aria-expanded={isOpen}
               >
-                <Icon className="h-4 w-4 flex-shrink-0" />
+                <Icon className={cx('h-4 w-4 flex-shrink-0', current === g.id && 'text-brand-600 dark:text-brand-300')} />
                 <span className="flex-1 truncate text-left">{g.label}</span>
-                <ChevronRight className={cx('h-4 w-4 text-slate-500 transition-transform', isOpen && 'rotate-90')} />
+                <ChevronRight className={cx('h-4 w-4 text-slate-400 transition-transform', isOpen && 'rotate-90')} />
               </button>
               {isOpen && (
-                <div className="mb-1 ml-5 border-l border-white/10 pl-2">
+                <div className="mb-1 ml-5 border-l border-black/[0.08] pl-2 dark:border-white/[0.08]">
                   {g.items.map((i) => {
                     const active = pathname === i.href || pathname.startsWith(i.href + '/');
                     return (
@@ -188,9 +189,9 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
                         key={i.href}
                         href={i.href}
                         onClick={onNavigate}
-                        className={cx('relative block rounded-md px-3 py-1.5 text-[13px] transition-colors', active ? 'bg-white/10 font-semibold text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white')}
+                        className={cx('relative block rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'text-slate-500 hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white')}
                       >
-                        {active && <span className="absolute -left-[9px] top-1.5 bottom-1.5 w-0.5 rounded-full" style={{ background: info.company.accent }} />}
+                        {active && <span className="absolute -left-[9px] top-1.5 bottom-1.5 w-[3px] rounded-full" style={{ background: info.company.accent, boxShadow: `0 0 10px ${info.company.accent}` }} />}
                         {i.label}
                       </Link>
                     );
@@ -202,10 +203,10 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
         })}
         {!groups.length && <p className="px-3 py-4 text-sm text-slate-400">No screen matches “{filter}”.</p>}
       </nav>
-      <div className="border-t border-white/10 px-4 py-3 text-[11px] text-slate-400">
+      <div className="border-t border-black/[0.06] px-4 py-3 text-[11px] text-slate-500 dark:border-white/[0.07] dark:text-slate-400">
         <div className="flex items-center justify-between">
-          <span className="font-semibold tracking-wide text-slate-300">
-            Cloud <span className="text-teal-300">AOS</span>
+          <span className="font-semibold tracking-wide text-slate-700 dark:text-slate-200">
+            Cloud <span className="neon-text">AOS</span>
           </span>
           <span>{info.mode === 'demo' ? 'Sample data' : 'Company database'}</span>
         </div>
@@ -265,17 +266,17 @@ function GlobalSearch({ onDone, autoFocus }: { onDone?: () => void; autoFocus?: 
         onFocus={() => results.length && setOpen(true)}
         onKeyDown={(e) => e.key === 'Enter' && results[0] && go(results[0])}
         placeholder="Find a document: PO, invoice, receipt, customer…"
-        className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-[#24324f] dark:bg-[#0d1527] dark:text-slate-100"
+        className="h-9 w-full rounded-xl border border-black/[0.07] bg-white/60 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-brand-500/60 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/15 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-100 dark:focus:bg-white/[0.07]"
       />
       {open && q.trim().length >= 2 && (
-        <div className="absolute z-50 mt-1 max-h-96 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-2xl dark:border-[#2a3a5c] dark:bg-[#111a2e]">
+        <div className="glass-strong absolute z-50 mt-1.5 max-h-96 w-full overflow-y-auto rounded-2xl p-1">
           {busy && !results.length ? (
             <div className="px-4 py-3 text-sm text-slate-500">Searching…</div>
           ) : results.length === 0 ? (
             <div className="px-4 py-3 text-sm text-slate-500">No documents found for “{q}”.</div>
           ) : (
             results.map((r) => (
-              <button key={`${r.type}-${r.no}`} onClick={() => go(r)} className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left hover:bg-teal-50 dark:hover:bg-teal-500/10">
+              <button key={`${r.type}-${r.no}`} onClick={() => go(r)} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left hover:bg-brand-500/10 dark:hover:bg-brand-400/10">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                     {r.title} {r.no}
@@ -316,18 +317,18 @@ function TasksBell() {
     <div ref={box} className="relative">
       <button onClick={() => setOpen(!open)} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white" aria-label={`${total} tasks waiting`}>
         <Bell className="h-5 w-5" />
-        {total > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">{total > 99 ? '99+' : total}</span>}
+        {total > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-b from-brand-500 to-brand-600 px-1 text-[10px] font-bold text-white shadow-[0_0_10px_rgba(47,127,255,0.8)]">{total > 99 ? '99+' : total}</span>}
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-[#2a3a5c] dark:bg-[#111a2e]">
+        <div className="glass-strong absolute right-0 z-50 mt-2 w-80 rounded-2xl p-2">
           <p className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Waiting for you</p>
           {tasks.length === 0 ? (
             <p className="px-2 py-3 text-sm text-slate-500">You are all caught up.</p>
           ) : (
             tasks.map((t) => (
-              <Link key={t.label} href={t.href} onClick={() => setOpen(false)} className="flex items-center justify-between rounded-lg px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5">
+              <Link key={t.label} href={t.href} onClick={() => setOpen(false)} className="flex items-center justify-between rounded-lg px-2 py-2 text-sm text-slate-700 hover:bg-black/[0.04] dark:text-slate-200 dark:hover:bg-white/5">
                 <span>{t.label}</span>
-                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-bold text-teal-800 dark:bg-teal-500/20 dark:text-teal-200">{t.count}</span>
+                <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs font-bold tabular-nums text-brand-700 dark:bg-brand-400/20 dark:text-brand-200">{t.count}</span>
               </Link>
             ))
           )}
@@ -368,26 +369,26 @@ function UserMenu({ info, onSwitch }: { info: SessionInfo; onSwitch: () => void 
         <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl dark:border-[#2a3a5c] dark:bg-[#111a2e]">
+        <div className="glass-strong absolute right-0 z-50 mt-2 w-64 rounded-2xl p-1.5">
           <div className="px-3 py-2">
             <p className="text-sm font-semibold text-slate-900 dark:text-white">{info.user.fullName}</p>
             <p className="text-xs text-slate-500">
               {info.user.username} · {info.user.groupName}
             </p>
           </div>
-          <div className="my-1 border-t border-slate-100 dark:border-[#1e2a44]" />
+          <div className="my-1 border-t border-slate-100 dark:border-white/[0.07]" />
           {info.otherCompanies.length > 0 && (
             <button
               onClick={() => {
                 setOpen(false);
                 onSwitch();
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-black/[0.04] dark:text-slate-200 dark:hover:bg-white/5"
             >
               <ArrowLeftRight className="h-4 w-4" /> Switch company
             </button>
           )}
-          <Link href="/dashboard/account" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5">
+          <Link href="/dashboard/account" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-black/[0.04] dark:text-slate-200 dark:hover:bg-white/5">
             <KeyRound className="h-4 w-4" /> Change password
           </Link>
           <button onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10">
@@ -434,7 +435,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div>
           <p className="font-semibold text-slate-800 dark:text-slate-100">Cloud AOS could not load your workspace.</p>
           <p className="mt-1 text-sm text-slate-500">{failed}</p>
-          <button className="mt-4 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white" onClick={() => location.reload()}>
+          <button className="mt-4 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white" onClick={() => location.reload()}>
             Try again
           </button>
         </div>
@@ -458,17 +459,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SessionCtx.Provider value={ctx}>
       <ToastProvider>
-        <div className="min-h-screen bg-[#f4f6fa] dark:bg-[#0b1220]">
-          {/* Desktop sidebar */}
-          <aside className="fixed inset-y-0 left-0 z-30 hidden w-[272px] lg:block">
+        <div className="min-h-screen">
+          {/* Desktop sidebar: a floating glass panel */}
+          <aside className="fixed inset-y-3 left-3 z-30 hidden w-[264px] lg:block">
             <Sidebar info={info} can={can} />
           </aside>
           {/* Mobile drawer */}
           {drawer && (
             <div className="fixed inset-0 z-50 lg:hidden">
-              <div className="absolute inset-0 bg-slate-950/60" onClick={() => setDrawer(false)} />
-              <div className="absolute inset-y-0 left-0 w-[86vw] max-w-[300px] shadow-2xl">
-                <button onClick={() => setDrawer(false)} className="absolute right-3 top-3 z-10 rounded-lg p-1.5 text-slate-300 hover:bg-white/10" aria-label="Close menu">
+              <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setDrawer(false)} />
+              <div className="absolute inset-y-2 left-2 w-[86vw] max-w-[300px]">
+                <button onClick={() => setDrawer(false)} className="absolute right-3 top-3 z-10 rounded-xl p-1.5 text-slate-500 hover:bg-black/[0.05] dark:text-slate-300 dark:hover:bg-white/10" aria-label="Close menu">
                   <X className="h-5 w-5" />
                 </button>
                 <Sidebar info={info} can={can} onNavigate={() => setDrawer(false)} />
@@ -476,13 +477,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          <div className="lg:pl-[272px]">
-            <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-[#1e2a44] dark:bg-[#0f182b]/90 sm:px-6">
+          <div className="lg:pl-[279px]">
+            <header className="glass sticky top-0 z-20 flex h-16 items-center gap-3 rounded-b-2xl border-t-0 px-4 sm:px-6 lg:top-3 lg:mx-3 lg:rounded-2xl lg:border-t">
               <button onClick={() => setDrawer(true)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5 lg:hidden" aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </button>
               <div className="hidden min-w-0 items-center gap-1.5 whitespace-nowrap text-sm md:flex">
-                <Link href="/dashboard" className="text-slate-500 hover:text-teal-700 dark:text-slate-400">
+                <Link href="/dashboard" className="text-slate-500 hover:text-brand-700 dark:text-slate-400">
                   Home
                 </Link>
                 {here.group && (
@@ -512,12 +513,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <UserMenu info={info} onSwitch={() => setSwitchOpen(true)} />
               </div>
             </header>
-            <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pb-10">{children}</main>
+            <main className="mx-auto max-w-[1440px] px-4 pb-24 pt-6 sm:px-6 lg:px-6 lg:pb-10 lg:pt-8">{children}</main>
           </div>
 
           {/* Mobile bottom bar */}
-          <nav className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur dark:border-[#1e2a44] dark:bg-[#0f182b]/95 lg:hidden">
-            <Link href="/dashboard" className={cx('flex flex-1 flex-col items-center gap-0.5 text-[11px] font-medium', pathname === '/dashboard' ? 'text-teal-700 dark:text-teal-300' : 'text-slate-500')}>
+          <nav className="glass fixed inset-x-2 bottom-2 z-30 flex h-16 items-center justify-around rounded-2xl lg:hidden">
+            <Link href="/dashboard" className={cx('flex flex-1 flex-col items-center gap-0.5 text-[11px] font-medium', pathname === '/dashboard' ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500')}>
               <Home className="h-5 w-5" /> Home
             </Link>
             <button onClick={() => setSearchOpen(true)} className="flex flex-1 flex-col items-center gap-0.5 text-[11px] font-medium text-slate-500">
@@ -537,7 +538,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Modal open={switchOpen} onClose={() => setSwitchOpen(false)} title="Switch company" description="These are the companies you signed in to.">
             <div className="grid gap-2">
               {info.otherCompanies.map((c) => (
-                <button key={c.ba} onClick={() => doSwitch(c.ba)} disabled={Boolean(switching)} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left hover:border-teal-400 hover:bg-teal-50/60 dark:border-[#2a3a5c] dark:hover:bg-teal-500/10">
+                <button key={c.ba} onClick={() => doSwitch(c.ba)} disabled={Boolean(switching)} className="tile-interactive flex items-center justify-between px-4 py-3 text-left">
                   <span className="font-semibold text-slate-800 dark:text-slate-100">{c.name}</span>
                   <span className="text-sm text-slate-500">{switching === c.ba ? 'Opening…' : 'Open'}</span>
                 </button>
@@ -555,10 +556,10 @@ export function RequireRight({ form, action = 1, children }: { form: string; act
   const { can } = useSession();
   if (!can(form, action))
     return (
-      <div className="mx-auto mt-16 max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center dark:border-[#1e2a44] dark:bg-[#111a2e]">
+      <div className="glass mx-auto mt-16 max-w-lg rounded-3xl p-8 text-center">
         <p className="text-lg font-semibold text-slate-900 dark:text-white">This screen is not part of your access</p>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Your user group does not have the right to open it (form {form}). If you need it for your work, ask your system administrator to update Group Access.</p>
-        <Link href="/dashboard" className="mt-5 inline-flex rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+        <Link href="/dashboard" className="mt-5 inline-flex rounded-xl bg-gradient-to-b from-brand-500 to-brand-600 px-4 py-2 text-sm font-semibold text-white hover:shadow-glow">
           Back to Home
         </Link>
       </div>

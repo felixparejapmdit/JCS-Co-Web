@@ -54,7 +54,7 @@ export default function RegistersPage() {
                 header: 'Document',
                 render: (r) =>
                   kind === 'issues' || r.tc === '10' ? (
-                    <Link className="font-mono text-[13px] text-teal-700 hover:underline dark:text-teal-400" href={`/dashboard/doc/${kind === 'issues' ? 'do' : 'mmrr'}/${encodeURIComponent(r.docno)}`}>
+                    <Link className="font-mono text-[13px] text-brand-700 hover:underline dark:text-brand-400" href={`/dashboard/doc/${kind === 'issues' ? 'do' : 'mmrr'}/${encodeURIComponent(r.docno)}`}>
                       {r.docno}
                     </Link>
                   ) : (

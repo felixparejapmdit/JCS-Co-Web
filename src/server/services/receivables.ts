@@ -293,7 +293,7 @@ export async function createDeposit(ctx: Ctx, input: { cdcrnos: string[]; acctno
       await db.update('cdcrtbl', { cdcrno: no }, { status: 'Deposited', depno });
       await db.update('colhdrtbl', { cdcrno: no }, { cdcrstat: 'Deposited' });
     }
-    await writeGl(c, { tc: TC.COLLECTION, docno: depno, transdate: input.transdate, source: 'DEPOSIT' }, [
+    await writeGl(c, { tc: TC.BANK_DEPOSIT, docno: depno, transdate: input.transdate, source: 'DEPOSIT' }, [
       { acctno: input.acctno, dramt: total },
       { acctno: GL.CASH_ON_HAND, cramt: total },
     ]);

@@ -63,7 +63,7 @@ export default function UsersPage() {
         }
       />
       <Card padded={false}>
-        <div className="border-b border-slate-100 p-4 dark:border-[#1e2a44]">
+        <div className="border-b border-slate-100 p-4 dark:border-white/[0.07]">
           <SearchInput value={q} onChange={setQ} placeholder="Search users…" className="max-w-md" />
         </div>
         {loading && !data ? (
@@ -138,7 +138,7 @@ export default function UsersPage() {
                   <label key={p.value} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-teal-600"
+                      className="h-4 w-4 accent-brand-600"
                       checked={(editing.row.plants ?? []).includes(p.value)}
                       onChange={(e) => set('plants', e.target.checked ? [...(editing.row.plants ?? []), p.value] : (editing.row.plants ?? []).filter((x: string) => x !== p.value))}
                     />

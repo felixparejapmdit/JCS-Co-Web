@@ -2,7 +2,7 @@ import type { Db, Row } from '../db';
 import { ACTION, FORM, TC } from '@/shared/codes';
 import { monthEnd, monthName, monthStart, nowStamp, today, ym } from '@/shared/dates';
 import { r2, sum } from '@/shared/money';
-import { Ctx, assertOpenPeriod, audit, fail, need, nextDocNo, num, numberLines, str, yearPrefix } from './context';
+import { Ctx, assertOpenPeriod, audit, fail, isAllowed, need, nextDocNo, num, numberLines, str, yearPrefix } from './context';
 import { ActionDef, DocService, Loaded, STD, countBy, filterList, registerDoc } from './docs';
 
 /**
@@ -13,6 +13,8 @@ import { ActionDef, DocService, Loaded, STD, countBy, filterList, registerDoc } 
 export const GL = {
   CASH_ON_HAND: '1110100',
   PDC_ON_HAND: '1110200',
+  PETTY_CASH_FUND: '1110300',
+  REVOLVING_FUND: '1110400',
   AR_TRADE: '1130100',
   INPUT_VAT: '1150100',
   CWT_RECEIVABLE: '1150200',
@@ -657,3 +659,94 @@ export async function financialStatements(ctx: Ctx, opts: { year: number; month:
 }
 
 export const glActions = { ACTION };
+
+// ---------------------------------------------------------------------------
+// Edit Auto JV Entry (JVedit.aspx, form 052): correct the GL entry a document produced
+// before JV Posting bundles it. The legacy page deletes the document's open gltranstbl
+// lines and writes the corrected ones; the before / after is kept in ng_audit_log.
+// ---------------------------------------------------------------------------
+export async function jvEditList(ctx: Ctx, opts: { from?: string; to?: string; source?: string }) {
+  const where: Row = { glstatus: 'OPEN' };
+  if (opts.from || opts.to) where.transdate = { ...(opts.from ? { gte: opts.from } : {}), ...(opts.to ? { lte: opts.to } : {}) };
+  const open = await ctx.db.all('gltranstbl', { where, orderBy: [['transdate', 'asc'], ['docno', 'asc']] });
+  const docs = new Map<string, Row>();
+  for (const r of open) {
+    if (opts.source && r.jvsource !== opts.source) continue;
+    const k = `${r.tc}|${r.docno}`;
+    const d = docs.get(k) ?? { tc: r.tc, docno: r.docno, source: r.jvsource, transdate: r.transdate, debit: 0, credit: 0, lines: 0, accounts: new Set<string>() };
+    d.debit = r2(d.debit + num(r.dramt));
+    d.credit = r2(d.credit + num(r.cramt));
+    d.lines += 1;
+    d.accounts.add(r.acctno);
+    docs.set(k, d);
+  }
+  const sources = [...new Set(open.map((r) => String(r.jvsource)))].sort();
+  return {
+    sources,
+    docs: [...docs.values()].map((d): Row => ({ ...d, accounts: d.accounts.size, balanced: Math.abs(d.debit - d.credit) < 0.01 })),
+  };
+}
+
+export async function jvEditLoad(ctx: Ctx, tc: string, docno: string) {
+  const rows = await ctx.db.all('gltranstbl', { where: { tc, docno, glstatus: 'OPEN' } });
+  if (!rows.length) fail(`${docno} has no open GL entries. It was already posted by JV Posting, or voided.`);
+  const accts = await ctx.db.all('acctcharttbl');
+  return {
+    tc,
+    docno,
+    source: rows[0].jvsource,
+    transdate: rows[0].transdate,
+    lines: rows.map((r) => ({ acctno: r.acctno, acctdesc: accts.find((a) => a.acctno === r.acctno)?.acctdesc ?? '', ccno: r.ccno ?? '', pc: r.pc ?? '', dramt: num(r.dramt), cramt: num(r.cramt) })),
+  };
+}
+
+export async function jvEditSave(ctx: Ctx, input: Row): Promise<string> {
+  const tc = str(input.tc);
+  const docno = str(input.docno);
+  const reason = str(input.reason);
+  if (!reason) fail('Say why the entry is being corrected; it is kept in the audit trail.');
+  if (!(await isAllowed(ctx.db, ctx.group, FORM.JOURNAL_VOUCHER, ACTION.EDIT))) fail(`Your user group (${ctx.group}) is not allowed to edit automatic JV entries.`, 403);
+  return ctx.db.tx(async (db) => {
+    const c = { ...ctx, db };
+    const rows = await db.all('gltranstbl', { where: { tc, docno, glstatus: 'OPEN' } });
+    if (!rows.length) fail(`${docno} has no open GL entries any more. It may have been posted in the meantime.`);
+    const lines = await validateJvLines(c, input.lines ?? []);
+    const first = rows[0];
+    await assertOpenPeriod(db, first.transdate, tc);
+    await db.remove('gltranstbl', { tc, docno, glstatus: 'OPEN' });
+    const { transyear, transmon } = ym(first.transdate);
+    for (const l of lines) {
+      await db.insert('gltranstbl', {
+        id: uid(),
+        acctno: l.acctno,
+        ccno: l.ccno ?? '',
+        pc: l.pc || first.pc || '',
+        dramt: l.dramt,
+        cramt: l.cramt,
+        drcr: l.dramt > 0 ? 'D' : 'C',
+        docno,
+        tc,
+        jvsource: first.jvsource,
+        jvno: '',
+        transdate: first.transdate,
+        transyear,
+        transmon,
+        glstatus: 'OPEN',
+        user: ctx.user,
+        web: 'Y',
+        branch: first.branch ?? 'MAIN',
+      });
+    }
+    await audit(c, {
+      form: FORM.JOURNAL_VOUCHER,
+      tc,
+      docno,
+      trans: `Edit auto JV entry: ${reason}`.slice(0, 250),
+      table: 'gltranstbl',
+      before: { lines: rows.map((r) => ({ acctno: r.acctno, ccno: r.ccno, dramt: num(r.dramt), cramt: num(r.cramt) })) },
+      after: { lines },
+    });
+    return `GL entry of ${docno} corrected (${lines.length} lines). JV Posting will post the corrected lines.`;
+  });
+}
+

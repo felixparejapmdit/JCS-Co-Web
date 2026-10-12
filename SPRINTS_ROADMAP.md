@@ -64,6 +64,7 @@ These are already in place across all modules and are what the client sees in th
   * the Home page and the tasks bell list what is waiting for each user (approvals, postings, lab results).
 * **Customised client header.** Each company's logo or initials, display name, tagline and accent colour sit at the top of the side menu, maintained in *Administration → Company & Branding* with a live preview (`ng_company_branding`). There is no company dropdown anywhere.
 * **Audit.** Every action writes the legacy `translog` row plus a before / after snapshot in `ng_audit_log`.
+* **Visual identity.** Deep dark mode (true black, deep slate grays) and light mode, neon Electric Blue and Emerald Green accents, macOS-style Liquid Glass surfaces (`backdrop-blur-2xl`, ultra-thin borders), and an elastic grid of Notion-style blocks. Lists and document lines are interactive cards; a Cards / List switch keeps a compact list for people who scan many rows.
 * **Works on desktop, tablet and phone,** with light and dark themes. It can be installed as an app (PWA), and a plain offline page appears when the connection drops. Pages and data are never cached on the device.
 * **Tests.** Server tests check that the sample books balance, that AR / AP subledgers equal their control accounts, that no stock goes negative and that every document opens (`npm test`). Browser tests cover sign-in privacy, the main screens and the installable app (`npm run test:e2e`).
 
@@ -120,14 +121,14 @@ These are already in place across all modules and are what the client sees in th
 | :--- | :--- | :---: | :--- |
 | 2.1 | Chart of accounts, cost centers, profit centers | ✅ | |
 | 2.2 | Period control (`gltransmonstatus`, `modtranstattbl`) on every save; Period Closing with pre-close checks and reopen | ✅ | |
-| 2.3 | Journal vouchers (Open → Approved → Posted), JV Posting that bundles subledger entries into the monthly automatic JV, reversal | ✅ | Edit screen for automatic JVs (`JVedit.aspx`). |
+| 2.3 | Journal vouchers (Open → Approved → Posted), JV Posting that bundles subledger entries into the monthly automatic JV, reversal; Edit Auto JV Entries corrects a document's open GL entry before JV Posting (balanced, reason kept in the audit trail) | ✅ | |
 
 ### Sprint 4 (W7-W8): Payables
 
 | # | Task | Status | Remaining |
 | :--- | :--- | :---: | :--- |
 | 2.4 | Vendor master; vouchers payable with VAT and EWT (`bir_ewttbl`); duplicate supplier-invoice check; approval limits (`authtbl`); create from a posted MMRR | ✅ | |
-| 2.6 | Petty cash, fund replenishment, cash-advance liquidation, budget monitoring | ⬜ | `FundRepl.aspx`, `Liquidation.aspx`, `CashDisb.aspx`, `BudgetMonitor.aspx`. |
+| 2.6 | Petty cash and revolving fund vouchers (`exphdrtbl` tc 40 / 44) with a fund-balance check; fund replenishment (`fundrepltbl`, legacy numbering and remarks) paid through a voucher payable and cheque; cash-advance liquidation (tc 46) with refund or reimbursement; budget monitoring (`buddettbl`) against actual spending with drill-down and budget entry | ✅ | Weekly expense reports (tc 41) and gas PO payments (tc 48). |
 | 2.6 | A/P aging and open vouchers | ✅ | Remaining AP report variants from `APReports.aspx`. |
 
 ### Sprint 5 (W9-W10): Cheques & Printed Forms
@@ -143,7 +144,7 @@ These are already in place across all modules and are what the client sees in th
 | :--- | :--- | :---: |
 | `JournalVoucher.aspx` | General Ledger → Journal Vouchers | ✅ |
 | `JVPosting.aspx` | General Ledger → JV Posting | ✅ |
-| `JVedit.aspx` | Automatic JV edit | ⬜ |
+| `JVedit.aspx` | General Ledger → Edit Auto JV Entries | ✅ |
 | `AccountingPeriod.aspx` | General Ledger → Period Closing | ✅ |
 | `ChartOfAcct.aspx` | Administration → Chart of Accounts, Cost Centers, Profit Centers | ✅ |
 | `VoucherPayables.aspx`, `APapp.aspx` | Payables → Vouchers Payable (approval inside the document) | ✅ |
@@ -152,7 +153,10 @@ These are already in place across all modules and are what the client sees in th
 | `APReports.aspx` | Payables → A/P Aging | 🟡 |
 | `FinancialAccounting.aspx`, `FI.master` | Home page and the side menu | ✅ |
 | `FIreportViewer.aspx`, `ReportViewer.aspx` | Print view on every document and report | 🟡 |
-| `CashDisb.aspx`, `FundRepl.aspx`, `Liquidation.aspx`, `BudgetMonitor.aspx` | Petty cash, replenishment, liquidation, budget | ⬜ |
+| `CashDisb.aspx` | Payables → Petty Cash Vouchers and Revolving Fund Vouchers (the legacy page was a screen layout without server code; built on `exphdrtbl` tc 40 / 44 as the other legacy pages read it) | ✅ |
+| `FundRepl.aspx` | Payables → Fund Replenishment | ✅ |
+| `Liquidation.aspx` | Payables → Cash Advance Liquidation (the legacy Save was not implemented; completed here) | ✅ |
+| `BudgetMonitor.aspx` | General Ledger → Budget Monitoring | ✅ |
 
 **Gate:** trial balance per company and AP open balances show zero difference against legacy; NextGen JVs, VPs and CVs open and print correctly in the legacy screens.
 
@@ -296,7 +300,7 @@ These are already in place across all modules and are what the client sees in th
 
 * [ ] Schema-only dump of `jcs`, `apf`, `chemag`, `bfi`, `bfi_admin`, plus a recent full backup for the test copy.
 * [ ] A least-privilege MySQL account for Cloud AOS (never `root`).
-* [ ] Confirm the transaction codes against the client's `tccodestbl` (Cloud AOS uses the codes found in the legacy code, for example JV 40, VP 42, CV 43, OR 60, SI 62).
+* [ ] Confirm the transaction codes against the client's `tccodestbl`. Cloud AOS uses the codes found in the legacy code (JV 00, MMRR 10, DO 30, petty cash 40, weekly expense 41, VP 42, CV 43, revolving fund 44, payroll 45, CA liquidation 46, SI 53, OR 60, bank deposit 64, CM 90, DM 92); the codes for production receipts, transfers, adjustments, RIV, PO and SO were not found in the code and are marked "confirm" in `src/shared/codes.ts`.
 * [ ] Run `database/mysql/001_ng_tables.sql` on the test copy only.
 * [ ] Start read-only (leave `DATABASE_ALLOW_WRITES` unset), compare screens and reports with legacy, then enable writes on the test copy for the parity tests.
 * [ ] Sample printed forms (Crystal Reports output) for every document type.

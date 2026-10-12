@@ -52,17 +52,18 @@ function SignIn() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f4f6fa] dark:bg-[#0b1220]">
-      {/* Brand panel */}
-      <div className="relative hidden w-[46%] flex-col justify-between overflow-hidden bg-[#0b1f3a] p-12 text-white lg:flex">
-        <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-teal-500/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-20 h-[28rem] w-[28rem] rounded-full border-[48px] border-white/5" />
+    <div className="flex min-h-screen">
+      {/* Brand panel: true black with neon light */}
+      <div className="relative m-3 hidden w-[46%] flex-col justify-between overflow-hidden rounded-[2rem] bg-black p-12 text-white ring-1 ring-white/10 lg:flex">
+        <div className="absolute -left-24 -top-24 h-[26rem] w-[26rem] rounded-full bg-brand-500/30 blur-[110px]" />
+        <div className="absolute -bottom-32 -right-20 h-[24rem] w-[24rem] rounded-full bg-emerald-500/20 blur-[110px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
         <div className="relative">
-          <div className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-300">Accounting & Operations System</div>
-          <div className="mt-4 text-5xl font-extrabold tracking-tight">
-            Cloud <span className="text-teal-300">AOS</span>
+          <div className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-300">Accounting & Operations System</div>
+          <div className="mt-4 text-6xl font-semibold tracking-tight">
+            Cloud <span className="bg-gradient-to-r from-neon-blue to-neon-green bg-clip-text text-transparent">AOS</span>
           </div>
-          <p className="mt-5 max-w-md text-xl font-light leading-relaxed text-slate-200">
+          <p className="mt-5 max-w-md text-xl font-light leading-relaxed text-slate-300">
             Same data. Same business rules.
             <br />A modern system built for the next 10 years.
           </p>
@@ -77,8 +78,8 @@ function SignIn() {
             const I = Icon as typeof Zap;
             return (
               <li key={i} className="flex items-center gap-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                  <I className="h-4 w-4 text-teal-300" />
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] ring-1 ring-inset ring-white/10 backdrop-blur-xl">
+                  <I className="h-4 w-4 text-neon-green" />
                 </span>
                 {text as string}
               </li>
@@ -92,15 +93,15 @@ function SignIn() {
       <div className="flex flex-1 items-center justify-center p-6">
         <div className="w-full max-w-md">
           <div className="mb-8 lg:hidden">
-            <div className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Cloud <span className="text-teal-600 dark:text-teal-300">AOS</span>
+            <div className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              Cloud <span className="neon-text">AOS</span>
             </div>
             <p className="mt-1 text-sm text-slate-500">Same data. A modern system.</p>
           </div>
 
           {!choose ? (
             <form
-              className="rounded-2xl border border-slate-200 bg-white p-7 shadow-xl dark:border-[#1e2a44] dark:bg-[#111a2e]"
+              className="glass rounded-3xl p-7"
               onSubmit={(e) => {
                 e.preventDefault();
                 signIn();
@@ -142,14 +143,14 @@ function SignIn() {
               </div>
             </form>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-xl dark:border-[#1e2a44] dark:bg-[#111a2e]">
+            <div className="glass rounded-3xl p-7">
               <h1 className="text-xl font-bold text-slate-900 dark:text-white">Choose a company</h1>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">You have access to more than one company. Pick the one to open; you can switch later from your user menu.</p>
               <div className="mt-6 grid gap-3">
                 {choose.map((c) => (
-                  <button key={c.ba} disabled={busy} onClick={() => signIn(c.ba)} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3.5 text-left transition-colors hover:border-teal-400 hover:bg-teal-50/60 dark:border-[#2a3a5c] dark:hover:bg-teal-500/10">
+                  <button key={c.ba} disabled={busy} onClick={() => signIn(c.ba)} className="tile-interactive flex items-center justify-between px-4 py-3.5 text-left">
                     <span className="flex items-center gap-3">
-                      <Building2 className="h-5 w-5 text-teal-600" />
+                      <Building2 className="h-5 w-5 text-brand-600" />
                       <span className="font-semibold text-slate-800 dark:text-slate-100">{c.name}</span>
                     </span>
                     <ArrowRight className="h-4 w-4 text-slate-400" />
@@ -161,16 +162,16 @@ function SignIn() {
                   <Alert tone="danger">{error}</Alert>
                 </div>
               )}
-              <button className="mt-5 text-sm text-slate-500 hover:text-teal-700" onClick={() => setChoose(null)}>
+              <button className="mt-5 text-sm text-slate-500 hover:text-brand-700" onClick={() => setChoose(null)}>
                 ← Use a different account
               </button>
             </div>
           )}
 
           {info?.mode === 'demo' && info.accounts && !choose && (
-            <div className="mt-6 rounded-2xl border border-dashed border-teal-300 bg-teal-50/60 p-5 dark:border-teal-500/30 dark:bg-teal-500/5">
-              <p className="text-sm font-semibold text-teal-900 dark:text-teal-200">Preview with sample data</p>
-              <p className="mt-0.5 text-xs text-teal-800/80 dark:text-teal-300/80">
+            <div className="mt-6 rounded-3xl border border-dashed border-brand-500/40 bg-brand-500/[0.05] p-5 backdrop-blur-xl dark:border-brand-400/30 dark:bg-brand-400/[0.05]">
+              <p className="text-sm font-semibold text-brand-900 dark:text-brand-200">Preview with sample data</p>
+              <p className="mt-0.5 text-xs text-brand-800/80 dark:text-brand-300/80">
                 Pick a role to try. Every sample account uses the password <span className="font-mono font-semibold">{info.password}</span>.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -183,7 +184,7 @@ function SignIn() {
                       setPassword(info.password ?? '');
                       setError(null);
                     }}
-                    className="rounded-lg border border-teal-200 bg-white px-3 py-2 text-left text-xs transition-colors hover:border-teal-400 dark:border-teal-500/20 dark:bg-[#111a2e]"
+                    className="tile-interactive px-3 py-2 text-left text-xs"
                   >
                     <div className="font-semibold text-slate-800 dark:text-slate-100">{a.group}</div>
                     <div className="text-slate-500">

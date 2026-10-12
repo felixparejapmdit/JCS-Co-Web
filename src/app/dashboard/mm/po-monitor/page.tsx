@@ -45,7 +45,7 @@ export default function PoMonitorPage() {
                 render: (r) => (
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-                      <div className="h-full rounded-full bg-teal-500" style={{ width: `${r.pct}%` }} />
+                      <div className="h-full rounded-full bg-brand-500" style={{ width: `${r.pct}%` }} />
                     </div>
                     <span className="text-xs text-slate-500">{r.pct}%</span>
                   </div>

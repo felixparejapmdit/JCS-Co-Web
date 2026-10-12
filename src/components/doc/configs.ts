@@ -50,7 +50,9 @@ export interface DocConfig {
   sources?: { id: string; label: string; help: string }[];
   header: FieldDef[];
   lines?: { cols: LineCol[]; addLabel: string; availability?: boolean };
-  custom?: 'apply-invoices' | 'pay-vouchers' | 'count';
+  custom?: 'apply-invoices' | 'pay-vouchers' | 'count' | 'fund-vouchers';
+  /** Show summary blocks (rpc doc.summary) above the list. */
+  summary?: boolean;
   totals?: (d: Draft) => { label: string; value: number; strong?: boolean; kind?: 'money' | 'qty'; warn?: boolean }[];
   /** Automation when a header field changes (e.g. picking a customer fills the ship-to address). */
   onHeader?: (key: string, value: any, d: Draft, item?: { data?: Record<string, any>; label?: string }) => Partial<Draft>;
@@ -134,7 +136,10 @@ export const DOCS: Record<string, DocConfig> = {
     description: 'Supplier bills. VAT, withholding tax and the amount payable are computed for you, and duplicate supplier invoices are blocked.',
     newLabel: 'New voucher',
     tabs: ['Open', 'Posted', 'Void'],
-    sources: [{ id: 'mmrr', label: 'Bill a receiving report', help: 'For goods: vendor, amount, VAT and withholding tax come from the posted receipt.' }],
+    sources: [
+      { id: 'mmrr', label: 'Bill a receiving report', help: 'For goods: vendor, amount, VAT and withholding tax come from the posted receipt.' },
+      { id: 'fr', label: 'Pay a fund replenishment', help: 'For petty cash and revolving funds: the custodian and the amount come from the replenishment.' },
+    ],
     listCols: [
       { key: 'no', label: 'Voucher no.', kind: 'mono' },
       { key: 'transdate', label: 'Date', kind: 'date' },
@@ -149,7 +154,8 @@ export const DOCS: Record<string, DocConfig> = {
       { key: 'refdoc', label: 'Vendor invoice no.', type: 'text', required: true },
       { key: 'invdate', label: 'Invoice date', type: 'date' },
       { key: 'transdate', label: 'Voucher date', type: 'date', required: true },
-      { key: 'mmrrno', label: 'Receiving report', type: 'text', readOnly: () => true, when: (d) => Boolean(d.mmrrno) },
+      { key: 'mmrrno', label: 'Receiving report', type: 'text', readOnly: () => true, when: (d) => Boolean(d.mmrrno) && d.reflabel !== 'Fund Repl' },
+      { key: 'replno', label: 'Fund replenishment', type: 'text', readOnly: () => true, when: (d) => d.reflabel === 'Fund Repl' },
       { key: 'remarks', label: 'Description', type: 'textarea', span: 3 },
     ],
     lines: {
@@ -302,6 +308,129 @@ export const DOCS: Record<string, DocConfig> = {
       { key: 'oramt', label: 'Paid', kind: 'money' },
       { key: 'ewt', label: '2307 tax', kind: 'money' },
       { key: 'pdc', label: 'PDC' },
+    ],
+  },
+
+  pcv: fundVoucher('pcv', 'Petty Cash Voucher', 'Petty Cash Vouchers', 'petty cash fund'),
+  rfv: fundVoucher('rfv', 'Revolving Fund Voucher', 'Revolving Fund Vouchers', 'revolving fund'),
+
+  fr: {
+    type: 'fr',
+    title: 'Fund Replenishment',
+    plural: 'Fund Replenishments',
+    form: '028',
+    description: "Turn a custodian's posted petty cash or revolving fund vouchers into one replenishment. The amount and the remarks are filled in for you; the custodian is then paid through a voucher payable.",
+    newLabel: 'Replenish a fund',
+    tabs: ['Unpaid', 'Paid', 'Void'],
+    summary: true,
+    listCols: [
+      { key: 'no', label: 'Replenishment no.', kind: 'mono' },
+      { key: 'transdate', label: 'Date', kind: 'date' },
+      { key: 'party', label: 'Custodian' },
+      { key: 'fundname', label: 'Fund' },
+      { key: 'voucher', label: 'Voucher payable', hideOnMobile: true },
+      { key: 'amount', label: 'Amount', kind: 'money' },
+      { key: 'status', label: 'Status', kind: 'status' },
+    ],
+    header: [
+      {
+        key: 'tc',
+        label: 'Fund',
+        type: 'select',
+        required: true,
+        options: [
+          { value: '40', label: 'Petty Cash Fund' },
+          { value: '44', label: 'Revolving Fund' },
+        ],
+      },
+      { key: 'user', label: 'Vouchers prepared by', type: 'lookup', lookup: 'users', required: true, hint: 'The custodian who paid the expenses.' },
+      { key: 'venno', label: 'Pay the replenishment to', type: 'lookup', lookup: 'custodians', required: true, hint: 'Employee vendor marked as fund custodian.' },
+      { key: 'transdate', label: 'Date', type: 'date', required: true },
+      { key: 'remarks', label: 'Remarks', type: 'textarea', span: 2, placeholder: 'Leave blank: written for you from the voucher numbers.' },
+    ],
+    custom: 'fund-vouchers',
+    onHeader: (key) => (key === 'tc' || key === 'user' ? { lines: [] } : {}),
+    totals: (d) => [
+      { label: 'Vouchers', value: (d.lines ?? []).length, kind: 'qty' },
+      { label: 'Amount to replenish', value: lineTotal(d, (l) => n(l.amount)), strong: true },
+    ],
+    viewHeader: [
+      { key: 'fundname', label: 'Fund' },
+      { key: 'custodian', label: 'Vouchers prepared by' },
+      { key: 'venname', label: 'Paid to' },
+      { key: 'transdate', label: 'Date', kind: 'date' },
+      { key: 'docnofr', label: 'From voucher', kind: 'mono' },
+      { key: 'docnoto', label: 'To voucher', kind: 'mono' },
+      { key: 'remarks', label: 'Remarks' },
+    ],
+    viewLines: [
+      { key: 'docno', label: 'Voucher', kind: 'mono' },
+      { key: 'transdate', label: 'Date', kind: 'date' },
+      { key: 'payee', label: 'Paid to' },
+      { key: 'remarks', label: 'For' },
+      { key: 'amount', label: 'Amount', kind: 'money' },
+    ],
+  },
+
+  liq: {
+    type: 'liq',
+    title: 'Cash Advance Liquidation',
+    plural: 'Cash Advance Liquidations',
+    form: '038',
+    description: 'Account for a cash advance: enter what was spent and the system clears the advance and works out the refund or the extra reimbursement. Cash advances are released as vouchers payable charged to Advances to Employees.',
+    newLabel: 'New liquidation',
+    tabs: ['Open', 'Posted', 'Void'],
+    summary: true,
+    sources: [{ id: 'ca', label: 'Liquidate a cash advance', help: 'Pick an open cash advance: the employee and the advance amount are filled in for you.' }],
+    listCols: [
+      { key: 'no', label: 'Liquidation no.', kind: 'mono' },
+      { key: 'transdate', label: 'Date', kind: 'date' },
+      { key: 'party', label: 'Employee' },
+      { key: 'advance', label: 'Cash advance', kind: 'mono' },
+      { key: 'reimburse', label: 'To reimburse', kind: 'money', hideOnMobile: true },
+      { key: 'amount', label: 'Spent', kind: 'money' },
+      { key: 'status', label: 'Status', kind: 'status' },
+    ],
+    header: [
+      { key: 'refdoc', label: 'Cash advance', type: 'text', required: true, readOnly: () => true, placeholder: 'Use "Liquidate a cash advance"' },
+      { key: 'venno', label: 'Employee', type: 'lookup', lookup: 'vendors', readOnly: () => true },
+      { key: 'caamt', label: 'Advance amount', type: 'money', readOnly: () => true },
+      { key: 'transdate', label: 'Liquidation date', type: 'date', required: true },
+      { key: 'remarks', label: 'Remarks', type: 'textarea', span: 2 },
+    ],
+    lines: {
+      addLabel: 'Add expense',
+      cols: [
+        { key: 'acctno', label: 'Account', type: 'lookup', lookup: 'accounts', width: '34%' },
+        { key: 'ccno', label: 'Cost center', type: 'lookup', lookup: 'costCenters', width: '22%' },
+        { key: 'amount', label: 'Amount (VAT incl.)', type: 'money' },
+        { key: 'vatable', label: 'VAT', type: 'select', options: [{ value: 'Y', label: '12%' }, { value: 'N', label: 'None' }], width: '104px' },
+      ],
+    },
+    totals: (d) => {
+      const spent = lineTotal(d, (l) => n(l.amount));
+      const vat = sum((d.lines ?? []) as Draft[], (l) => splitVat(n(l.amount), l.vatable !== 'N').vat);
+      const diff = r2(n(d.caamt) - spent);
+      return [
+        { label: 'Spent (VAT incl.)', value: spent },
+        { label: 'of which input VAT', value: vat },
+        { label: 'Cash advance', value: n(d.caamt) },
+        diff >= 0 ? { label: 'Refund to the cashier', value: diff, strong: true } : { label: 'Reimburse the employee', value: -diff, strong: true, warn: false },
+      ];
+    },
+    viewHeader: [
+      { key: 'venname', label: 'Employee' },
+      { key: 'refdoc', label: 'Cash advance', kind: 'mono' },
+      { key: 'caamt', label: 'Advance amount', kind: 'money' },
+      { key: 'transdate', label: 'Liquidation date', kind: 'date' },
+      { key: 'remarks', label: 'Remarks' },
+    ],
+    viewLines: [
+      { key: 'acctno', label: 'Account', kind: 'mono' },
+      { key: 'acctdesc', label: 'Title' },
+      { key: 'ccno', label: 'Cost center' },
+      { key: 'amount', label: 'Amount (VAT incl.)', kind: 'money' },
+      { key: 'net', label: 'Net of VAT', kind: 'money' },
     ],
   },
 
@@ -819,6 +948,69 @@ function memo(type: 'cm' | 'dm', title: string, plural: string, form: string, de
       { key: 'invamt', label: 'Invoice amount', kind: 'money' },
       { key: 'amt', label: 'Amount', kind: 'money' },
       { key: 'glacct1', label: 'Account', kind: 'mono' },
+    ],
+  };
+}
+
+function fundVoucher(type: 'pcv' | 'rfv', title: string, plural: string, fund: string): DocConfig {
+  return {
+    type,
+    title,
+    plural,
+    form: '026',
+    description: `Small expenses paid in cash from the ${fund}. The amount comes out of the fund when the voucher is posted; posted vouchers are then replenished in one go.`,
+    newLabel: `New ${title.toLowerCase()}`,
+    tabs: ['Open', 'Posted', 'Void'],
+    summary: true,
+    saveThen: { action: 'post', label: 'Save & post' },
+    listCols: [
+      { key: 'no', label: 'Voucher no.', kind: 'mono' },
+      { key: 'transdate', label: 'Date', kind: 'date' },
+      { key: 'party', label: 'Paid to' },
+      { key: 'remarks', label: 'For', hideOnMobile: true },
+      { key: 'repl', label: 'Replenishment', hideOnMobile: true },
+      { key: 'amount', label: 'Amount', kind: 'money' },
+      { key: 'status', label: 'Status', kind: 'status' },
+    ],
+    header: [
+      { key: 'venno', label: 'Paid to', type: 'lookup', lookup: 'vendors', required: true, span: 2, hint: 'Use "Various Suppliers" for small stores without a vendor record.' },
+      { key: 'refdoc', label: 'Receipt no.', type: 'text', placeholder: 'OR / SI number' },
+      { key: 'transdate', label: 'Date', type: 'date', required: true },
+      { key: 'remarks', label: 'What was it for?', type: 'textarea', span: 2 },
+    ],
+    lines: {
+      addLabel: 'Add expense',
+      cols: [
+        { key: 'acctno', label: 'Account', type: 'lookup', lookup: 'accounts', width: '34%' },
+        { key: 'ccno', label: 'Cost center', type: 'lookup', lookup: 'costCenters', width: '22%' },
+        { key: 'amount', label: 'Amount (VAT incl.)', type: 'money' },
+        { key: 'vatable', label: 'VAT', type: 'select', options: [{ value: 'Y', label: '12%' }, { value: 'N', label: 'None' }], width: '104px' },
+      ],
+    },
+    totals: (d) => {
+      const gross = lineTotal(d, (l) => n(l.amount));
+      const vat = sum((d.lines ?? []) as Draft[], (l) => splitVat(n(l.amount), l.vatable !== 'N').vat);
+      const rows: { label: string; value: number; strong?: boolean; warn?: boolean }[] = [
+        { label: 'Expense (net of VAT)', value: r2(gross - vat) },
+        { label: 'Input VAT', value: vat },
+        { label: `Paid from the ${fund}`, value: gross, strong: true },
+      ];
+      if (d._fund) rows.push({ label: 'Available in the fund', value: n(d._fund.available), warn: gross > n(d._fund.available) });
+      return rows;
+    },
+    viewHeader: [
+      { key: 'venname', label: 'Paid to' },
+      { key: 'refdoc', label: 'Receipt no.' },
+      { key: 'transdate', label: 'Date', kind: 'date' },
+      { key: 'user', label: 'Custodian' },
+      { key: 'remarks', label: 'For' },
+    ],
+    viewLines: [
+      { key: 'acctno', label: 'Account', kind: 'mono' },
+      { key: 'acctdesc', label: 'Title' },
+      { key: 'ccno', label: 'Cost center' },
+      { key: 'amount', label: 'Amount (VAT incl.)', kind: 'money' },
+      { key: 'net', label: 'Net of VAT', kind: 'money' },
     ],
   };
 }

@@ -74,7 +74,7 @@ export default function ChequesPage() {
         </Card>
         <Card title="Preview" subtitle="Standard 203 × 76 mm cheque">
           <div className="overflow-x-auto">
-            <div className="relative rounded-lg border-2 border-dashed border-slate-300 bg-gradient-to-br from-sky-50 to-white dark:border-slate-600 dark:from-slate-800 dark:to-slate-900" style={{ width: 203 * mm, height: 76 * mm }}>
+            <div className="relative rounded-lg border-2 border-dashed border-black/[0.1] bg-gradient-to-br from-sky-50 to-white dark:border-slate-600 dark:from-slate-800 dark:to-slate-900" style={{ width: 203 * mm, height: 76 * mm }}>
               <div className="absolute text-[13px] text-slate-900 dark:text-white" style={{ left: layout.date_x_mm * mm, top: layout.date_y_mm * mm }}>{fmtDate(today())}</div>
               <div className="absolute text-[13px] font-semibold text-slate-900 dark:text-white" style={{ left: layout.payee_x_mm * mm, top: layout.payee_y_mm * mm }}>** Sample Supplier Corporation **</div>
               <div className="absolute text-[13px] font-semibold text-slate-900 dark:text-white" style={{ left: layout.amount_x_mm * mm, top: layout.amount_y_mm * mm }}>**{fmtMoney(amount)}**</div>

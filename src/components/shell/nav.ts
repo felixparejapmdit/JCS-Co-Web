@@ -36,9 +36,11 @@ export const NAV: NavGroup[] = [
     items: [
       { label: 'Journal Vouchers', href: '/dashboard/doc/jv', form: '052', keywords: 'jv entry adjustment' },
       { label: 'JV Posting', href: '/dashboard/fi/posting', form: '038', keywords: 'post ledger subledger' },
+      { label: 'Edit Auto JV Entries', href: '/dashboard/fi/jv-edit', form: '052', keywords: 'correct gl entry account cost center jvedit' },
       { label: 'Period Closing', href: '/dashboard/fi/periods', form: '006', keywords: 'month end close reopen' },
       { label: 'GL Reports', href: '/dashboard/fi/gl-reports', form: '052', keywords: 'trial balance ledger' },
       { label: 'Financial Statements', href: '/dashboard/fi/statements', form: '063', keywords: 'balance sheet income statement profit loss' },
+      { label: 'Budget Monitoring', href: '/dashboard/fi/budget', form: '079', keywords: 'budget actual variance cost center' },
     ],
   },
   {
@@ -48,6 +50,10 @@ export const NAV: NavGroup[] = [
     items: [
       { label: 'Vouchers Payable', href: '/dashboard/doc/vp', form: '023', keywords: 'vp bills supplier invoice' },
       { label: 'Check Vouchers', href: '/dashboard/doc/cv', form: '024', keywords: 'cheque payment disbursement' },
+      { label: 'Petty Cash Vouchers', href: '/dashboard/doc/pcv', form: '026', keywords: 'petty cash pcf disbursement custodian' },
+      { label: 'Revolving Fund Vouchers', href: '/dashboard/doc/rfv', form: '026', keywords: 'revolving fund rf' },
+      { label: 'Fund Replenishment', href: '/dashboard/doc/fr', form: '028', keywords: 'replenish petty cash revolving fund' },
+      { label: 'Cash Advance Liquidation', href: '/dashboard/doc/liq', form: '038', keywords: 'liquidation cash advance ca refund reimburse' },
       { label: 'A/P Aging', href: '/dashboard/fi/ap', form: '032', keywords: 'payables due' },
       { label: 'Vendors', href: '/dashboard/master/vendors', form: '030', keywords: 'suppliers' },
     ],

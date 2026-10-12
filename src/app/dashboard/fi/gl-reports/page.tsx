@@ -46,7 +46,7 @@ function Ledger({ acctno, from, to, unposted }: { acctno: string; from: string; 
   if (error) return <div className="p-4"><Alert tone="danger">{error}</Alert></div>;
   return (
     <div>
-      <div className="flex flex-wrap gap-6 border-b border-slate-100 px-5 py-3 text-sm dark:border-[#1e2a44]">
+      <div className="flex flex-wrap gap-6 border-b border-slate-100 px-5 py-3 text-sm dark:border-white/[0.07]">
         <span>
           Opening balance <strong className="tabular-nums">{fmtMoney(data.opening)}</strong>
         </span>
@@ -107,7 +107,7 @@ export default function GlReportsPage() {
               <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
             </Field>
             <label className="flex h-9 items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-              <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={unposted} onChange={(e) => setUnposted(e.target.checked)} />
+              <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={unposted} onChange={(e) => setUnposted(e.target.checked)} />
               Include entries not yet posted
             </label>
           </div>

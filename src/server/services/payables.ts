@@ -7,6 +7,9 @@ import { ActionDef, DocService, STD, countBy, filterList, registerDoc } from './
 import { GL, GlEntry, reverseGl, writeGl } from './gl';
 import { assertWithinLimit } from './purchasing';
 
+/** exphdrtbl.reflabel of a voucher that pays a fund replenishment (legacy CheckVoucher.aspx). */
+export const FUND_REPL = 'Fund Repl';
+
 async function vendor(db: Db, venno: string): Promise<Row> {
   const v = await db.one('venmasttbl', { venno });
   if (!v) fail(`Vendor ${venno} does not exist.`);
@@ -69,12 +72,14 @@ const vpService: DocService = {
     const net = sum(userLines, (l) => num(l.dramt));
     const cvs = await ctx.db.all('cvdettbl', { where: { vpno: h.docno, tcref: TC.VOUCHER_PAYABLE } });
     const cvnos = [...new Set(cvs.map((c) => c.docno))];
+    const isRepl = h.reflabel === FUND_REPL;
+    const advance = sum(lines.filter((l) => l.acctno === GL.ADVANCES_EMPLOYEES), (l) => num(l.dramt) - num(l.cramt));
     return {
       no: h.docno,
       status: h.status,
       title: `Voucher Payable ${h.docno}`,
       subtitle: `${ven?.venname ?? h.venno}${h.refdoc ? ' · invoice ' + h.refdoc : ''}`,
-      header: { ...h, venname: ven?.venname, ventin: ven?.tin, venaddress: ven?.address, duedate: addDays(h.invdate || h.transdate, num(ven?.terms)) },
+      header: { ...h, venname: ven?.venname, ventin: ven?.tin, venaddress: ven?.address, duedate: addDays(h.invdate || h.transdate, num(ven?.terms)), replno: isRepl ? h.mmrrno : '', isAdvance: advance > 0, advance },
       // The VAT-inclusive invoice amount of each line is kept as qty 1 x uc; dramt holds the net.
       lines: userLines.map((l) => ({
         ...l,
@@ -94,11 +99,14 @@ const vpService: DocService = {
       ],
       info: [
         { label: 'Payment status', value: h.cvstat || 'Unpaid' },
+        ...(advance > 0 ? [{ label: 'Cash advance', value: h.liqstat === 'Liquidated' ? `Liquidated on ${h.replno}` : `${fmtPeso(advance)} to be liquidated` }] : []),
         { label: 'Due date', value: addDays(h.invdate || h.transdate, num(ven?.terms)) },
         ...(h.postedby ? [{ label: 'Posted by', value: `${h.postedby} on ${h.datepost}` }] : []),
       ],
       links: [
-        ...(h.mmrrno ? [{ label: `Receiving report ${h.mmrrno}`, type: 'mmrr', no: h.mmrrno }] : []),
+        ...(h.mmrrno && !isRepl ? [{ label: `Receiving report ${h.mmrrno}`, type: 'mmrr', no: h.mmrrno }] : []),
+        ...(isRepl ? [{ label: `Fund replenishment ${h.mmrrno}`, type: 'fr', no: h.mmrrno }] : []),
+        ...(advance > 0 && h.liqstat === 'Liquidated' && h.replno ? [{ label: `Liquidation ${h.replno}`, type: 'liq', no: h.replno }] : []),
         ...(h.pono ? [{ label: `Purchase order ${h.pono}`, type: 'po', no: h.pono }] : []),
         ...cvnos.map((c) => ({ label: `Check voucher ${c}`, type: 'cv', no: c })),
       ],
@@ -134,7 +142,9 @@ const vpService: DocService = {
         }
         await reverseGl(ctx, TC.VOUCHER_PAYABLE, h.docno, today());
       }
-      if (h.mmrrno) await ctx.db.update('invhdrtbl', { docno: h.mmrrno }, { vpno: '' });
+      if (h.liqstat === 'Liquidated') fail(`Cash advance ${h.docno} is already liquidated on ${h.replno}. Void the liquidation first.`);
+      if (h.reflabel === FUND_REPL) await ctx.db.update('fundrepltbl', { replno: h.mmrrno }, { vpno: '0', status: 'unpaid', changeby: ctx.user });
+      else if (h.mmrrno) await ctx.db.update('invhdrtbl', { docno: h.mmrrno }, { vpno: '' });
       await ctx.db.update('exphdrtbl', { docno: h.docno, tc: TC.VOUCHER_PAYABLE }, { status: 'Void', vpbals: 0 });
       await ctx.db.update('expdettbl', { docno: h.docno, tc: TC.VOUCHER_PAYABLE }, { status: 'Void' });
       return `Voucher ${h.docno} voided.`;
@@ -147,6 +157,11 @@ const vpService: DocService = {
   },
 
   async sources(ctx, source) {
+    if (source === 'fr') {
+      const reps = await ctx.db.all('fundrepltbl', { where: { status: 'unpaid' }, orderBy: [['transdate', 'asc']] });
+      const vens = await ctx.db.all('venmasttbl');
+      return reps.filter((r) => !r.vpno || r.vpno === '0').map((r) => ({ no: r.replno, date: r.transdate, party: vens.find((v) => v.venno === r.venno)?.venname ?? r.venno, amount: num(r.totalamt), note: r.remarks }));
+    }
     if (source !== 'mmrr') return [];
     const rr = await ctx.db.all('invhdrtbl', { where: { tc: TC.RECEIVING, status: 'Posted', vpno: { isNull: true } }, orderBy: [['transdate', 'asc']] });
     const vens = await ctx.db.all('venmasttbl');
@@ -154,6 +169,23 @@ const vpService: DocService = {
   },
 
   async prefill(ctx, source, mmrrno) {
+    if (source === 'fr') {
+      const r = await ctx.db.one('fundrepltbl', { replno: mmrrno });
+      if (!r || r.status !== 'unpaid') fail(`Replenishment ${mmrrno} is not waiting for payment.`);
+      if (r.vpno && r.vpno !== '0') fail(`Replenishment ${mmrrno} is already on voucher ${r.vpno}.`);
+      const fund = r.tc === TC.REVOLVING_FUND ? GL.REVOLVING_FUND : GL.PETTY_CASH_FUND;
+      return {
+        transdate: today(),
+        venno: r.venno,
+        invdate: r.transdate,
+        refdoc: `FR ${r.replno}`,
+        mmrrno: r.replno,
+        replno: r.replno,
+        reflabel: FUND_REPL,
+        remarks: r.remarks,
+        lines: [{ acctno: fund, ccno: '', amount: num(r.totalamt), vatable: 'N', ewtcode: '', remarksline: `Replenishment ${r.replno}` }],
+      };
+    }
     if (source !== 'mmrr') fail('Unknown source');
     const rr = await ctx.db.one('invhdrtbl', { docno: mmrrno, tc: TC.RECEIVING });
     if (!rr || rr.status !== 'Posted') fail(`Receiving report ${mmrrno} is not posted.`);
@@ -181,7 +213,13 @@ const vpService: DocService = {
     const other = dup.find((d) => d.docno !== str(input.no));
     if (other) fail(`Invoice ${refdoc} of ${v.venname} is already recorded on voucher ${other.docno}.`);
     const mmrrno = str(input.mmrrno);
-    if (mmrrno) {
+    const isRepl = str(input.reflabel) === FUND_REPL;
+    if (isRepl) {
+      const r = await ctx.db.one('fundrepltbl', { replno: mmrrno });
+      if (!r || r.status !== 'unpaid') fail(`Replenishment ${mmrrno} is not waiting for payment.`);
+      if (r.vpno && r.vpno !== '0' && r.vpno !== str(input.no)) fail(`Replenishment ${mmrrno} is already on voucher ${r.vpno}.`);
+      if (r.venno !== v.venno) fail(`Replenishment ${mmrrno} is payable to its custodian (${r.venno}).`);
+    } else if (mmrrno) {
       const rr = await ctx.db.one('invhdrtbl', { docno: mmrrno, tc: TC.RECEIVING });
       if (!rr || rr.status !== 'Posted') fail(`Receiving report ${mmrrno} is not posted.`);
       if (rr.venno !== v.venno) fail(`Receiving report ${mmrrno} is from another vendor.`);
@@ -206,6 +244,7 @@ const vpService: DocService = {
       invdate: str(input.invdate) || transdate,
       pono: str(input.pono),
       mmrrno,
+      reflabel: isRepl ? FUND_REPL : '',
       dept: str(input.dept),
       remarks: str(input.remarks),
       docamt: calc.payable,
@@ -223,7 +262,7 @@ const vpService: DocService = {
       const h = await ctx.db.one('exphdrtbl', { docno, tc: TC.VOUCHER_PAYABLE });
       if (!h) fail(`Voucher ${docno} was not found.`);
       if (h.status !== 'Open') fail(`Voucher ${docno} is ${h.status} and can no longer be edited.`);
-      if (h.mmrrno && h.mmrrno !== mmrrno) await ctx.db.update('invhdrtbl', { docno: h.mmrrno }, { vpno: '' });
+      if (h.mmrrno && h.mmrrno !== mmrrno && h.reflabel !== FUND_REPL) await ctx.db.update('invhdrtbl', { docno: h.mmrrno }, { vpno: '' });
       await ctx.db.update('exphdrtbl', { docno, tc: TC.VOUCHER_PAYABLE }, header);
       await ctx.db.remove('expdettbl', { docno, tc: TC.VOUCHER_PAYABLE });
     } else {
@@ -255,7 +294,8 @@ const vpService: DocService = {
     if (calc.vat) await ctx.db.insert('expdettbl', { ...base, itemno: ++item, acctno: GL.INPUT_VAT, dramt: calc.vat, cramt: 0, entryfr: 'VAT', remarksline: 'Input VAT', id: `${docno}-${item}` });
     if (calc.ewt) await ctx.db.insert('expdettbl', { ...base, itemno: ++item, acctno: GL.EWT_PAYABLE, dramt: 0, cramt: calc.ewt, entryfr: 'EWT', remarksline: 'Expanded withholding tax', id: `${docno}-${item}` });
     await ctx.db.insert('expdettbl', { ...base, itemno: ++item, acctno: GL.AP_TRADE, dramt: 0, cramt: calc.payable, entryfr: 'AP', remarksline: `Payable to ${v.venname}`, id: `${docno}-${item}` });
-    if (mmrrno) await ctx.db.update('invhdrtbl', { docno: mmrrno }, { vpno: docno });
+    if (isRepl) await ctx.db.update('fundrepltbl', { replno: mmrrno }, { vpno: docno, changeby: ctx.user });
+    else if (mmrrno) await ctx.db.update('invhdrtbl', { docno: mmrrno }, { vpno: docno });
     return { no: docno };
   },
 };
@@ -271,17 +311,22 @@ async function nextCheque(db: Db, bank: string): Promise<string> {
   return String(max ? max + 1 : 100001).padStart(6, '0');
 }
 
+/** Documents a cheque can pay: vouchers payable and liquidation reimbursements. */
+export const PAYABLE_TCS: string[] = [TC.VOUCHER_PAYABLE, TC.CA_LIQUIDATION];
+
 export async function openVouchers(db: Db, venno: string) {
-  const heads = await db.all('exphdrtbl', { where: { venno, tc: TC.VOUCHER_PAYABLE, status: 'Posted', vpbals: { gt: 0 } }, orderBy: [['transdate', 'asc']] });
+  const heads = await db.all('exphdrtbl', { where: { venno, tc: { in: PAYABLE_TCS }, status: 'Posted', vpbals: { gt: 0 } }, orderBy: [['transdate', 'asc']] });
   const v = await db.one('venmasttbl', { venno });
-  return heads.map((h) => ({ vpno: h.docno, transdate: h.transdate, refdoc: h.refdoc, docamt: num(h.docamt), balance: num(h.vpbals), duedate: addDays(h.invdate || h.transdate, num(v?.terms)) }));
+  return heads.map((h) => ({ vpno: h.docno, tc: h.tc, transdate: h.transdate, refdoc: h.tc === TC.CA_LIQUIDATION ? `Liquidation of ${h.refdoc}` : h.refdoc, docamt: num(h.docamt), balance: num(h.vpbals), duedate: addDays(h.invdate || h.transdate, num(v?.terms)) }));
 }
 
-async function applyPayment(db: Db, vpno: string, amount: number) {
-  const vp = await db.one('exphdrtbl', { docno: vpno, tc: TC.VOUCHER_PAYABLE });
+async function applyPayment(db: Db, vpno: string, tc: string, amount: number, user: string, date: string) {
+  const vp = await db.one('exphdrtbl', { docno: vpno, tc });
   if (!vp) return;
   const bal = r2(num(vp.vpbals) - amount);
-  await db.update('exphdrtbl', { docno: vpno, tc: TC.VOUCHER_PAYABLE }, { vpbals: bal, cvstat: bal <= 0.004 ? 'Paid' : bal < num(vp.docamt) ? 'Partial' : 'Unpaid' });
+  await db.update('exphdrtbl', { docno: vpno, tc }, { vpbals: bal, cvstat: bal <= 0.004 ? 'Paid' : bal < num(vp.docamt) ? 'Partial' : 'Unpaid' });
+  // A fully paid replenishment voucher restores the fund, so the replenishment is marked paid (legacy fundrepltbl).
+  if (vp.reflabel === FUND_REPL) await db.update('fundrepltbl', { replno: vp.mmrrno }, bal <= 0.004 ? { status: 'paid', postingdate: date, changeby: user } : { status: 'unpaid', postingdate: null, changeby: user });
 }
 
 const cvService: DocService = {
@@ -323,7 +368,7 @@ const cvService: DocService = {
         { label: 'Release status', value: h.relstat || 'Unreleased' },
         { label: 'Printed', value: printed ? `${num(printed.reprtcounter) + 1} time(s), last ${printed.datereprt || printed.transdate}` : 'Not yet' },
       ],
-      links: vpLines.map((l) => ({ label: `Voucher ${l.vpno}`, type: 'vp', no: l.vpno })),
+      links: vpLines.map((l) => (l.tcref === TC.CA_LIQUIDATION ? { label: `Liquidation ${l.vpno}`, type: 'liq', no: l.vpno } : { label: `Voucher ${l.vpno}`, type: 'vp', no: l.vpno })),
       editable: h.status === 'Open',
       print: {
         kind: 'cheque',
@@ -352,7 +397,7 @@ const cvService: DocService = {
     const vpLines = lines.filter((l) => l.entryfr === 'VP');
     if (action === 'approve') {
       for (const l of vpLines) {
-        const vp = await ctx.db.one('exphdrtbl', { docno: l.vpno, tc: TC.VOUCHER_PAYABLE });
+        const vp = await ctx.db.one('exphdrtbl', { docno: l.vpno, tc: l.tcref || TC.VOUCHER_PAYABLE });
         if (!vp || vp.status !== 'Posted') fail(`Voucher ${l.vpno} is no longer posted.`);
         if (num(l.dramt) > num(vp.vpbals) + 0.009) fail(`Voucher ${l.vpno} only has ${fmtPeso(num(vp.vpbals))} unpaid.`);
       }
@@ -362,20 +407,20 @@ const cvService: DocService = {
     if (action === 'release') {
       const reldate = str(payload.reldate) || today();
       await assertOpenPeriod(ctx.db, reldate, TC.CHECK_VOUCHER);
-      for (const l of vpLines) await applyPayment(ctx.db, l.vpno, num(l.dramt));
+      for (const l of vpLines) await applyPayment(ctx.db, l.vpno, l.tcref || TC.VOUCHER_PAYABLE, num(l.dramt), ctx.user, reldate);
       await writeGl(
         ctx,
         { tc: TC.CHECK_VOUCHER, docno: h.docno, transdate: reldate, source: 'CV' },
         lines.map((l) => ({ acctno: l.acctno, ccno: l.ccno, dramt: num(l.dramt), cramt: num(l.cramt) }))
       );
       await ctx.db.update('cvhdrtbl', { docno: h.docno }, { status: 'Released', relstat: 'Released', reldate, postingdate: reldate, updateby: ctx.user });
-      for (const l of vpLines) await ctx.db.update('exphdrtbl', { docno: l.vpno, tc: TC.VOUCHER_PAYABLE }, { cvno: h.docno, cvdate: reldate, cvby: ctx.user });
+      for (const l of vpLines) await ctx.db.update('exphdrtbl', { docno: l.vpno, tc: l.tcref || TC.VOUCHER_PAYABLE }, { cvno: h.docno, cvdate: reldate, cvby: ctx.user });
       return `Cheque #${h.chno} released to ${h.payeename}.`;
     }
     if (action === 'void') {
       if (h.status === 'Released') {
         await reverseGl(ctx, TC.CHECK_VOUCHER, h.docno, today());
-        for (const l of vpLines) await applyPayment(ctx.db, l.vpno, -num(l.dramt));
+        for (const l of vpLines) await applyPayment(ctx.db, l.vpno, l.tcref || TC.VOUCHER_PAYABLE, -num(l.dramt), ctx.user, today());
       }
       await ctx.db.update('cvhdrtbl', { docno: h.docno }, { status: 'Void', relstat: 'Cancelled' });
       await ctx.db.update('cvdettbl', { docno: h.docno }, { status: 'Void' });
@@ -405,7 +450,7 @@ const cvService: DocService = {
       if (!vp) fail(`Line ${i + 1}: voucher ${l.vpno} is not open for ${v.venname}.`);
       const amt = r2(num(l.dramt));
       if (amt > vp.balance + 0.009) fail(`Line ${i + 1}: voucher ${vp.vpno} only has ${fmtPeso(vp.balance)} unpaid.`);
-      lines.push({ vpno: vp.vpno, vpdate: vp.transdate, tcref: TC.VOUCHER_PAYABLE, acctno: GL.AP_TRADE, dramt: amt, cramt: 0, entryfr: 'VP' });
+      lines.push({ vpno: vp.vpno, vpdate: vp.transdate, tcref: vp.tc, acctno: GL.AP_TRADE, dramt: amt, cramt: 0, entryfr: 'VP' });
     }
     const total = sum(lines, (l) => l.dramt);
     let docno = str(input.no);
@@ -487,7 +532,7 @@ export async function saveChequeLayout(ctx: Ctx, acctno: string, layout: Row): P
 // ===========================================================================
 export async function apAging(ctx: Ctx, asOf = today()) {
   await requireRight(ctx, FORM.AP_REPORTS, ACTION.VIEW, 'view A/P reports');
-  const heads = await ctx.db.all('exphdrtbl', { where: { tc: TC.VOUCHER_PAYABLE, status: 'Posted', vpbals: { gt: 0 } } });
+  const heads = await ctx.db.all('exphdrtbl', { where: { tc: { in: PAYABLE_TCS }, status: 'Posted', vpbals: { gt: 0 } } });
   const vens = await ctx.db.all('venmasttbl');
   const map = new Map<string, Row>();
   for (const h of heads) {

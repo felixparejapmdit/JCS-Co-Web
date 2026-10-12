@@ -17,6 +17,11 @@ test.describe('Modules', () => {
     ['/dashboard/doc/prod', /Production/],
     ['/dashboard/hr/payroll', /Payroll/],
     ['/dashboard/admin/company', /Company & Branding/],
+    ['/dashboard/doc/pcv', /Petty Cash Vouchers/],
+    ['/dashboard/doc/fr', /Fund Replenishments/],
+    ['/dashboard/doc/liq', /Cash Advance Liquidations/],
+    ['/dashboard/fi/budget', /Budget Monitoring/],
+    ['/dashboard/fi/jv-edit', /Edit Auto JV Entries/],
   ];
 
   for (const [path, heading] of screens) {

@@ -63,7 +63,7 @@ export default function VoidsPage() {
             empty={<EmptyState title="No void requests" />}
             columns={[
               { key: 'transdate', header: 'Requested' },
-              { key: 'document', header: 'Document', render: (r) => <div><div>{r.document}</div>{r.type ? <Link href={`/dashboard/doc/${r.type}/${encodeURIComponent(r.docno)}`} className="font-mono text-xs text-teal-700 hover:underline dark:text-teal-400">{r.docno}</Link> : <span className="font-mono text-xs">{r.docno}</span>}</div> },
+              { key: 'document', header: 'Document', render: (r) => <div><div>{r.document}</div>{r.type ? <Link href={`/dashboard/doc/${r.type}/${encodeURIComponent(r.docno)}`} className="font-mono text-xs text-brand-700 hover:underline dark:text-brand-400">{r.docno}</Link> : <span className="font-mono text-xs">{r.docno}</span>}</div> },
               { key: 'user', header: 'By' },
               { key: 'remarks', header: 'Reason' },
               { key: 'reqstat', header: 'Status', render: (r) => <StatusBadge status={r.reqstat} /> },

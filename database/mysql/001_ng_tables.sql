@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS ng_company_branding (
     display_name  VARCHAR(100) NOT NULL,
     tagline       VARCHAR(80)  NULL,
     logo_text     VARCHAR(3)   NULL,                   -- initials shown when there is no logo
-    accent        CHAR(7)      NOT NULL DEFAULT '#0d9488',
+    accent        CHAR(7)      NOT NULL DEFAULT '#2f7fff',
     logo_data     MEDIUMTEXT   NULL,                   -- data: URI, PNG / JPG / SVG / WebP under 200 KB
     show_code     CHAR(1)      NOT NULL DEFAULT 'Y',   -- show the BA chip and open period
     updated_by    VARCHAR(50)  NOT NULL,

@@ -1,3 +1,5 @@
+import { openAdvances } from './funds';
+import { budgetMonitor } from './budget';
 import type { Row } from '../db';
 import { ACTION, FORM, FORM_CATALOG, TC, statusTone } from '@/shared/codes';
 import { addDays, monthEnd, monthName, monthStart, nowStamp, today, ym } from '@/shared/dates';
@@ -33,7 +35,7 @@ export async function companyProfile(ctx: Ctx): Promise<{ company: Row; branding
       display_name: str(b?.display_name) || name,
       tagline: str(b?.tagline) || str(company.address).split(',').slice(-2).join(',').trim(),
       logo_text: str(b?.logo_text) || initials(str(company.shrtname) || name),
-      accent: str(b?.accent) || '#0d9488',
+      accent: str(b?.accent) || '#2f7fff',
       logo_data: b?.logo_data ? String(b.logo_data) : null,
       show_code: str(b?.show_code) || 'Y',
     },
@@ -47,7 +49,7 @@ function initials(name: string): string {
 
 export async function saveCompanyProfile(ctx: Ctx, input: Row): Promise<string> {
   await requireRight(ctx, FORM.APP_CONTROL, ACTION.EDIT, 'change company settings');
-  const accent = str(input.accent) || '#0d9488';
+  const accent = str(input.accent) || '#2f7fff';
   if (!/^#[0-9a-f]{6}$/i.test(accent)) fail('Choose a color in #RRGGBB format.');
   const logo = input.logo_data ? String(input.logo_data) : null;
   if (logo && (!/^data:image\/(png|jpeg|svg\+xml|webp);base64,/.test(logo) || logo.length > 300_000)) fail('Upload a PNG, JPG, SVG or WebP logo under 200 KB.');
@@ -360,6 +362,9 @@ const TASKS: { type: string; status: string; form: string; action: number; label
   { type: 'or', status: 'Open', form: FORM.COLLECTION, action: ACTION.RELEASE, label: 'Receipts to issue' },
   { type: 'cm', status: 'Open', form: FORM.CREDIT_MEMO, action: ACTION.RELEASE, label: 'Credit memos to approve' },
   { type: 'dm', status: 'Open', form: FORM.DEBIT_MEMO, action: ACTION.RELEASE, label: 'Debit memos to approve' },
+  { type: 'pcv', status: 'Open', form: FORM.PETTY_CASH, action: ACTION.RELEASE, label: 'Petty cash vouchers to post' },
+  { type: 'rfv', status: 'Open', form: FORM.PETTY_CASH, action: ACTION.RELEASE, label: 'Revolving fund vouchers to post' },
+  { type: 'liq', status: 'Open', form: FORM.CA_LIQUIDATION, action: ACTION.RELEASE, label: 'Liquidations to post' },
 ];
 
 export async function myTasks(ctx: Ctx) {
@@ -385,6 +390,23 @@ export async function myTasks(ctx: Ctx) {
   if (await isAllowed(ctx.db, ctx.group, FORM.PAYROLL_MONTHLY, ACTION.RELEASE)) {
     const n = await ctx.db.count('payidtbl', { paystat: 'Computed' });
     if (n) tasks.push({ label: 'Payrolls ready to post', count: n, href: '/dashboard/hr/payroll' });
+  }
+  if (await isAllowed(ctx.db, ctx.group, FORM.VOUCHER_PAYABLE, ACTION.INSERT)) {
+    const reps = await ctx.db.all('fundrepltbl', { where: { status: 'unpaid' } });
+    const n = reps.filter((r) => !r.vpno || r.vpno === '0').length;
+    if (n) tasks.push({ label: 'Fund replenishments needing a voucher', count: n, href: '/dashboard/doc/fr?status=Unpaid' });
+  }
+  if (await isAllowed(ctx.db, ctx.group, FORM.CA_LIQUIDATION, ACTION.INSERT)) {
+    const n = (await openAdvances(ctx.db)).filter((a) => a.days > 30).length;
+    if (n) tasks.push({ label: 'Cash advances over 30 days to liquidate', count: n, href: '/dashboard/doc/liq' });
+  }
+  if (await isAllowed(ctx.db, ctx.group, FORM.BUDGET, ACTION.VIEW)) {
+    const periods = await ctx.db.all('buddettbl', { where: { datefr: { lte: today() }, dateto: { gte: today() } }, limit: 1 });
+    if (periods.length) {
+      const m = await budgetMonitor(ctx, String(periods[0].datefr), String(periods[0].dateto));
+      const n = m.centers.filter((c) => c.state === 'Over budget').length;
+      if (n) tasks.push({ label: 'Cost centers over budget this period', count: n, href: '/dashboard/fi/budget' });
+    }
   }
   return tasks;
 }

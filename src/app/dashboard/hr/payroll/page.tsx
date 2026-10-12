@@ -49,37 +49,35 @@ function Attendance({ payidno, locked, onSaved }: { payidno: string; locked: boo
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-600 dark:text-slate-400">Everyone is paid for the full {data.period.workdays} working days. Enter only the exceptions: absences, lates, overtime, night differential and holiday work.</p>
-      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#24324f]">
-        <table className="w-full min-w-[820px] text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-[#24324f] dark:bg-white/[0.02]">
-              <th className="px-3 py-2 text-left">Employee</th>
-              {cols.map((c) => (
-                <th key={c.key} className="px-3 py-2 text-right">
-                  {c.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-[#1a2540]">
-            {rows.map((r, i) => (
-              <tr key={r.empno}>
-                <td className="px-3 py-2">
-                  <div className="font-medium text-slate-900 dark:text-white">{r.name}</div>
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]">
+        {rows.map((r, i) => {
+          const exceptions = cols.filter((c) => Number(r[c.key])).length;
+          return (
+            <div key={r.empno} className={`tile flex flex-col gap-3 p-4 ${exceptions ? 'border-brand-500/30 dark:border-brand-400/25' : ''}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate font-semibold text-slate-900 dark:text-white">{r.name}</div>
                   <div className="text-xs text-slate-500">
                     {r.empno} · {r.ccno}
                   </div>
-                </td>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${exceptions ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'}`}>{exceptions ? `${exceptions} exception(s)` : 'Full attendance'}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
                 {cols.map((c) => (
-                  <td key={c.key} className="w-32 px-3 py-2">
-                    {editable ? <NumberInput className="h-8" value={r[c.key] || ''} placeholder="0" onValue={(v) => set(i, c.key, v)} /> : <div className="text-right tabular-nums">{r[c.key] || ''}</div>}
-                  </td>
+                  <label key={c.key} className="block min-w-0">
+                    <span className="mb-1 block truncate text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400" title={c.label}>
+                      {c.label.replace(' (hrs)', '')}
+                    </span>
+                    {editable ? <NumberInput className="h-8" value={r[c.key] || ''} placeholder="0" onValue={(v) => set(i, c.key, v)} /> : <div className="text-right text-sm tabular-nums">{r[c.key] || '—'}</div>}
+                  </label>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </div>
+            </div>
+          );
+        })}
       </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400">All figures are hours.</p>
       {editable && (
         <div className="flex justify-end">
           <Button variant="primary" loading={saving} onClick={save}>
@@ -148,7 +146,7 @@ function Payslip({ payidno, empno, onClose }: { payidno: string; empno: string; 
       ) : (
         data && (
           <div id="print-area" className="space-y-4 text-slate-800 dark:text-slate-200">
-            <div className="border-b border-slate-200 pb-3 dark:border-[#24324f]">
+            <div className="border-b border-black/[0.07] pb-3 dark:border-white/[0.08]">
               <p className="font-bold">{info.legal.bussname}</p>
               <p className="text-xs text-slate-500">
                 Payroll {payidno} · {fmtDate(data.period.pdatefr)} to {fmtDate(data.period.pdateto)}
@@ -167,7 +165,7 @@ function Payslip({ payidno, empno, onClose }: { payidno: string; empno: string; 
                 {Number(data.slip.nightdiffamt) > 0 && row('Night differential', Number(data.slip.nightdiffamt))}
                 {Number(data.slip.holidayamt) > 0 && row('Holiday pay', Number(data.slip.holidayamt))}
                 {Number(data.slip.othearn_amt) > 0 && row('Allowances & adjustments', Number(data.slip.othearn_amt))}
-                <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-sm font-semibold dark:border-[#24324f]">
+                <div className="mt-1 flex justify-between border-t border-black/[0.07] pt-1 text-sm font-semibold dark:border-white/[0.08]">
                   <span>Gross pay</span>
                   <span className="tabular-nums">{fmtMoney(Number(data.slip.totalearn))}</span>
                 </div>
@@ -179,13 +177,13 @@ function Payslip({ payidno, empno, onClose }: { payidno: string; empno: string; 
                 {row('Pag-IBIG', Number(data.deductions.hdmfprem))}
                 {row('Withholding tax', Number(data.deductions.taxdue))}
                 {Number(data.deductions.otherdeduct) > 0 && row('Loans', Number(data.deductions.otherdeduct))}
-                <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-sm font-semibold dark:border-[#24324f]">
+                <div className="mt-1 flex justify-between border-t border-black/[0.07] pt-1 text-sm font-semibold dark:border-white/[0.08]">
                   <span>Total deductions</span>
                   <span className="tabular-nums">{fmtMoney(Number(data.deductions.totaldeduct))}</span>
                 </div>
               </div>
             </div>
-            <div className="rounded-xl bg-teal-50 px-4 py-3 dark:bg-teal-500/10">
+            <div className="rounded-xl bg-brand-50 px-4 py-3 dark:bg-brand-500/10">
               <div className="flex justify-between text-lg font-bold">
                 <span>Net pay</span>
                 <span className="tabular-nums">₱{fmtMoney(Number(data.slip.netpay))}</span>
@@ -221,7 +219,7 @@ function Adjustments({ payidno, locked, onChanged }: { payidno: string; locked: 
   return (
     <div className="space-y-4">
       {!locked && can('210', 3) && (
-        <div className="grid gap-3 rounded-xl border border-slate-200 p-4 dark:border-[#24324f] md:grid-cols-[1fr_160px_200px_auto] md:items-end">
+        <div className="grid gap-3 rounded-xl border border-black/[0.07] p-4 dark:border-white/[0.08] md:grid-cols-[1fr_160px_200px_auto] md:items-end">
           <Field label="Employee">
             <Combobox lookup="employees" value={form.empno} onChange={(v) => setForm({ ...form, empno: v })} />
           </Field>
@@ -333,10 +331,10 @@ export default function PayrollPage() {
       ) : (
         <div className="grid gap-6 xl:grid-cols-[300px_1fr]">
           <Card title="Payroll periods" padded={false}>
-            <ul className="divide-y divide-slate-100 dark:divide-[#1a2540]">
+            <ul className="divide-y divide-black/[0.05] dark:divide-white/[0.06]">
               {periods.map((p) => (
                 <li key={p.payidno}>
-                  <button onClick={() => setSelected(p.payidno)} className={`flex w-full items-center justify-between px-4 py-3 text-left ${p.payidno === selected ? 'bg-teal-50 dark:bg-teal-500/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]'}`}>
+                  <button onClick={() => setSelected(p.payidno)} className={`flex w-full items-center justify-between px-4 py-3 text-left ${p.payidno === selected ? 'bg-brand-50 dark:bg-brand-500/10' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.03]'}`}>
                     <div>
                       <div className="font-mono text-sm font-semibold">{p.payidno}</div>
                       <div className="text-xs text-slate-500">

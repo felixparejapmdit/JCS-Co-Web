@@ -101,7 +101,7 @@ export default function GroupsPage() {
         data && (
           <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
             <Card title="Groups" padded={false}>
-              <ul className="divide-y divide-slate-100 dark:divide-[#1a2540]">
+              <ul className="grid gap-1.5 p-2">
                 {data.groups.map((g: any) => (
                   <li key={g.ug_code}>
                     <button
@@ -109,7 +109,7 @@ export default function GroupsPage() {
                         if (dirty && !confirm('Discard unsaved changes?')) return;
                         setGroup(g.ug_code);
                       }}
-                      className={cx('w-full px-4 py-3 text-left', g.ug_code === group ? 'bg-teal-50 dark:bg-teal-500/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]')}
+                      className={cx('w-full rounded-xl px-3 py-2.5 text-left transition', g.ug_code === group ? 'bg-white shadow-sm ring-1 ring-black/[0.06] dark:bg-white/[0.09] dark:ring-white/[0.08]' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.05]')}
                     >
                       <div className="text-sm font-semibold text-slate-900 dark:text-white">{g.ug_name}</div>
                       <div className="text-xs text-slate-500">
@@ -121,43 +121,46 @@ export default function GroupsPage() {
               </ul>
             </Card>
             <Card title={current ? `${current.ug_name} (${current.ug_code})` : 'Rights'} subtitle={current?.ug_notes} padded={false}>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-[#24324f] dark:bg-white/[0.02]">
-                      <th className="px-4 py-2 text-left">Form</th>
-                      {ACTIONS.map((a) => (
-                        <th key={a.n} className="px-3 py-2 text-center">
-                          {a.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byGroup.map(([g, forms]) => (
-                      <React.Fragment key={g}>
-                        <tr>
-                          <td colSpan={6} className="bg-slate-50/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-teal-700 dark:bg-white/[0.02] dark:text-teal-400">
-                            {g}
-                          </td>
-                        </tr>
-                        {forms.map((f: any) => (
-                          <tr key={f.code} className="border-b border-slate-100 dark:border-[#1a2540]">
-                            <td className="px-4 py-2">
-                              <span className="mr-2 font-mono text-xs text-slate-400">{f.code}</span>
-                              {f.description}
-                            </td>
-                            {ACTIONS.map((a) => (
-                              <td key={a.n} className="px-3 py-2 text-center">
-                                <input type="checkbox" className="h-4 w-4 accent-teal-600" disabled={!data.canEdit} checked={(rights[f.code] ?? []).includes(a.n)} onChange={() => toggle(f.code, a.n)} aria-label={`${a.label} ${f.description}`} />
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-6 p-4">
+                {byGroup.map(([g, forms]) => (
+                  <section key={g}>
+                    <h3 className="neon-text mb-2 text-xs font-semibold uppercase tracking-[0.14em]">{g}</h3>
+                    <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr))]">
+                      {forms.map((f: any) => {
+                        const has = rights[f.code] ?? [];
+                        return (
+                          <div key={f.code} className={cx('tile flex flex-col gap-2.5 p-3', has.length > 0 && 'border-brand-500/30 dark:border-brand-400/25')}>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-sm font-medium text-slate-900 dark:text-white">{f.description}</span>
+                              <span className="font-mono text-[11px] text-slate-400">{f.code}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {ACTIONS.map((a) => {
+                                const on = has.includes(a.n);
+                                return (
+                                  <button
+                                    key={a.n}
+                                    type="button"
+                                    disabled={!data.canEdit}
+                                    onClick={() => toggle(f.code, a.n)}
+                                    aria-pressed={on}
+                                    aria-label={`${a.label} ${f.description}`}
+                                    className={cx(
+                                      'rounded-full px-2.5 py-1 text-[11.5px] font-medium ring-1 ring-inset transition disabled:cursor-not-allowed',
+                                      on ? 'bg-brand-500/15 text-brand-700 ring-brand-500/30 dark:bg-brand-400/15 dark:text-brand-200 dark:ring-brand-400/30' : 'bg-transparent text-slate-500 ring-black/[0.08] hover:ring-brand-500/40 dark:text-slate-400 dark:ring-white/[0.1]'
+                                    )}
+                                  >
+                                    {a.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
               </div>
             </Card>
           </div>

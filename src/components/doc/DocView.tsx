@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Clock, Pencil, Printer, TriangleAl
 import { rpc, useRpc } from '@/lib/api';
 import { today } from '@/shared/dates';
 import { RequireRight, useSession } from '@/components/shell/AppShell';
-import { Alert, Badge, Button, Card, Field, Input, KeyValue, Modal, NumberInput, Select, Spinner, useToast } from '@/components/ui/kit';
+import { Alert, Badge, Button, Card, Field, Input, KeyValue, Modal, NumberInput, Select, Spinner, cx, useToast } from '@/components/ui/kit';
 import { DOCS } from './configs';
 import { fmtCell, isNumericKind } from './format';
 import { PrintDoc, ChequePrint } from './PrintDoc';
@@ -42,8 +42,19 @@ function nextSteps(type: string, v: any): { label: string; href: string; form: s
       const bal = v.totals?.find((t: any) => t.label === 'Balance outstanding')?.value ?? 0;
       return v.status === 'Posted' && bal > 0 ? [{ label: 'Record a payment', href: `/dashboard/doc/or/new?custno=${encodeURIComponent(h.custno)}`, form: '010' }] : [];
     }
-    case 'vp':
-      return v.status === 'Posted' && Number(h.vpbals) > 0 ? [{ label: 'Pay with a cheque', href: `/dashboard/doc/cv/new?venno=${encodeURIComponent(h.venno)}`, form: '024' }] : [];
+    case 'vp': {
+      const steps: { label: string; href: string; form: string }[] = [];
+      if (v.status === 'Posted' && Number(h.vpbals) > 0) steps.push({ label: 'Pay with a cheque', href: `/dashboard/doc/cv/new?venno=${encodeURIComponent(h.venno)}`, form: '024' });
+      if (v.status === 'Posted' && h.isAdvance && h.liqstat !== 'Liquidated') steps.push({ label: 'Liquidate this advance', href: `/dashboard/doc/liq/new?from=ca&no=${no}`, form: '038' });
+      return steps;
+    }
+    case 'fr':
+      return v.status === 'Unpaid' && (!h.vpno || h.vpno === '0') ? [{ label: 'Create the voucher payable', href: `/dashboard/doc/vp/new?from=fr&no=${no}`, form: '023' }] : [];
+    case 'liq':
+      return v.status === 'Posted' && Number(h.vpbals) > 0 ? [{ label: 'Pay the reimbursement', href: `/dashboard/doc/cv/new?venno=${encodeURIComponent(h.venno)}`, form: '024' }] : [];
+    case 'pcv':
+    case 'rfv':
+      return v.status === 'Posted' && !h.replno ? [{ label: 'Replenish the fund', href: `/dashboard/doc/fr/new?tc=${type === 'pcv' ? '40' : '44'}`, form: '028' }] : [];
     case 'prod':
       return v.status === 'Posted' ? [{ label: 'See the stock', href: '/dashboard/mm/stock', form: '034' }] : [];
     default:
@@ -106,7 +117,7 @@ export function DocView({ type, no }: { type: string; no: string }) {
   return (
     <RequireRight form={cfg.form}>
       <div className="mb-4">
-        <Link href={`/dashboard/doc/${type}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-700 dark:text-slate-400">
+        <Link href={`/dashboard/doc/${type}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-700 dark:text-slate-400">
           <ArrowLeft className="h-4 w-4" /> {cfg.plural}
         </Link>
       </div>
@@ -120,7 +131,7 @@ export function DocView({ type, no }: { type: string; no: string }) {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{v.title}</h1>
+                  <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">{v.title}</h1>
                   <Badge tone={v.tone}>{v.status}</Badge>
                 </div>
                 {v.subtitle && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{v.subtitle}</p>}
@@ -155,8 +166,11 @@ export function DocView({ type, no }: { type: string; no: string }) {
             </div>
 
             {v.actions.length > 0 && v.actions.find((a: ActionDef) => a.tone === 'primary')?.hint && (
-              <p className="-mt-2 text-sm text-slate-500 dark:text-slate-400">
-                <span className="font-medium text-slate-700 dark:text-slate-300">Next step:</span> {v.actions.find((a: ActionDef) => a.tone === 'primary')!.hint}
+              <p className="-mt-2 inline-flex items-start gap-2 rounded-2xl bg-brand-500/[0.07] px-3.5 py-2 text-sm text-slate-600 ring-1 ring-inset ring-brand-500/15 dark:bg-brand-400/[0.07] dark:text-slate-300 dark:ring-brand-400/15">
+                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(47,127,255,0.9)]" />
+                <span>
+                  <span className="font-semibold text-slate-800 dark:text-white">Next step:</span> {v.actions.find((a: ActionDef) => a.tone === 'primary')!.hint}
+                </span>
               </p>
             )}
             {!v.actions.length && v.status === 'Open' && !can(cfg.form, 5) && <Alert tone="info">This document is waiting for someone with approval rights. It appears in their task list automatically.</Alert>}
@@ -182,36 +196,47 @@ export function DocView({ type, no }: { type: string; no: string }) {
                 <Card title="Details">
                   <KeyValue items={cfg.viewHeader.map((f) => ({ label: f.label, value: fmtCell(v.header[f.key], f.kind) }))} />
                   {v.header.remarks && cfg.viewHeader.every((f) => f.key !== 'remarks') && (
-                    <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-white/[0.03] dark:text-slate-300">{v.header.remarks}</div>
+                    <div className="mt-4 rounded-2xl bg-black/[0.03] px-4 py-3 text-sm text-slate-700 dark:bg-white/[0.04] dark:text-slate-300">{v.header.remarks}</div>
                   )}
                 </Card>
                 <Card title="Lines" padded={false}>
                   {v.lines.length === 0 ? (
                     <p className="p-5 text-sm text-slate-500">No lines.</p>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-200 bg-slate-50/80 dark:border-[#1e2a44] dark:bg-white/[0.02]">
-                            {cfg.viewLines.map((c) => (
-                              <th key={c.key} className={`whitespace-nowrap px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 ${isNumericKind(c.kind) ? 'text-right' : 'text-left'}`}>
-                                {c.label}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-[#1a2540]">
-                          {v.lines.map((l: any, i: number) => (
-                            <tr key={i}>
-                              {cfg.viewLines.map((c) => (
-                                <td key={c.key} className={`px-4 py-2.5 text-slate-700 dark:text-slate-300 ${isNumericKind(c.kind) ? 'whitespace-nowrap text-right' : c.kind === 'mono' || c.kind === 'date' ? 'whitespace-nowrap' : ''}`}>
-                                  {fmtCell(l[c.key], c.kind)}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="grid gap-3 p-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr))]">
+                      {v.lines.map((l: any, i: number) => {
+                        const text = cfg.viewLines.filter((c) => !isNumericKind(c.kind));
+                        const nums = cfg.viewLines.filter((c) => isNumericKind(c.kind));
+                        const main = nums[nums.length - 1];
+                        const [first, ...restText] = text;
+                        return (
+                          <div key={i} className="tile flex min-w-0 flex-col gap-2.5 p-4">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                {first && <div className={cx('truncate text-[13.5px] font-semibold text-slate-900 dark:text-white', first.kind === 'mono' && 'font-mono')}>{fmtCell(l[first.key], first.kind)}</div>}
+                                {restText[0] && <div className="truncate text-[13px] text-slate-600 dark:text-slate-300">{fmtCell(l[restText[0].key], restText[0].kind)}</div>}
+                              </div>
+                              <span className="flex-shrink-0 rounded-md bg-black/[0.04] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500 dark:bg-white/[0.06]">{i + 1}</span>
+                            </div>
+                            {(restText.length > 1 || nums.length > 1) && (
+                              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                                {[...restText.slice(1), ...nums.slice(0, -1)].map((c) => (
+                                  <div key={c.key} className="min-w-0">
+                                    <dt className="truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">{c.label}</dt>
+                                    <dd className={cx('truncate text-[13px] text-slate-700 dark:text-slate-300', isNumericKind(c.kind) && 'tabular-nums')}>{fmtCell(l[c.key], c.kind)}</dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            )}
+                            {main && (
+                              <div className="mt-auto flex items-end justify-between gap-2 border-t border-black/[0.05] pt-2.5 dark:border-white/[0.06]">
+                                <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">{main.label}</span>
+                                <span className="text-base font-semibold tabular-nums tracking-tight text-slate-900 dark:text-white">{fmtCell(l[main.key], main.kind)}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </Card>
@@ -220,7 +245,7 @@ export function DocView({ type, no }: { type: string; no: string }) {
                 <Card title="Totals">
                   <dl className="space-y-2">
                     {v.totals.map((t: any) => (
-                      <div key={t.label} className={`flex items-center justify-between gap-4 text-sm ${t.strong ? 'border-t border-slate-100 pt-2 font-semibold text-slate-900 dark:border-[#1e2a44] dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+                      <div key={t.label} className={`flex items-center justify-between gap-4 text-sm ${t.strong ? 'border-t border-black/[0.06] pt-2 text-base font-semibold text-slate-900 dark:border-white/[0.08] dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
                         <dt>{t.label}</dt>
                         <dd className="tabular-nums">{fmtCell(t.value, t.kind === 'qty' ? 'qty' : 'money')}</dd>
                       </div>
@@ -233,7 +258,7 @@ export function DocView({ type, no }: { type: string; no: string }) {
                       <dl className="space-y-2.5 text-sm">
                         {v.info.map((i: any) => (
                           <div key={i.label}>
-                            <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{i.label}</dt>
+                            <dt className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-slate-500">{i.label}</dt>
                             <dd className="mt-0.5 text-slate-800 dark:text-slate-200">{i.value}</dd>
                           </div>
                         ))}
@@ -242,7 +267,7 @@ export function DocView({ type, no }: { type: string; no: string }) {
                     {v.links?.length > 0 && (
                       <div className="mt-4 flex flex-wrap gap-2">
                         {v.links.map((l: any) => (
-                          <Link key={`${l.type}-${l.no}`} href={LINK_PATH[l.type] ?? `/dashboard/doc/${l.type}/${encodeURIComponent(l.no)}`} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-teal-700 hover:border-teal-400 hover:bg-teal-50 dark:border-[#2a3a5c] dark:text-teal-300 dark:hover:bg-teal-500/10">
+                          <Link key={`${l.type}-${l.no}`} href={LINK_PATH[l.type] ?? `/dashboard/doc/${l.type}/${encodeURIComponent(l.no)}`} className="rounded-full bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-700 ring-1 ring-inset ring-brand-500/20 transition hover:bg-brand-500/15 hover:ring-brand-500/40 dark:text-brand-200 dark:ring-brand-400/25">
                             {l.label}
                           </Link>
                         ))}

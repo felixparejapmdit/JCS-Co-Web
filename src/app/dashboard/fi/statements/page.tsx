@@ -25,7 +25,7 @@ function Section({ title, rows, total, totalLabel }: { title: string; rows: any[
           ))}
           <tr>
             <td className="py-2 font-semibold text-slate-900 dark:text-white">{totalLabel}</td>
-            <td className="border-t border-slate-300 py-2 text-right font-semibold tabular-nums dark:border-slate-600">{fmtMoney(total)}</td>
+            <td className="border-t border-black/[0.1] py-2 text-right font-semibold tabular-nums dark:border-slate-600">{fmtMoney(total)}</td>
           </tr>
         </tbody>
       </table>
@@ -35,7 +35,7 @@ function Section({ title, rows, total, totalLabel }: { title: string; rows: any[
 
 function Line({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
   return (
-    <div className={cx('flex justify-between py-1.5 text-sm', strong && 'border-t border-slate-200 font-semibold text-slate-900 dark:border-[#24324f] dark:text-white')}>
+    <div className={cx('flex justify-between py-1.5 text-sm', strong && 'border-t border-black/[0.07] font-semibold text-slate-900 dark:border-white/[0.08] dark:text-white')}>
       <span>{label}</span>
       <span className={cx('tabular-nums', value < 0 && 'text-rose-600')}>{fmtMoney(value)}</span>
     </div>
@@ -80,7 +80,7 @@ export default function StatementsPage() {
         }
       >
         <label className="mt-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={unposted} onChange={(e) => setUnposted(e.target.checked)} />
+          <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={unposted} onChange={(e) => setUnposted(e.target.checked)} />
           Include entries that are still waiting for JV posting (real-time view)
         </label>
       </PageHeader>

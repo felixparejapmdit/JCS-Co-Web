@@ -64,32 +64,20 @@ export default function ApPage() {
         }
       >
         {vendor && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-[#24324f]">
-                <th className="py-2">Voucher</th>
-                <th className="py-2">Invoice</th>
-                <th className="py-2">Due</th>
-                <th className="py-2 text-right">Unpaid</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-[#1a2540]">
-              {vendor.vouchers.map((v: any) => (
-                <tr key={v.docno}>
-                  <td className="py-2">
-                    <Link href={`/dashboard/doc/vp/${encodeURIComponent(v.docno)}`} className="font-mono text-xs text-teal-700 hover:underline dark:text-teal-400">
-                      {v.docno}
-                    </Link>
-                  </td>
-                  <td className="py-2">{v.refdoc}</td>
-                  <td className="py-2">
-                    {fmtDate(v.duedate)} {v.days > 0 && <Badge tone="danger">{v.days}d late</Badge>}
-                  </td>
-                  <td className="py-2 text-right font-semibold tabular-nums">{fmtMoney(v.balance)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="grid gap-2">
+            {vendor.vouchers.map((v: any) => (
+              <Link key={v.docno} href={`/dashboard/doc/vp/${encodeURIComponent(v.docno)}`} className="tile-interactive flex items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="font-mono text-xs font-semibold text-slate-900 dark:text-white">{v.docno}</div>
+                  <div className="truncate text-sm text-slate-600 dark:text-slate-300">{v.refdoc || 'No invoice reference'}</div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                    Due {fmtDate(v.duedate)} {v.days > 0 && <Badge tone="danger">{v.days}d late</Badge>}
+                  </div>
+                </div>
+                <div className="text-right font-semibold tabular-nums text-slate-900 dark:text-white">{fmtMoney(v.balance)}</div>
+              </Link>
+            ))}
+          </div>
         )}
       </Modal>
     </RequireRight>

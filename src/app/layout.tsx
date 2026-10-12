@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { PwaManager } from '@/components/pwa/PwaManager';
 
@@ -23,14 +25,17 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0b1f3a',
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+    { media: '(prefers-color-scheme: light)', color: '#f3f4f7' },
+  ],
   width: 'device-width',
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -41,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                   var doc = document.documentElement;
                   doc.classList.toggle('dark', dark);
-                  doc.style.backgroundColor = dark ? '#0b1220' : '#f4f6fa';
+                  doc.style.backgroundColor = dark ? '#000000' : '#f3f4f7';
                   doc.style.colorScheme = dark ? 'dark' : 'light';
                 } catch (e) {}
               })();
@@ -49,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="min-h-screen bg-[#f4f6fa] text-slate-900 antialiased selection:bg-teal-500 selection:text-white dark:bg-[#0b1220] dark:text-slate-100">
+      <body className="min-h-screen bg-transparent font-sans text-slate-900 antialiased dark:text-slate-100">
         <PwaManager>{children}</PwaManager>
       </body>
     </html>

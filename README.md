@@ -31,6 +31,8 @@ Browser ──POST /api/aos {op, args}──▶ src/server/rpc.ts ──▶ serv
 * **Legacy tables, legacy columns.** Every service works on the AOS100 tables (`gljvhdrtbl`, `exphdrtbl`, `cvhdrtbl`, `colhdrtbl`, `sohdrtbl`, `invhdrtbl`, `payearntbl` and the rest; PLAN.md Appendix A). Cloud AOS keeps its own data only in additive `ng_*` tables (PLAN.md Section 7.2).
 * **Legacy rights.** Menus, buttons and approvals follow `IsAllowed(group, form, action)` over `sys_usergrouprights`, exactly as the old system does.
 * **Automation.** Documents number themselves; *Create from* fills a document from its source; VAT, withholding tax, amounts in words, moving-average cost and lot picking are computed; credit, stock and approval-limit checks run before saving; GL entries are written automatically and bundled by JV Posting; each document shows its next step; Home and the tasks bell list what is waiting for each user.
+* **Finance tools.** Petty cash and revolving fund vouchers with a live fund balance, fund replenishment (legacy numbering and remarks) paid through a voucher and cheque, cash-advance liquidation with automatic refund or reimbursement, budget monitoring against actual spending, and correction of automatic JV entries before JV Posting.
+* **Look and feel.** Deep dark mode (true black) and light mode, Electric Blue and Emerald Green accents, Liquid Glass surfaces and an elastic grid of Notion-style blocks. Lists and document lines are interactive cards, with a Cards / List switch for compact scanning.
 
 ### Data modes
 
@@ -150,7 +152,7 @@ npm run test:e2e                           # Playwright: Chromium, Firefox and W
 npm run test:e2e -- --project=chromium     # one browser
 ```
 
-The server tests check that every company's books balance, that AR and AP subledgers equal their control accounts, that no stock goes negative and that every document opens. The browser tests cover sign-in privacy (no company list or dropdown, the chooser for multi-company users), the main screens and the installable app.
+The server tests check that every company's books balance, that AR and AP subledgers equal their control accounts, that no stock goes negative that every document opens, and that the petty cash fund, replenishments, liquidations, budgets and automatic-JV corrections behave as the legacy pages do. The browser tests cover sign-in privacy (no company list or dropdown, the chooser for multi-company users), the main screens and the installable app.
 
 ---
 

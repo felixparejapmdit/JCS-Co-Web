@@ -57,7 +57,7 @@ function Statement({ custno, onClose }: { custno: string; onClose: () => void })
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-[#24324f]">
+                  <tr className="border-b border-black/[0.07] text-left text-xs uppercase text-slate-500 dark:border-white/[0.08]">
                     <th className="py-2">Invoice</th>
                     <th className="py-2">Date</th>
                     <th className="py-2">Due</th>
@@ -65,11 +65,11 @@ function Statement({ custno, onClose }: { custno: string; onClose: () => void })
                     <th className="py-2 text-right">Balance</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-[#1a2540]">
+                <tbody className="divide-y divide-black/[0.05] dark:divide-white/[0.06]">
                   {data.invoices.map((i: any) => (
                     <tr key={i.invno}>
                       <td className="py-2">
-                        <Link href={`/dashboard/doc/si/${encodeURIComponent(i.invno)}`} className="font-mono text-xs text-teal-700 hover:underline dark:text-teal-400">
+                        <Link href={`/dashboard/doc/si/${encodeURIComponent(i.invno)}`} className="font-mono text-xs text-brand-700 hover:underline dark:text-brand-400">
                           {i.invno}
                         </Link>
                       </td>

@@ -67,7 +67,7 @@ export default function LabPage() {
                 header: 'Receipt',
                 render: (r) =>
                   r.source === 'Receiving' ? (
-                    <Link href={`/dashboard/doc/mmrr/${encodeURIComponent(r.docno)}`} className="font-mono text-[13px] text-teal-700 hover:underline dark:text-teal-400">
+                    <Link href={`/dashboard/doc/mmrr/${encodeURIComponent(r.docno)}`} className="font-mono text-[13px] text-brand-700 hover:underline dark:text-brand-400">
                       {r.docno}
                     </Link>
                   ) : (

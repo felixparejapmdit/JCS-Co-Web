@@ -8,10 +8,12 @@ import { Ctx } from '../services/context';
 import { actOnDoc, docService, saveDoc } from '../services/docs';
 import { GL, closePeriod, ensurePeriod, postOpenEntries } from '../services/gl';
 import { MOV, balances, setLabStatus } from '../services/inventory';
+import { ledgerLines } from '../services/gl';
 import '../services/purchasing';
 import '../services/sales';
 import { createDeposit, generateCdcr, openInvoices } from '../services/receivables';
 import '../services/payables';
+import { openFundVouchers } from '../services/funds';
 import '../services/production';
 import { computePayroll, createPayrollPeriod, postPayroll, saveAttendance } from '../services/payroll';
 import { PROFILES, Profile } from './profiles';
@@ -35,7 +37,7 @@ const GROUPS: { code: string; name: string; notes: string; rights: Record<string
     name: 'Finance Head / CFO',
     notes: 'Approves and posts; closes periods.',
     rights: {
-      '006': ALL, '052': ALL, '038': ALL, '063': V, '079': V, '030': VEI, '023': ALL, '027': ALL, '024': ALL, '032': V,
+      '006': ALL, '052': ALL, '038': ALL, '063': V, '079': ALL, '030': VEI, '023': ALL, '027': ALL, '024': ALL, '032': V, '026': ALL, '028': ALL,
       '010': V, '011': ALL, '012': V, '013': ALL, '070': ALL, '066': VE, '014': V, '047': V, '020': VE, '017': V, '018': APPROVE,
       '019': V, '007': V, '050': V, '034': V, '087': V, '054': V, '058': APPROVE, '035': V, '036': APPROVE, '037': V,
       '033': V, '040': V, '059': V, '100': V, '301': V, '204': APPROVE, '205': APPROVE, '210': V, '001': V, '002': V, '003': [1, 3, 5], '045': VE,
@@ -46,11 +48,11 @@ const GROUPS: { code: string; name: string; notes: string; rights: Record<string
     name: 'Accountant',
     notes: 'Prepares journal vouchers, vouchers and cheques for approval.',
     rights: {
-      '006': V, '052': VEID, '038': V, '063': V, '079': V, '030': VEI, '023': VEID, '027': V, '024': VEI, '032': V, '010': V, '011': V,
+      '006': V, '052': VEID, '038': VEI, '063': V, '079': VE, '030': VEI, '023': VEID, '027': V, '024': VEI, '032': V, '010': V, '011': V, '026': ALL, '028': VEID,
       '013': VEI, '070': VEI, '066': VE, '014': V, '047': V, '020': V, '017': V, '019': V, '034': V, '035': V, '037': V, '040': V, '059': V, '003': [1, 3],
     },
   },
-  { code: 'CASHIER', name: 'Cashier / Treasury', notes: 'Issues official receipts, prepares the CDCR and deposits.', rights: { '010': ALL, '011': ALL, '012': VEI, '066': VE, '014': V, '047': V, '020': V, '019': V, '024': V, '003': [1, 3] } },
+  { code: 'CASHIER', name: 'Cashier / Treasury', notes: 'Issues official receipts, prepares the CDCR and deposits.', rights: { '010': ALL, '011': ALL, '012': VEI, '066': VE, '014': V, '047': V, '020': V, '019': V, '024': V, '026': VEI, '028': VEI, '003': [1, 3] } },
   { code: 'PURCH', name: 'Purchasing', notes: 'Raises requisitions and purchase orders.', rights: { '054': VEID, '058': V, '035': VEID, '036': APPROVE, '037': V, '030': VEI, '034': V, '050': V, '003': [1, 3] } },
   { code: 'WHSE', name: 'Warehouse & Plant', notes: 'Receives, issues, transfers and counts stock; runs production.', rights: { '050': ALL, '007': ALL, '034': VEI, '087': V, '054': VEI, '035': V, '037': V, '033': ALL, '040': V, '017': V, '003': [1, 3] } },
   { code: 'SALES', name: 'Sales & Billing', notes: 'Takes orders and bills deliveries.', rights: { '020': VEI, '017': VEID, '018': V, '019': ALL, '007': V, '014': V, '034': V, '059': V, '010': V, '003': [1, 3] } },
@@ -123,6 +125,8 @@ async function seedSecurity(db: Db, p: Profile) {
 const CHART: [string, string][] = [
   ['1110100', 'Cash on Hand / Undeposited Collections'],
   ['1110200', 'Post-dated Cheques on Hand'],
+  ['1110300', 'Petty Cash Fund'],
+  ['1110400', 'Revolving Fund'],
   ['1120100', 'Cash in Bank - BDO Current Account'],
   ['1120200', 'Cash in Bank - Metrobank Current Account'],
   ['1120300', 'Cash in Bank - BPI Payroll Account'],
@@ -163,6 +167,10 @@ const CHART: [string, string][] = [
   ['6100200', 'Overtime and Premium Pay'],
   ['6100300', 'Employer Contributions (SSS, PhilHealth, Pag-IBIG)'],
   ['6200100', 'Power and Electricity'],
+  ['6200110', 'Transportation and Travel'],
+  ['6200120', 'Meals and Representation'],
+  ['6200130', 'Fuel and Oil'],
+  ['6200140', 'Postage and Courier'],
   ['6200200', 'Freight and Trucking'],
   ['6200300', 'Professional Fees'],
   ['6200400', 'Repairs and Maintenance'],
@@ -237,6 +245,34 @@ async function seedReference(db: Db, p: Profile) {
   await db.insertMany('areatbl', p.areas.map((a) => ({ ...a, branch: 'MAIN' })));
   await db.insertMany('smnmtbl', p.salesmen.map((s) => ({ ...s, shrtname: s.fullname.split(' ')[0], status: 'Active' })));
   await db.insertMany('venmasttbl', p.vendors.map((v) => ({ ...v, status: 'Active', conper: 'Accounts Department', telno: '(02) 8700-0000', emailadd: '', user: 'system', datechange: nowStamp(), updateby: 'system' })));
+  const people = FUND_PEOPLE[p.ba];
+  const emp = (no: string) => p.employees.find((e) => e.empno === no)!;
+  const employeeVendor = (venno: string, no: string, custodian: boolean) => ({
+    venno,
+    venname: `${emp(no).firstname} ${emp(no).lastname}`,
+    address: p.company.address,
+    tin: '',
+    terms: 0,
+    ewtcode: '',
+    vat: 'NONVAT',
+    ventype: 'Employee',
+    poreq: 'N',
+    mmrrreq: 'N',
+    pcfcust: custodian ? 'Y' : 'N',
+    status: 'Active',
+    conper: `${emp(no).firstname} ${emp(no).lastname}`,
+    telno: '',
+    emailadd: '',
+    user: 'system',
+    datechange: nowStamp(),
+    updateby: 'system',
+  });
+  await db.insertMany('venmasttbl', [
+    employeeVendor(VEN.CUSTODIAN, people.custodian, true),
+    employeeVendor(VEN.EMPLOYEE_A, people.advances[0], false),
+    employeeVendor(VEN.EMPLOYEE_B, people.advances[1], false),
+    { venno: VEN.VARIOUS, venname: 'Various Suppliers (Petty Cash)', address: 'Various', tin: '', terms: 0, ewtcode: '', vat: 'NONVAT', ventype: 'Non-trade', poreq: 'N', mmrrreq: 'N', pcfcust: 'N', status: 'Active', conper: '', telno: '', emailadd: '', user: 'system', datechange: nowStamp(), updateby: 'system' },
+  ]);
   await db.insertMany('custmasttbl', p.customers.map((c) => ({ ...c, searchname: c.bussname.toUpperCase(), status: 'Active', paytype: 'Charge', vat: 'VAT', custtype: 'Dealer', user: 'system', datecreated: nowStamp(), datechange: nowStamp(), updateby: 'system' })));
   for (const pl of p.plants) {
     await db.insert('plnttbl', { ...pl, ba: p.ba, status: 'Active', rminv: GL.INV_RAW, fginv: GL.INV_FG, rmcos: GL.COST_OF_SALES, pc: PROFIT_CENTERS[p.ba][0][0] });
@@ -434,6 +470,117 @@ async function pay(ctx: (w: Who) => Ctx, o: { date: string; vendor: string; vps:
   await act(ctx('finance'), 'cv', cv, 'approve');
   if (o.release !== false) await act(ctx('finance'), 'cv', cv, 'release', { reldate: o.date });
   return cv;
+}
+
+// Fund custodian and the employees who take cash advances, per company.
+const FUND_PEOPLE: Record<string, { custodian: string; advances: [string, string] }> = {
+  '8100': { custodian: 'E00004', advances: ['E00003', 'E00010'] },
+  '8200': { custodian: 'E00001', advances: ['E00005', 'E00006'] },
+  '8300': { custodian: 'E00006', advances: ['E00003', 'E00004'] },
+};
+const VEN = { CUSTODIAN: 'V00901', EMPLOYEE_A: 'V00902', EMPLOYEE_B: 'V00903', VARIOUS: 'V00909' };
+
+type FundLine = [acctno: string, ccno: string, amount: number, vatable?: 'Y' | 'N'];
+
+async function fundVoucher(ctx: (w: Who) => Ctx, type: 'pcv' | 'rfv', o: { date: string; payee?: string; receipt: string; remarks: string; lines: FundLine[]; post?: boolean }) {
+  const no = await doc(ctx('cashier'), type, {
+    transdate: o.date,
+    venno: o.payee ?? VEN.VARIOUS,
+    refdoc: o.receipt,
+    remarks: o.remarks,
+    lines: o.lines.map(([acctno, ccno, amount, vatable]) => ({ acctno, ccno, amount, vatable: vatable ?? 'Y', ewtcode: '', remarksline: o.remarks })),
+  });
+  if (o.post !== false) await act(ctx('accountant'), type, no, 'post');
+  return no;
+}
+
+/** Replenishes all of the custodian's posted vouchers of a fund; optionally vouchers and pays it. */
+async function replenish(ctx: (w: Who) => Ctx, o: { date: string; tc: string; voucher?: string; pay?: string }) {
+  const custodian = ctx('cashier').user;
+  const open = await openFundVouchers(ctx('cashier'), o.tc, custodian);
+  if (!open.length) return '';
+  const fr = await doc(ctx('cashier'), 'fr', { transdate: o.date, tc: o.tc, user: custodian, venno: VEN.CUSTODIAN, lines: open.map((v) => ({ docno: v.docno })) });
+  if (!o.voucher) return fr;
+  const pre = await prefill(ctx('accountant'), 'vp', 'fr', fr);
+  const vp = await doc(ctx('accountant'), 'vp', { ...pre, transdate: o.voucher });
+  await act(ctx('finance'), 'vp', vp, 'post');
+  if (o.pay) await pay(ctx, { date: o.pay, vendor: VEN.CUSTODIAN, vps: [vp] });
+  return fr;
+}
+
+async function cashAdvance(ctx: (w: Who) => Ctx, o: { date: string; employee: string; amount: number; purpose: string; pay?: boolean }) {
+  const vp = await doc(ctx('accountant'), 'vp', {
+    transdate: o.date,
+    invdate: o.date,
+    venno: o.employee,
+    refdoc: `CA-${o.date.slice(5, 7)}${o.date.slice(8, 10)}-${o.employee.slice(-3)}`,
+    remarks: o.purpose,
+    lines: [{ acctno: GL.ADVANCES_EMPLOYEES, ccno: '', amount: o.amount, vatable: 'N', ewtcode: '', remarksline: o.purpose }],
+  });
+  await act(ctx('finance'), 'vp', vp, 'post');
+  if (o.pay !== false) await pay(ctx, { date: o.date, vendor: o.employee, vps: [vp] });
+  return vp;
+}
+
+async function liquidate(ctx: (w: Who) => Ctx, o: { date: string; advance: string; lines: FundLine[]; post?: boolean }) {
+  const pre = await prefill(ctx('accountant'), 'liq', 'ca', o.advance);
+  const no = await doc(ctx('accountant'), 'liq', { ...pre, transdate: o.date, lines: o.lines.map(([acctno, ccno, amount, vatable]) => ({ acctno, ccno, amount, vatable: vatable ?? 'Y' })) });
+  if (o.post !== false) await act(ctx('finance'), 'liq', no, 'post');
+  return no;
+}
+
+/** Petty cash, revolving fund, replenishments, cash advances and liquidations for every company. */
+async function fundsHistory(db: Db, k: Clock) {
+  const ctx = (w: Who) => as(db, w);
+  const D = k.date;
+  // Two months ago: an advance that is still not liquidated (shows as overdue).
+  await cashAdvance(ctx, { date: D(2, 20), employee: VEN.EMPLOYEE_B, amount: 8000, purpose: 'Customer visits in Batangas and Laguna' });
+  await postOpenEntries(ctx('finance'), k.monthEnd(2));
+  // Last month
+  const caA = await cashAdvance(ctx, { date: D(1, 4), employee: VEN.EMPLOYEE_A, amount: 25000, purpose: 'Travel to the Cebu depot for the inventory count' });
+  await fundVoucher(ctx, 'pcv', { date: D(1, 3), receipt: 'OR 10422', remarks: 'Office supplies and photocopying', lines: [['6200700', 'ADM', 2350], ['6200110', 'LOG', 850, 'N']] });
+  await fundVoucher(ctx, 'pcv', { date: D(1, 8), receipt: 'OR 55190', remarks: 'Courier of BIR forms and bank documents', lines: [['6200140', 'ACC', 1280]] });
+  await fundVoucher(ctx, 'rfv', { date: D(1, 9), receipt: 'SI 77812', remarks: 'Diesel for delivery trucks; minor repair of forklift', lines: [['6200130', 'LOG', 12500], ['6200400', 'PRD', 8900]] });
+  await fundVoucher(ctx, 'pcv', { date: D(1, 12), receipt: 'OR 30117', remarks: 'Fuel and meals - sales field visit', lines: [['6200130', 'SLS', 3200], ['6200120', 'SLS', 1640]] });
+  await liquidate(ctx, { date: D(1, 14), advance: caA, lines: [['6200110', 'LOG', 9800, 'N'], ['6200120', 'LOG', 4350], ['6200110', 'LOG', 7200]] });
+  await replenish(ctx, { date: D(1, 15), tc: TC.PETTY_CASH, voucher: D(1, 16), pay: D(1, 18) });
+  await fundVoucher(ctx, 'pcv', { date: D(1, 22), receipt: 'OR 10588', remarks: 'Pantry and cleaning supplies', lines: [['6200700', 'ADM', 1980]] });
+  // This month
+  const caC = await cashAdvance(ctx, { date: D(0, 3), employee: VEN.EMPLOYEE_A, amount: 18000, purpose: 'Supplier audit trip to Bulacan' });
+  await fundVoucher(ctx, 'pcv', { date: D(0, 2), receipt: 'OR 10641', remarks: 'Printer ink and bond paper', lines: [['6200700', 'ACC', 2760]] });
+  await fundVoucher(ctx, 'pcv', { date: D(0, 5), receipt: 'OR 31002', remarks: 'Grab rides to banks and BIR office', lines: [['6200110', 'ACC', 1420, 'N']] });
+  await fundVoucher(ctx, 'rfv', { date: D(0, 6), receipt: 'SI 78109', remarks: 'Diesel for delivery trucks', lines: [['6200130', 'LOG', 14800]] });
+  await replenish(ctx, { date: D(0, 10), tc: TC.PETTY_CASH });
+  await fundVoucher(ctx, 'pcv', { date: D(0, 9), receipt: 'OR 10702', remarks: 'Snacks for the quarterly safety meeting', lines: [['6200120', 'PRD', 1850]], post: false });
+  await fundVoucher(ctx, 'pcv', { date: D(0, 11), receipt: 'OR 31188', remarks: 'Courier of signed contracts to customers', lines: [['6200140', 'SLS', 960]] });
+  await fundVoucher(ctx, 'rfv', { date: D(0, 11), receipt: 'SI 78230', remarks: 'Tire repair - delivery truck 3', lines: [['6200400', 'LOG', 4300]] });
+  await liquidate(ctx, { date: D(0, 11), advance: caC, lines: [['6200110', 'PUR', 11250, 'N'], ['6200120', 'PUR', 8000]] });
+}
+
+/** Budgets around the actual spending of each month, so the monitor shows a realistic mix. */
+async function seedBudgets(db: Db, k: Clock) {
+  const factors = [1.15, 1.08, 0.93, 1.25, 1.02, 1.1, 0.97, 1.3];
+  let i = 0;
+  const lastMonth = new Map<string, number>();
+  for (const m of [2, 1, 0]) {
+    const { y, m: mon } = k.month(m);
+    const datefr = monthStart(y, mon);
+    const dateto = monthEnd(y, mon);
+    const gl = (await ledgerLines(db, { from: datefr, to: dateto, includeUnposted: true })).filter((l) => String(l.tc) >= '40' && String(l.tc) <= '48' && l.ccno);
+    const actual = new Map<string, number>();
+    for (const l of gl) {
+      const key = `${l.ccno}|${l.acctno}`;
+      actual.set(key, (actual.get(key) ?? 0) + Number(l.dramt) - Number(l.cramt));
+    }
+    const keys = m === 0 ? new Set([...lastMonth.keys(), ...actual.keys()]) : new Set(actual.keys());
+    for (const key of keys) {
+      const [ccno, acctno] = key.split('|');
+      const base = m === 0 ? lastMonth.get(key) ?? (actual.get(key) ?? 0) * 2 : (actual.get(key) ?? 0) * factors[i++ % factors.length];
+      const budamt = Math.max(500, Math.round(base / 500) * 500);
+      if (m !== 0) lastMonth.set(key, budamt);
+      await db.insert('buddettbl', { year: y, datefr, dateto, ccno, acctno, budamt, currstat: 'Open' });
+    }
+  }
 }
 
 async function produce(ctx: (w: Who) => Ctx, p: Profile, o: { date: string; plant: string; fg: string; qty: number; dl: number; oh: number; pass?: boolean }) {
@@ -701,7 +848,7 @@ export async function seedCompany(db: Db): Promise<void> {
   const openDate = k.monthEnd(3);
   const stock = await openingStock(db, p, openDate);
   const cash = p.openingCash;
-  const assets = r2(cash + 85000 + stock.raw + stock.pack + stock.fg + 15_000_000 + 24_000_000 + 18_500_000 + 6_200_000);
+  const assets = r2(cash + 85000 + 50000 + 120000 + stock.raw + stock.pack + stock.fg + 15_000_000 + 24_000_000 + 18_500_000 + 6_200_000);
   const liabilities = r2(9_800_000 + 12_000_000 + 30_000_000);
   const ctxAdmin = as(db, 'accountant');
   const openingJv = await doc(ctxAdmin, 'jv', {
@@ -713,6 +860,8 @@ export async function seedCompany(db: Db): Promise<void> {
       { acctno: '1120200', dramt: r2(cash * 0.2) },
       { acctno: '1120300', dramt: r2(cash - r2(cash * 0.7) - r2(cash * 0.2)) },
       { acctno: '1110100', dramt: 85000 },
+      { acctno: GL.PETTY_CASH_FUND, dramt: 50000 },
+      { acctno: GL.REVOLVING_FUND, dramt: 120000 },
       ...(stock.raw ? [{ acctno: GL.INV_RAW, dramt: stock.raw }] : []),
       ...(stock.pack ? [{ acctno: GL.INV_PACKAGING, dramt: stock.pack }] : []),
       ...(stock.fg ? [{ acctno: GL.INV_FG, dramt: stock.fg }] : []),
@@ -730,6 +879,8 @@ export async function seedCompany(db: Db): Promise<void> {
   await act(as(db, 'finance'), 'jv', openingJv, 'post');
 
   await history(db, p, k);
+  await fundsHistory(db, k);
+  await seedBudgets(db, k);
 
   // Close every month before last month so that, like real life, last month is still being closed.
   for (let d = new Date(open.y, open.m - 1, 1); ; d.setMonth(d.getMonth() + 1)) {

@@ -119,7 +119,7 @@ function MasterScreen({ id }: { id: string }) {
         }
       />
       <Card padded={false}>
-        <div className="border-b border-slate-100 p-4 dark:border-[#1e2a44]">
+        <div className="border-b border-slate-100 p-4 dark:border-white/[0.07]">
           <SearchInput value={q} onChange={setQ} placeholder={`Search ${meta.title.toLowerCase()}…`} className="max-w-md" />
         </div>
         {loading && !data ? <Spinner /> : error ? <div className="p-4"><Alert tone="danger">{error}</Alert></div> : <DataTable rows={rows} columns={columns} rowKey={(r) => String(r[meta.key])} onRowClick={(r) => { setFormError(null); setEditing({ row: { ...r }, isNew: false }); }} pageSize={20} />}

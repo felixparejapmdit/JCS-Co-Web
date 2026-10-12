@@ -51,6 +51,10 @@ export function PwaManager({ children }: { children: React.ReactNode }) {
           .catch((error) => {
             console.warn('[Cloud AOS] Service Worker registration failed:', error);
           });
+      } else if ('serviceWorker' in navigator) {
+        // Development: a worker left over from a production run on the same port would
+        // serve stale files, so remove it.
+        navigator.serviceWorker.getRegistrations().then((registrations) => registrations.forEach((r) => r.unregister()));
       }
 
       // 4. Capture PWA install prompt
@@ -115,7 +119,7 @@ export function PwaManager({ children }: { children: React.ReactNode }) {
         <aside
           role="status"
           aria-live="polite"
-          className="fixed bottom-20 left-4 z-50 flex items-center gap-3 rounded-xl border border-amber-500/40 bg-[#111a2e]/95 px-4 py-2.5 text-xs font-medium text-amber-200 shadow-2xl backdrop-blur-md md:bottom-4"
+          className="fixed bottom-20 left-4 z-50 flex items-center gap-3 rounded-xl border border-amber-500/40 bg-ink-850/90 px-4 py-2.5 text-xs font-medium text-amber-200 shadow-2xl backdrop-blur-md md:bottom-4"
         >
           <WifiOff className="h-4 w-4 shrink-0 text-amber-300" />
           <span>You&apos;re offline. Records load again when your connection returns.</span>
@@ -127,7 +131,7 @@ export function PwaManager({ children }: { children: React.ReactNode }) {
         <aside
           role="region"
           aria-label="Install App"
-          className="fixed bottom-20 right-4 z-50 max-w-sm w-[calc(100%-2rem)] p-4 bg-slate-900/95 md:bottom-4 border border-teal-500/40 text-slate-100 rounded-2xl shadow-2xl backdrop-blur-xl"
+          className="fixed bottom-20 right-4 z-50 max-w-sm w-[calc(100%-2rem)] p-4 bg-slate-900/95 md:bottom-4 border border-brand-500/40 text-slate-100 rounded-2xl shadow-2xl backdrop-blur-xl"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -149,7 +153,7 @@ export function PwaManager({ children }: { children: React.ReactNode }) {
           <div className="mt-3 flex items-center gap-2">
             <button
               onClick={installApp}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               Install

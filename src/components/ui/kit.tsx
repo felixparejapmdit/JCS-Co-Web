@@ -17,14 +17,17 @@ export function cx(...parts: (string | false | null | undefined)[]) {
 // ---------------------------------------------------------------------------
 // Buttons and badges
 // ---------------------------------------------------------------------------
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle' | 'success';
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-teal-600 text-white hover:bg-teal-700 shadow-sm disabled:bg-teal-600/50',
-  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 dark:bg-[#15213a] dark:text-slate-200 dark:border-[#2a3a5c] dark:hover:bg-[#1b2a48]',
-  ghost: 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5',
-  danger: 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm',
-  subtle: 'bg-teal-50 text-teal-800 hover:bg-teal-100 dark:bg-teal-500/10 dark:text-teal-300 dark:hover:bg-teal-500/20',
+  primary:
+    'bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:shadow-glow hover:from-brand-400 hover:to-brand-600 disabled:from-brand-500/50 disabled:to-brand-600/50 disabled:shadow-none',
+  secondary:
+    'border border-black/[0.08] bg-white/70 text-slate-700 backdrop-blur-xl hover:border-black/[0.14] hover:bg-white dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-slate-200 dark:hover:border-white/[0.18] dark:hover:bg-white/[0.09]',
+  ghost: 'text-slate-600 hover:bg-black/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.06]',
+  danger: 'bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:from-rose-400 hover:to-rose-600',
+  subtle: 'bg-brand-500/10 text-brand-700 hover:bg-brand-500/15 dark:bg-brand-400/10 dark:text-brand-300 dark:hover:bg-brand-400/20',
+  success: 'bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:shadow-glow-green',
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -37,7 +40,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 export function Button({ variant = 'secondary', size = 'md', icon: Icon, loading, className, children, href, disabled, ...rest }: ButtonProps) {
   const cls = cx(
-    'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap',
+    'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 whitespace-nowrap',
     size === 'sm' ? 'h-8 px-3 text-[13px]' : size === 'lg' ? 'h-11 px-5 text-[15px]' : 'h-9 px-4 text-sm',
     VARIANTS[variant],
     className
@@ -63,16 +66,29 @@ export function Button({ variant = 'secondary', size = 'md', icon: Icon, loading
 }
 
 const TONES: Record<StatusTone, string> = {
-  neutral: 'bg-slate-100 text-slate-700 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10',
-  info: 'bg-sky-50 text-sky-800 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20',
-  warning: 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20',
-  success: 'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20',
-  danger: 'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/20',
-  accent: 'bg-teal-50 text-teal-800 ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-500/20',
+  neutral: 'bg-slate-500/10 text-slate-700 ring-slate-500/15 dark:text-slate-300 dark:ring-white/10',
+  info: 'bg-brand-500/10 text-brand-700 ring-brand-500/20 dark:text-brand-300 dark:ring-brand-400/25',
+  warning: 'bg-amber-500/10 text-amber-800 ring-amber-500/20 dark:text-amber-300 dark:ring-amber-400/25',
+  success: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300 dark:ring-emerald-400/25',
+  danger: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300 dark:ring-rose-400/25',
+  accent: 'bg-brand-500/10 text-brand-700 ring-brand-500/20 dark:text-brand-300 dark:ring-brand-400/25',
+};
+const DOTS: Record<StatusTone, string> = {
+  neutral: 'bg-slate-400',
+  info: 'bg-brand-500 shadow-[0_0_8px_rgba(47,127,255,0.8)]',
+  warning: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.7)]',
+  success: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]',
+  danger: 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]',
+  accent: 'bg-brand-500 shadow-[0_0_8px_rgba(47,127,255,0.8)]',
 };
 
-export function Badge({ tone = 'neutral', children, className }: { tone?: StatusTone; children: React.ReactNode; className?: string }) {
-  return <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset whitespace-nowrap', TONES[tone], className)}>{children}</span>;
+export function Badge({ tone = 'neutral', children, className, dot = true }: { tone?: StatusTone; children: React.ReactNode; className?: string; dot?: boolean }) {
+  return (
+    <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset', TONES[tone], className)}>
+      {dot && <span className={cx('h-1.5 w-1.5 rounded-full', DOTS[tone])} />}
+      {children}
+    </span>
+  );
 }
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {
@@ -83,18 +99,42 @@ export function StatusBadge({ status }: { status: string | null | undefined }) {
 // ---------------------------------------------------------------------------
 // Layout pieces
 // ---------------------------------------------------------------------------
-export function Card({ title, subtitle, actions, children, className, padded = true }: { title?: React.ReactNode; subtitle?: React.ReactNode; actions?: React.ReactNode; children?: React.ReactNode; className?: string; padded?: boolean }) {
+export function Card({
+  title,
+  subtitle,
+  actions,
+  children,
+  className,
+  padded = true,
+  icon: Icon,
+}: {
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  actions?: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+  padded?: boolean;
+  icon?: React.ComponentType<{ className?: string }>;
+}) {
   return (
-    <section className={cx('rounded-xl border border-slate-200 bg-white shadow-sm dark:border-[#1e2a44] dark:bg-[#111a2e]', className)}>
+    <section className={cx('glass animate-fade-up rounded-2xl', className)}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-[#1e2a44]">
-          <div className="min-w-0">
-            {title && <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">{title}</h2>}
-            {subtitle && <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{subtitle}</p>}
+        <header className="flex flex-wrap items-start justify-between gap-3 px-5 pb-3 pt-4">
+          <div className="flex min-w-0 items-start gap-3">
+            {Icon && (
+              <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 ring-1 ring-inset ring-brand-500/15 dark:text-brand-300">
+                <Icon className="h-4 w-4" />
+              </span>
+            )}
+            <div className="min-w-0">
+              {title && <h2 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-white">{title}</h2>}
+              {subtitle && <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{subtitle}</p>}
+            </div>
           </div>
           {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
+      {(title || actions) && <div className="mx-5 h-px bg-gradient-to-r from-transparent via-black/[0.07] to-transparent dark:via-white/[0.08]" />}
       <div className={padded ? 'p-5' : ''}>{children}</div>
     </section>
   );
@@ -104,9 +144,9 @@ export function PageHeader({ title, description, actions, eyebrow, children }: {
   return (
     <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0">
-        {eyebrow && <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">{eyebrow}</div>}
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
-        {description && <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">{description}</p>}
+        {eyebrow && <div className="neon-text mb-1 text-xs font-semibold uppercase tracking-[0.14em]">{eyebrow}</div>}
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">{title}</h1>
+        {description && <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">{description}</p>}
         {children}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -117,7 +157,7 @@ export function PageHeader({ title, description, actions, eyebrow, children }: {
 export function EmptyState({ icon: Icon = Info, title, text, action }: { icon?: React.ComponentType<{ className?: string }>; title: string; text?: string; action?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600 ring-1 ring-inset ring-brand-500/15 dark:text-brand-300">
         <Icon className="h-6 w-6" />
       </div>
       <p className="font-semibold text-slate-800 dark:text-slate-200">{title}</p>
@@ -130,7 +170,7 @@ export function EmptyState({ icon: Icon = Info, title, text, action }: { icon?: 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
   return (
     <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500 dark:text-slate-400">
-      <Loader2 className="h-5 w-5 animate-spin" />
+      <Loader2 className="h-5 w-5 animate-spin text-brand-500" />
       {label}
     </div>
   );
@@ -138,14 +178,14 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
 
 export function Alert({ tone = 'info', title, children, onClose }: { tone?: 'info' | 'warning' | 'danger' | 'success'; title?: string; children?: React.ReactNode; onClose?: () => void }) {
   const map = {
-    info: ['border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200', Info],
-    warning: ['border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200', AlertTriangle],
-    danger: ['border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200', XCircle],
-    success: ['border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200', CheckCircle2],
+    info: ['border-brand-500/20 bg-brand-500/[0.07] text-brand-900 dark:border-brand-400/25 dark:bg-brand-400/[0.08] dark:text-brand-100', Info],
+    warning: ['border-amber-500/25 bg-amber-500/[0.08] text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/[0.08] dark:text-amber-100', AlertTriangle],
+    danger: ['border-rose-500/25 bg-rose-500/[0.07] text-rose-900 dark:border-rose-400/25 dark:bg-rose-400/[0.08] dark:text-rose-100', XCircle],
+    success: ['border-emerald-500/25 bg-emerald-500/[0.07] text-emerald-900 dark:border-emerald-400/25 dark:bg-emerald-400/[0.08] dark:text-emerald-100', CheckCircle2],
   } as const;
   const [cls, Icon] = map[tone];
   return (
-    <div className={cx('flex gap-3 rounded-lg border px-4 py-3 text-sm', cls)} role={tone === 'danger' ? 'alert' : 'status'}>
+    <div className={cx('flex gap-3 rounded-2xl border px-4 py-3 text-sm backdrop-blur-xl', cls)} role={tone === 'danger' ? 'alert' : 'status'}>
       <Icon className="mt-0.5 h-4 w-4 flex-shrink-0" />
       <div className="min-w-0 flex-1">
         {title && <p className="font-semibold">{title}</p>}
@@ -160,35 +200,66 @@ export function Alert({ tone = 'info', title, children, onClose }: { tone?: 'inf
   );
 }
 
-export function Stat({ label, value, sub, icon: Icon, tone = 'teal', href }: { label: string; value: React.ReactNode; sub?: React.ReactNode; icon?: React.ComponentType<{ className?: string }>; tone?: 'teal' | 'sky' | 'amber' | 'rose' | 'violet' | 'emerald'; href?: string }) {
-  const toneCls = {
-    teal: 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300',
-    sky: 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300',
-    amber: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
-    rose: 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300',
-    violet: 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300',
-    emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
-  }[tone];
+export type Tone = 'teal' | 'brand' | 'blue' | 'sky' | 'amber' | 'rose' | 'violet' | 'emerald';
+const TONE_ICON: Record<Tone, string> = {
+  teal: 'bg-brand-500/10 text-brand-600 ring-brand-500/20 dark:text-brand-300',
+  brand: 'bg-brand-500/10 text-brand-600 ring-brand-500/20 dark:text-brand-300',
+  blue: 'bg-brand-500/10 text-brand-600 ring-brand-500/20 dark:text-brand-300',
+  sky: 'bg-sky-500/10 text-sky-600 ring-sky-500/20 dark:text-sky-300',
+  amber: 'bg-amber-500/10 text-amber-600 ring-amber-500/20 dark:text-amber-300',
+  rose: 'bg-rose-500/10 text-rose-600 ring-rose-500/20 dark:text-rose-300',
+  violet: 'bg-violet-500/10 text-violet-600 ring-violet-500/20 dark:text-violet-300',
+  emerald: 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/20 dark:text-emerald-300',
+};
+const TONE_BAR: Record<Tone, string> = {
+  teal: 'from-brand-500 to-brand-300',
+  brand: 'from-brand-500 to-brand-300',
+  blue: 'from-brand-500 to-brand-300',
+  sky: 'from-sky-500 to-sky-300',
+  amber: 'from-amber-500 to-amber-300',
+  rose: 'from-rose-500 to-rose-300',
+  violet: 'from-violet-500 to-violet-300',
+  emerald: 'from-emerald-500 to-emerald-300',
+};
+
+/** A Notion-style stat block: icon, label, a big number and a hint. Clickable when given href. */
+export function Stat({ label, value, sub, icon: Icon, tone = 'brand', href }: { label: string; value: React.ReactNode; sub?: React.ReactNode; icon?: React.ComponentType<{ className?: string }>; tone?: Tone; href?: string }) {
   const body = (
-    <div className="flex h-full items-start gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-[#1e2a44] dark:bg-[#111a2e]">
-      {Icon && (
-        <div className={cx('flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg', toneCls)}>
-          <Icon className="h-5 w-5" />
+    <div className={cx('glass relative h-full overflow-hidden rounded-2xl p-5', href && 'transition duration-200 group-hover:-translate-y-0.5 group-hover:border-brand-400/40')}>
+      <div className={cx('absolute inset-x-5 top-0 h-px bg-gradient-to-r opacity-80', TONE_BAR[tone])} />
+      <div className="flex items-start gap-3.5">
+        {Icon && (
+          <div className={cx('flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ring-1 ring-inset', TONE_ICON[tone])}>
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">{label}</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 tabular-nums dark:text-white">{value}</p>
+          {sub && <p className="mt-1 text-[13px] leading-snug text-slate-500 dark:text-slate-400">{sub}</p>}
         </div>
-      )}
-      <div className="min-w-0">
-        <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">{label}</p>
-        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 tabular-nums dark:text-white">{value}</p>
-        {sub && <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">{sub}</p>}
       </div>
     </div>
   );
   return href ? (
-    <Link href={href} className="block hover:[&>div]:border-teal-400 dark:hover:[&>div]:border-teal-500/60">
+    <Link href={href} className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60">
       {body}
     </Link>
   ) : (
     body
+  );
+}
+
+/** Horizontal meter, e.g. budget used. Turns amber near the limit and rose above it. */
+export function Progress({ value, max = 100, className, tone }: { value: number; max?: number; className?: string; tone?: 'auto' | Tone }) {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+  const ratio = max > 0 ? value / max : 0;
+  const auto = ratio > 1.0001 ? 'rose' : ratio >= 0.9 ? 'amber' : 'emerald';
+  const t = (!tone || tone === 'auto' ? auto : tone) as Tone;
+  return (
+    <div className={cx('h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]', className)}>
+      <div className={cx('h-full rounded-full bg-gradient-to-r transition-all duration-500', TONE_BAR[t])} style={{ width: `${pct}%` }} />
+    </div>
   );
 }
 
@@ -197,9 +268,10 @@ export function Money({ value, className, peso = false }: { value: number | null
   return <span className={cx('tabular-nums', n < 0 && 'text-rose-600 dark:text-rose-400', className)}>{peso ? '₱' : ''}{fmtMoney(n)}</span>;
 }
 
+/** Segmented pill tabs. */
 export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: string; count?: number }[]; value: string; onChange: (id: string) => void }) {
   return (
-    <div className="-mb-px flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-[#1e2a44]" role="tablist">
+    <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.05]" role="tablist">
       {tabs.map((t) => {
         const active = t.id === value;
         return (
@@ -209,14 +281,40 @@ export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: str
             aria-selected={active}
             onClick={() => onChange(t.id)}
             className={cx(
-              'flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
-              active ? 'border-teal-600 text-teal-700 dark:border-teal-400 dark:text-teal-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all',
+              active ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06] dark:bg-white/[0.1] dark:text-white dark:ring-white/[0.1]' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
             )}
           >
             {t.label}
             {t.count !== undefined && (
-              <span className={cx('rounded-full px-1.5 py-0.5 text-[11px] font-semibold', active ? 'bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-200' : 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-400')}>{t.count}</span>
+              <span className={cx('rounded-full px-1.5 py-px text-[11px] font-semibold tabular-nums', active ? 'bg-brand-500/15 text-brand-700 dark:bg-brand-400/20 dark:text-brand-200' : 'bg-black/[0.05] text-slate-500 dark:bg-white/[0.06] dark:text-slate-400')}>{t.count}</span>
             )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Small icon toggle, e.g. cards / compact list. */
+export function Segmented<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string; icon?: React.ComponentType<{ className?: string }> }[] }) {
+  return (
+    <div className="inline-flex rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.05]" role="radiogroup">
+      {options.map((o) => {
+        const Icon = o.icon;
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            role="radio"
+            aria-checked={active}
+            aria-label={o.label}
+            title={o.label}
+            onClick={() => onChange(o.value)}
+            className={cx('flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-medium transition-all', active ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06] dark:bg-white/[0.1] dark:text-white dark:ring-white/[0.1]' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200')}
+          >
+            {Icon ? <Icon className="h-4 w-4" /> : null}
+            <span className="hidden sm:inline">{o.label}</span>
           </button>
         );
       })}
@@ -228,7 +326,7 @@ export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: str
 // Form fields
 // ---------------------------------------------------------------------------
 export const inputCls =
-  'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-colors focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/30 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-[#2a3a5c] dark:bg-[#0d1527] dark:text-slate-100 dark:placeholder-slate-500 dark:disabled:bg-[#0f182b]';
+  'h-9 w-full rounded-xl border border-black/[0.09] bg-white/75 px-3 text-sm text-slate-900 placeholder-slate-400 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl transition-all focus:border-brand-500/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:bg-black/[0.03] disabled:text-slate-500 dark:border-white/[0.09] dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-brand-400/70 dark:focus:bg-white/[0.06] dark:focus:ring-brand-400/15 dark:disabled:bg-white/[0.02]';
 
 export function Field({ label, hint, error, required, children, className }: { label?: string; hint?: React.ReactNode; error?: string | null; required?: boolean; children: React.ReactNode; className?: string }) {
   return (
@@ -389,7 +487,7 @@ export function Combobox({
         <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       </div>
       {open && !disabled && (
-        <div className="absolute z-40 mt-1 max-h-72 w-full min-w-[260px] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl dark:border-[#2a3a5c] dark:bg-[#111a2e]">
+        <div className="glass-strong absolute z-40 mt-1.5 max-h-72 w-full min-w-[260px] overflow-y-auto rounded-xl p-1">
           {filtered.length === 0 ? (
             <div className="px-3 py-2 text-sm text-slate-500">No matches</div>
           ) : (
@@ -400,7 +498,7 @@ export function Combobox({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(i)}
                 onMouseEnter={() => setHi(idx)}
-                className={cx('block w-full px-3 py-2 text-left', idx === hi ? 'bg-teal-50 dark:bg-teal-500/10' : '', i.value === value && 'font-semibold')}
+                className={cx('block w-full rounded-lg px-3 py-2 text-left', idx === hi ? 'bg-brand-500/10 dark:bg-brand-400/15' : '', i.value === value && 'font-semibold')}
               >
                 <div className="truncate text-sm text-slate-900 dark:text-slate-100">{i.label}</div>
                 {i.sub && <div className="truncate text-xs text-slate-500 dark:text-slate-400">{i.sub}</div>}
@@ -441,24 +539,24 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   const width = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' }[size];
   return (
     <div className={cx('fixed inset-0 z-[60] flex', side ? 'justify-end' : 'items-end justify-center sm:items-center sm:p-4')} role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm dark:bg-black/60" onClick={onClose} />
       <div
         className={cx(
-          'relative flex w-full flex-col bg-white shadow-2xl dark:bg-[#0f182b]',
-          side ? cx('h-full', width, 'border-l border-slate-200 dark:border-[#1e2a44]') : cx(width, 'max-h-[92vh] rounded-t-2xl sm:rounded-2xl')
+          'glass-strong relative flex w-full flex-col animate-fade-up',
+          side ? cx('h-full', width, 'rounded-l-3xl') : cx(width, 'max-h-[92vh] rounded-t-3xl sm:rounded-3xl')
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-[#1e2a44]">
+        <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] px-6 py-4 dark:border-white/[0.07]">
           <div>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
             {description && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{description}</p>}
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/5" aria-label="Close">
+          <button onClick={onClose} className="rounded-xl p-1.5 text-slate-400 hover:bg-black/[0.05] hover:text-slate-700 dark:hover:bg-white/[0.08] dark:hover:text-white" aria-label="Close">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 px-5 py-3 dark:border-[#1e2a44]">{footer}</div>}
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-black/[0.06] px-6 py-3 dark:border-white/[0.07]">{footer}</div>}
       </div>
     </div>
   );
@@ -485,13 +583,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             className={cx(
-              'pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg',
-              t.tone === 'success' && 'border-emerald-200 bg-white text-slate-800 dark:border-emerald-500/30 dark:bg-[#0f182b] dark:text-slate-100',
-              t.tone === 'error' && 'border-rose-200 bg-white text-slate-800 dark:border-rose-500/30 dark:bg-[#0f182b] dark:text-slate-100',
-              t.tone === 'info' && 'border-sky-200 bg-white text-slate-800 dark:border-sky-500/30 dark:bg-[#0f182b] dark:text-slate-100'
+              'glass-strong pointer-events-auto flex animate-fade-up items-start gap-3 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-100',
+              t.tone === 'success' && 'border-emerald-500/30 dark:border-emerald-400/30',
+              t.tone === 'error' && 'border-rose-500/30 dark:border-rose-400/30',
+              t.tone === 'info' && 'border-brand-500/30 dark:border-brand-400/30'
             )}
           >
-            {t.tone === 'success' ? <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" /> : t.tone === 'error' ? <XCircle className="h-5 w-5 flex-shrink-0 text-rose-600" /> : <Info className="h-5 w-5 flex-shrink-0 text-sky-600" />}
+            {t.tone === 'success' ? <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" /> : t.tone === 'error' ? <XCircle className="h-5 w-5 flex-shrink-0 text-rose-500" /> : <Info className="h-5 w-5 flex-shrink-0 text-brand-500" />}
             <p className="whitespace-pre-line">{t.text}</p>
           </div>
         ))}
@@ -510,7 +608,7 @@ export function KeyValue({ items, cols = 3 }: { items: { label: string; value: R
     <dl className={cx('grid gap-x-6 gap-y-4', cols === 2 ? 'sm:grid-cols-2' : cols === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3')}>
       {items.map((i, idx) => (
         <div key={idx} className="min-w-0">
-          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{i.label}</dt>
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">{i.label}</dt>
           <dd className="mt-1 break-words text-sm text-slate-900 dark:text-slate-100">{i.value === '' || i.value === null || i.value === undefined ? '—' : i.value}</dd>
         </div>
       ))}

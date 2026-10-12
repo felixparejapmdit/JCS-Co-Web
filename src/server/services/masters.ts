@@ -72,6 +72,7 @@ export const MASTERS: Record<string, MasterSpec> = {
       { key: 'ventype', label: 'Vendor type', type: 'select', options: [{ value: 'Trade', label: 'Trade' }, { value: 'Non-trade', label: 'Non-trade' }, { value: 'Employee', label: 'Employee' }], default: 'Trade' },
       { key: 'poreq', label: 'PO required', type: 'yesno', default: 'Y' },
       { key: 'mmrrreq', label: 'Receiving report required', type: 'yesno', default: 'Y' },
+      { key: 'pcfcust', label: 'Petty cash / revolving fund custodian', type: 'yesno', default: 'N', help: 'Employees who hold a fund; their replenishments are paid to them.' },
       { key: 'conper', label: 'Contact person' },
       { key: 'telno', label: 'Phone', type: 'tel' },
       { key: 'emailadd', label: 'Email', type: 'email' },
@@ -478,6 +479,8 @@ export async function lookup(ctx: Ctx, name: string): Promise<LookupItem[]> {
       return (await db.all('sys_usergroup', { orderBy: [['ug_code', 'asc']] })).map((r) => ({ value: r.ug_code, label: r.ug_name, sub: r.ug_code }));
     case 'users':
       return (await db.all('sys_userrecords', { orderBy: [['username', 'asc']] })).map((r) => ({ value: r.username, label: r.userfullname, sub: r.username }));
+    case 'custodians':
+      return (await db.all('venmasttbl', { where: { pcfcust: 'Y' }, orderBy: [['venname', 'asc']] })).map((r) => ({ value: r.venno, label: r.venname, sub: `${r.venno} · fund custodian` }));
     case 'payrollIds':
       return (await db.all('payidtbl', { orderBy: [['payidno', 'desc']] })).map((r) => ({ value: r.payidno, label: `${r.payidno} · ${r.pdatefr} to ${r.pdateto}`, sub: `${r.paytype} · ${r.paystat}` }));
     default:

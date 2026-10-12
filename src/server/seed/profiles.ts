@@ -41,7 +41,7 @@ export const PROFILES: Record<string, Profile> = {
   '8100': {
     ba: '8100',
     company: { bussname: 'JCS Chemical Industries, Inc.', shrtname: 'JCS Chemical', address: '12 Gen. Luis St., Paso de Blas, Valenzuela City, Metro Manila', tin: '004-123-456-000', signatory: 'Maria C. Santos', position: 'Chief Financial Officer', zip: '1440' },
-    branding: { display_name: 'JCS Chemical Industries', tagline: 'Valenzuela City · Industrial Chemicals', logo_text: 'JCS', accent: '#0d9488' },
+    branding: { display_name: 'JCS Chemical Industries', tagline: 'Valenzuela City · Industrial Chemicals', logo_text: 'JCS', accent: '#10b981' },
     plants: [
       { plntno: 'P100', plntname: 'Valenzuela Plant', prodnplnt: 'Y', invset: 'Y', ownertype: 'Company', ccno: 'PRD' },
       { plntno: 'W110', plntname: 'Valenzuela Finished Goods Warehouse', prodnplnt: 'N', invset: 'Y', ownertype: 'Company', ccno: 'LOG' },
@@ -105,7 +105,7 @@ export const PROFILES: Record<string, Profile> = {
   '8200': {
     ba: '8200',
     company: { bussname: 'APF Corporation', shrtname: 'APF Corp.', address: 'Km. 38 MacArthur Highway, Malolos, Bulacan', tin: '005-234-567-000', signatory: 'Maria C. Santos', position: 'Chief Financial Officer', zip: '3000' },
-    branding: { display_name: 'APF Corporation', tagline: 'Malolos, Bulacan · Animal Nutrition', logo_text: 'APF', accent: '#2563eb' },
+    branding: { display_name: 'APF Corporation', tagline: 'Malolos, Bulacan · Animal Nutrition', logo_text: 'APF', accent: '#2f7fff' },
     plants: [
       { plntno: 'F200', plntname: 'Malolos Feedmill', prodnplnt: 'Y', invset: 'Y', ownertype: 'Company', ccno: 'PRD' },
       { plntno: 'W210', plntname: 'San Fernando Warehouse', prodnplnt: 'N', invset: 'Y', ownertype: 'Company', ccno: 'LOG' },

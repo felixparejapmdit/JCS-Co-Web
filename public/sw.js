@@ -1,10 +1,12 @@
-// Cloud AOS Service Worker v2.0.0
+// Cloud AOS Service Worker v3.0.0
 // Static assets are cached for speed. Pages and data always come from the server:
 // nothing a user has viewed is kept on the device, so a shared PC never shows the
-// previous user's records.
-const CACHE_NAME = 'cloud-aos-v2';
+// previous user's records. When the server cannot be reached, navigations get the
+// self-contained /offline.html page (no scripts or stylesheets to download).
+const CACHE_NAME = 'cloud-aos-v3';
+const OFFLINE_PAGE = '/offline.html';
 const PRECACHE_ASSETS = [
-  '/offline',
+  OFFLINE_PAGE,
   '/favicon.svg',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
@@ -12,6 +14,10 @@ const PRECACHE_ASSETS = [
   '/icons/apple-touch-icon.png',
   '/manifest.webmanifest',
 ];
+
+// Answer for a file that is neither cached nor reachable: a plain failed response
+// instead of a rejected promise, so the browser shows no "Failed to fetch" errors.
+const unavailable = () => new Response('', { status: 504, statusText: 'Server unreachable' });
 
 // Install: pre-cache the offline page and icons.
 self.addEventListener('install', (event) => {
@@ -54,13 +60,15 @@ self.addEventListener('fetch', (event) => {
       caches.match(request).then(
         (cached) =>
           cached ||
-          fetch(request).then((response) => {
-            if (response && response.status === 200) {
-              const copy = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-            }
-            return response;
-          }),
+          fetch(request)
+            .then((response) => {
+              if (response && response.status === 200) {
+                const copy = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+              }
+              return response;
+            })
+            .catch(unavailable),
       ),
     );
     return;
@@ -71,7 +79,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request).catch(
         () =>
-          new Response(JSON.stringify({ error: 'You are offline. Check your connection and try again.', offline: true }), {
+          new Response(JSON.stringify({ error: 'Cannot reach the server. Check your connection and try again.', offline: true }), {
             status: 503,
             headers: { 'Content-Type': 'application/json' },
           }),
@@ -80,14 +88,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Page navigations: always from the network, offline page when there is none.
+  // 3. Page navigations: always from the network, the offline page when there is none.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(async () => {
-        const offline = await caches.match('/offline');
+        const offline = await caches.match(OFFLINE_PAGE);
         return (
           offline ||
-          new Response('You are offline. Cloud AOS will be back when your connection returns.', {
+          new Response('Cannot reach Cloud AOS. Check your connection and try again.', {
             status: 503,
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },
           })

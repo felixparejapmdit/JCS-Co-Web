@@ -6,12 +6,10 @@ import { CheckCircle2, Send } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/api';
 import { fmtDate, today } from '@/shared/dates';
 import { fmtMoney } from '@/shared/money';
-import { TC_NAMES } from '@/shared/codes';
+import { TC_DOC, TC_NAMES } from '@/shared/codes';
 import { RequireRight, useSession } from '@/components/shell/AppShell';
 import { DataTable } from '@/components/ui/DataTable';
 import { Alert, Button, Card, EmptyState, Field, Input, PageHeader, Spinner, Stat, useToast } from '@/components/ui/kit';
-
-const TC_DOC: Record<string, string> = { '10': 'mmrr', '53': 'do', '62': 'si', '60': 'or', '42': 'vp', '43': 'cv', '90': 'cm', '92': 'dm', '72': 'adj', '30': 'prod' };
 
 export default function PostingPage() {
   const toast = useToast();
@@ -76,7 +74,7 @@ export default function PostingPage() {
                     header: 'Document',
                     render: (r) =>
                       TC_DOC[r.tc] ? (
-                        <Link href={`/dashboard/doc/${TC_DOC[r.tc]}/${encodeURIComponent(r.docno)}`} className="font-mono text-[13px] text-teal-700 hover:underline dark:text-teal-400">
+                        <Link href={`/dashboard/doc/${TC_DOC[r.tc]}/${encodeURIComponent(r.docno)}`} className="font-mono text-[13px] text-brand-700 hover:underline dark:text-brand-400">
                           {r.docno}
                         </Link>
                       ) : (
