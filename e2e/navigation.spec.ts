@@ -62,7 +62,15 @@ test.describe('Modules', () => {
 
   test('a page can be pinned to Favourites', async ({ page }) => {
     await page.goto('/dashboard/fi/budget');
-    await page.getByRole('button', { name: /Add Budget Monitoring to Favourites/ }).click();
+    // Start unpinned (the hosted preview keeps sample data in memory between runs).
+    const remove = page.getByRole('button', { name: /Remove Budget Monitoring from Favourites/ });
+    const add = page.getByRole('button', { name: /Add Budget Monitoring to Favourites/ });
+    await expect(add.or(remove)).toBeVisible({ timeout: 30_000 });
+    if (await remove.isVisible()) {
+      await remove.click();
+      await expect(add).toBeVisible();
+    }
+    await add.click();
     await expect(page.getByRole('navigation', { name: 'Main menu' }).getByText('Favourites')).toBeVisible();
     await page.getByRole('button', { name: /Remove Budget Monitoring from Favourites/ }).click();
     await expect(page.getByRole('button', { name: /Add Budget Monitoring to Favourites/ })).toBeVisible();
