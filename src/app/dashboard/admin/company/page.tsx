@@ -114,7 +114,7 @@ export default function CompanyPage() {
                   <Field label="Logo" hint="PNG, JPG, SVG or WebP under 200 KB. Square images look best." className="sm:col-span-2">
                     <div className="flex flex-wrap items-center gap-3">
                       <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border border-black/[0.1] px-3 py-2 text-sm font-medium hover:bg-black/[0.04] dark:border-white/[0.1] dark:hover:bg-white/5 ${!editable ? 'pointer-events-none opacity-60' : ''}`}>
-                        <Upload className="h-4 w-4" /> Choose logo
+                        <Upload className="h-4 w-4 text-teal-600 dark:text-teal-400" /> Choose logo
                         <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="hidden" onChange={(e) => onLogo(e.target.files?.[0])} />
                       </label>
                       {form.logo_data && (

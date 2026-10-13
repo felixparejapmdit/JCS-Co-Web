@@ -318,7 +318,7 @@ function BudgetEditor({
                 <Field label={i === 0 ? 'Budget' : undefined}>
                   <NumberInput className="h-8" value={l.budamt} onValue={(v) => setLines(lines.map((x, j) => (j === i ? { ...x, budamt: v } : x)))} />
                 </Field>
-                <button onClick={() => setLines(lines.filter((_, j) => j !== i))} className="mb-0.5 rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-600" aria-label={`Remove line ${i + 1}`}>
+                <button onClick={() => setLines(lines.filter((_, j) => j !== i))} className="mb-0.5 rounded-lg p-1.5 text-rose-500/80 hover:bg-rose-500/10 hover:text-rose-600 dark:text-rose-400/80" aria-label={`Remove line ${i + 1}`}>
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -327,7 +327,7 @@ function BudgetEditor({
               onClick={() => setLines([...lines, { acctno: '', budamt: '' }])}
               className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-black/[0.12] py-2.5 text-sm font-medium text-slate-500 transition hover:border-brand-500/50 hover:text-brand-700 dark:border-white/[0.12] dark:text-slate-400 dark:hover:text-brand-300"
             >
-              <Plus className="h-4 w-4" /> Add account
+              <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> Add account
             </button>
           </div>
         )}

@@ -118,7 +118,7 @@ export function DocView({ type, no }: { type: string; no: string }) {
     <RequireRight form={cfg.form}>
       <div className="mb-4">
         <Link href={`/dashboard/doc/${type}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-700 dark:text-slate-400">
-          <ArrowLeft className="h-4 w-4" /> {cfg.plural}
+          <ArrowLeft className="h-4 w-4 text-brand-600 dark:text-brand-300" /> {cfg.plural}
         </Link>
       </div>
       {loading && !v ? (
@@ -282,7 +282,7 @@ export function DocView({ type, no }: { type: string; no: string }) {
                     <ol className="space-y-3">
                       {v.log.map((l: any, i: number) => (
                         <li key={i} className="flex gap-3 text-sm">
-                          <Clock className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
+                          <Clock className="mt-0.5 h-4 w-4 flex-shrink-0 text-sky-600 dark:text-sky-400" />
                           <div>
                             <div className="text-slate-800 dark:text-slate-200">{l.trans}</div>
                             <div className="text-xs text-slate-500">

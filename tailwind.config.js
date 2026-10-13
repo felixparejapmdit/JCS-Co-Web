@@ -50,10 +50,11 @@ module.exports = {
         '3xl': '1.5rem',
       },
       keyframes: {
-        'fade-up': { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        // Transform only: fading a blurred (glass) surface makes its blur pop in at the end.
+        rise: { '0%': { transform: 'translateY(10px) scale(0.985)' }, '100%': { transform: 'translateY(0) scale(1)' } },
       },
       animation: {
-        'fade-up': 'fade-up 0.35s ease-out both',
+        rise: 'rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both',
       },
     },
   },

@@ -91,7 +91,7 @@ export function DocList({ type }: { type: string }) {
 
   if (!cfg) return <Alert tone="danger">Unknown document type.</Alert>;
   const canCreate = can(cfg.form, 3);
-  const tabs = [{ id: 'all', label: 'All', count: data?.counts.all ?? 0 }, ...cfg.tabs.map((t) => ({ id: t, label: t, count: data?.counts[t] ?? 0 }))];
+  const tabs = [{ id: 'all', label: 'All', count: data ? data.counts.all ?? 0 : null }, ...cfg.tabs.map((t) => ({ id: t, label: t, count: data ? data.counts[t] ?? 0 : null }))];
 
   return (
     <RequireRight form={cfg.form}>
@@ -113,6 +113,14 @@ export function DocList({ type }: { type: string }) {
           )
         }
       />
+      {cfg.summary && !summary && (
+        // Keeps the place of the summary blocks while they load, so the list below does not jump.
+        <div className="mb-6 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="glass h-[118px] rounded-2xl" />
+          ))}
+        </div>
+      )}
       {summary && summary.length > 0 && (
         <div className="mb-6 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
           {summary.map((b, i) => (
@@ -158,12 +166,14 @@ export function DocList({ type }: { type: string }) {
       {cfg.sources?.map((s) => (
         <SourcePicker key={s.id} type={type} source={s.id} label={s.label} help={s.help} open={picker === s.id} onClose={() => setPicker(null)} />
       ))}
-      <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
-        Tip: click any row to open it. Documents number themselves; you never need to type a document number.{' '}
-        <Link href="/dashboard" className="text-brand-700 hover:underline dark:text-brand-400">
-          Back to Home
-        </Link>
-      </p>
+      {data && (
+        <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+          Tip: click any row to open it. Documents number themselves; you never need to type a document number.{' '}
+          <Link href="/dashboard" className="text-brand-700 hover:underline dark:text-brand-400">
+            Back to Home
+          </Link>
+        </p>
+      )}
     </RequireRight>
   );
 }

@@ -5,7 +5,7 @@ import { Check, ChevronDown, Lock, Minus, Plus, RotateCcw, Save, ShieldCheck } f
 import { rpc, useRpc } from '@/lib/api';
 import { RequireRight, useSession } from '@/components/shell/AppShell';
 import { NAV } from '@/components/shell/nav';
-import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, SearchInput, Segmented, Spinner, cx, useToast } from '@/components/ui/kit';
+import { Alert, Badge, Button, Card, Field, ICON_CHIP, Input, MODULE_TONE, Modal, PageHeader, SearchInput, Segmented, Spinner, cx, useToast } from '@/components/ui/kit';
 import { ACTION_VERB, ActionNo, PERMISSIONS, PermForm, PermSection } from '@/shared/permissions';
 import type { StatusTone } from '@/shared/codes';
 
@@ -230,7 +230,7 @@ export default function AccessMatrixPage() {
               <div className="max-h-[calc(100dvh-15rem)] overflow-auto" role="table" aria-label="Access matrix">
                 <div className="min-w-max" style={{ display: 'grid', gridTemplateColumns: cols }}>
                   {/* Header: one column per group */}
-                  <div role="columnheader" className="sticky left-0 top-0 z-30 flex items-end bg-white/90 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 backdrop-blur-2xl dark:bg-black/85 dark:text-slate-400">
+                  <div role="columnheader" className="sticky left-0 top-0 z-30 flex items-end bg-white px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:bg-[#07080b] dark:text-slate-400">
                     Page / button
                   </div>
                   {groups.map((g) => {
@@ -242,7 +242,7 @@ export default function AccessMatrixPage() {
                         key={g.ug_code}
                         id={`col-${g.ug_code}`}
                         role="columnheader"
-                        className={cx('sticky top-0 z-20 flex flex-col items-center gap-1.5 px-2 py-3 text-center backdrop-blur-2xl', sel ? 'bg-brand-50/95 dark:bg-[#07142b]/95' : 'bg-white/90 dark:bg-black/85', edited && 'shadow-[inset_0_-2px_0_rgba(47,127,255,0.9)]')}
+                        className={cx('sticky top-0 z-20 flex flex-col items-center gap-1.5 px-2 py-3 text-center', sel ? 'bg-brand-50 dark:bg-[#07142b]' : 'bg-white dark:bg-[#07080b]', edited && 'shadow-[inset_0_-2px_0_rgba(47,127,255,0.9)]')}
                       >
                         <button type="button" onClick={() => pick(g.ug_code)} className="max-w-full" title={`${g.ug_name}${g.ug_notes ? ` — ${g.ug_notes}` : ''}`}>
                           <Badge tone={locked ? 'success' : tone(g.ug_code)} dot={!locked} className="max-w-full">
@@ -340,9 +340,9 @@ function SectionRows({
   const Icon = NAV.find((n) => n.id === section.id)?.icon ?? ShieldCheck;
   return (
     <>
-      <div role="rowheader" className="sticky left-0 z-10 border-t border-black/[0.06] bg-slate-50/95 backdrop-blur-2xl dark:border-white/[0.07] dark:bg-[#0b0d12]/95">
+      <div role="rowheader" className="sticky left-0 z-10 border-t border-black/[0.06] bg-slate-50 dark:border-white/[0.07] dark:bg-[#0b0d12]">
         <button onClick={onToggleOpen} aria-expanded={open} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600 ring-1 ring-inset ring-brand-500/20 dark:text-brand-300">
+          <span className={cx('grid h-7 w-7 shrink-0 place-items-center rounded-lg ring-1 ring-inset', ICON_CHIP[MODULE_TONE[section.id] ?? 'brand'])}>
             <Icon className="h-3.5 w-3.5" />
           </span>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{section.label}</span>
@@ -358,7 +358,7 @@ function SectionRows({
       {open &&
         perms.map((p) => (
           <React.Fragment key={p.key}>
-            <div role="rowheader" className="group sticky left-0 z-10 border-t border-black/[0.04] bg-white/95 px-4 py-2 pl-14 backdrop-blur-2xl dark:border-white/[0.04] dark:bg-black/90">
+            <div role="rowheader" className="group sticky left-0 z-10 border-t border-black/[0.04] bg-white px-4 py-2 pl-14 dark:border-white/[0.04] dark:bg-[#07080b]">
               <div className="text-[13px] text-slate-800 dark:text-slate-200">{p.label}</div>
               <div className="font-mono text-[11px] text-slate-400">
                 {p.slug} <span className="text-slate-300 dark:text-slate-600">·</span> {p.form}

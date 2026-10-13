@@ -6,7 +6,7 @@ import { Download, FileDigit, Hash, PauseCircle, PlayCircle } from 'lucide-react
 import { rpc, useRpc } from '@/lib/api';
 import { RequireRight } from '@/components/shell/AppShell';
 import { NAV } from '@/components/shell/nav';
-import { Alert, Badge, Button, Card, PageHeader, SearchInput, Spinner, Stat, useToast } from '@/components/ui/kit';
+import { Alert, Badge, Button, Card, ICON_TEXT, MODULE_TONE, PageHeader, SearchInput, Spinner, Stat, cx, useToast } from '@/components/ui/kit';
 import { fmtDate } from '@/shared/dates';
 import { PERMISSIONS } from '@/shared/permissions';
 
@@ -98,7 +98,7 @@ export default function DocSetupPage() {
               return (
                 <section key={section}>
                   <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                    <Icon className="h-3.5 w-3.5" /> {section}
+                    <Icon className={cx('h-3.5 w-3.5', ICON_TEXT[MODULE_TONE[PERMISSIONS.find((p) => p.label === section)?.id ?? ''] ?? 'brand'])} /> {section}
                   </h3>
                   <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr))]">
                     {docs.map((d: any) => {

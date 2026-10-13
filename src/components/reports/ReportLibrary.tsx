@@ -3,11 +3,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, BarChart3, Download, FileBarChart2, Printer, RefreshCw } from 'lucide-react';
-import { rpc, useRpc } from '@/lib/api';
+import { fetchRead, peek, useRpc } from '@/lib/api';
 import { useSession } from '@/components/shell/AppShell';
 import { NAV } from '@/components/shell/nav';
 import { DataTable, type Column } from '@/components/ui/DataTable';
-import { Alert, Button, Card, EmptyState, Field, Input, PageHeader, SearchInput, Select, Spinner, Stat, StatusBadge, cx } from '@/components/ui/kit';
+import { Alert, Button, Card, EmptyState, Field, ICON_CHIP, ICON_TEXT, Input, MODULE_TONE, PageHeader, SearchInput, Select, Spinner, Stat, StatusBadge, cx } from '@/components/ui/kit';
 import { fmtDate, nowStamp } from '@/shared/dates';
 import { fmtMoney } from '@/shared/money';
 import { PERMISSIONS } from '@/shared/permissions';
@@ -82,20 +82,20 @@ export function ReportHub({ module }: { module?: string }) {
               <section key={mod}>
                 {!module && (
                   <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                    <Icon className="h-3.5 w-3.5" /> {MODULE_LABEL[mod] ?? mod}
+                    <Icon className={cx('h-3.5 w-3.5', ICON_TEXT[MODULE_TONE[mod] ?? 'brand'])} /> {MODULE_LABEL[mod] ?? mod}
                   </h3>
                 )}
                 <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]">
                   {reports.map((r) => (
                     <Link key={r.id} href={`/dashboard/reports/${r.id}`} className="tile-interactive group flex flex-col p-4">
-                      <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-500/10 text-brand-600 ring-1 ring-inset ring-brand-500/20 dark:text-brand-300">
+                      <span className={cx('grid h-9 w-9 place-items-center rounded-xl ring-1 ring-inset', ICON_CHIP[MODULE_TONE[r.module] ?? 'brand'])}>
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="mt-3 font-semibold text-slate-900 dark:text-white">{r.title}</span>
                       <span className="mt-1 flex-1 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">{r.description}</span>
                       <span className="mt-3 flex items-center justify-between gap-2 text-[11px] text-slate-400">
                         <span className="truncate">{r.legacy}</span>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-brand-500 transition group-hover:translate-x-0.5" />
+                        <ArrowRight className={cx('h-4 w-4 shrink-0 transition group-hover:translate-x-0.5', ICON_TEXT[MODULE_TONE[r.module] ?? 'brand'])} />
                       </span>
                     </Link>
                   ))}
@@ -144,15 +144,17 @@ export function ReportViewer({ id }: { id: string }) {
   const { info } = useSession();
   const catalog = useRpc<ReportMeta[]>('report.catalog');
   const meta = catalog.data?.find((r) => r.id === id);
-  const [params, setParams] = useState<Record<string, string> | null>(null);
-  const [result, setResult] = useState<{ rows: any[]; totals: Record<string, number>; count: number } | null>(null);
+  const defaults = (m?: ReportMeta) => (m ? Object.fromEntries(m.params.map((p) => [p.key, p.def])) : null);
+  // A report opened again shows its last result at once, then refreshes it.
+  const [params, setParams] = useState<Record<string, string> | null>(() => defaults(meta));
+  const [result, setResult] = useState<{ rows: any[]; totals: Record<string, number>; count: number } | null>(() => (params ? peek("report.run", { id, params }) ?? null : null));
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [ranAt, setRanAt] = useState('');
   const seq = useRef(0);
 
   useEffect(() => {
-    if (meta && !params) setParams(Object.fromEntries(meta.params.map((p) => [p.key, p.def])));
+    if (meta && !params) setParams(defaults(meta));
   }, [meta, params]);
 
   const run = async (p: Record<string, string>) => {
@@ -160,7 +162,7 @@ export function ReportViewer({ id }: { id: string }) {
     setRunning(true);
     setError(null);
     try {
-      const r = await rpc<any>('report.run', { id, params: p });
+      const r = await fetchRead<any>('report.run', { id, params: p });
       if (n === seq.current) {
         setResult(r);
         setRanAt(nowStamp());
@@ -173,9 +175,11 @@ export function ReportViewer({ id }: { id: string }) {
   };
 
   // Run as soon as the parameters change; typing in a search box waits a moment.
+  const first = useRef(true);
   useEffect(() => {
     if (!params) return;
-    const t = setTimeout(() => run(params), 350);
+    const t = setTimeout(() => run(params), first.current ? 0 : 350);
+    first.current = false;
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);

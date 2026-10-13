@@ -329,7 +329,7 @@ export function FundVouchers({ draft, setDraft }: { draft: Draft; setDraft: SetD
                 draft.user === c.username ? 'bg-brand-500/15 text-brand-700 ring-brand-500/30 dark:text-brand-200' : 'bg-black/[0.03] text-slate-600 ring-black/[0.08] hover:ring-brand-500/40 dark:bg-white/[0.04] dark:text-slate-300 dark:ring-white/[0.1]'
               )}
             >
-              <UserRound className="h-3.5 w-3.5" />
+              <UserRound className="h-3.5 w-3.5 text-pink-600 dark:text-pink-400" />
               {c.name} · {c.count} · ₱{fmtMoney(c.amount)}
             </button>
           ))}

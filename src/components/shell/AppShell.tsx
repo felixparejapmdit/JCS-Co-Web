@@ -21,9 +21,9 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { ApiError, clearLookups, rpc } from '@/lib/api';
+import { ApiError, CHANGED_EVENT, clearLookups, forgetSession, rpc } from '@/lib/api';
 import { fmtDate, monthName } from '@/shared/dates';
-import { Badge, Modal, Spinner, ToastProvider, cx } from '@/components/ui/kit';
+import { Badge, ICON_TEXT, MODULE_TONE, Modal, Spinner, ToastProvider, cx } from '@/components/ui/kit';
 import { NAV, findNav } from './nav';
 
 export interface Branding {
@@ -55,6 +55,9 @@ interface SessionCtxValue {
 }
 
 const SessionCtx = createContext<SessionCtxValue | null>(null);
+
+/** This tab's last session info, so a reload paints the shell at once (cleared on sign-out and company switch). */
+const SESSION_KEY = 'cloudaos_session_info';
 
 export function useSession(): SessionCtxValue {
   const v = useContext(SessionCtx);
@@ -124,13 +127,14 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
   const pathname = usePathname();
   const [filter, setFilter] = useState('');
   const current = findNav(pathname).group?.id;
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
+  const [open, setOpen] = useState<Record<string, boolean>>(() => {
+    let saved: Record<string, boolean> = {};
     try {
-      setOpen(JSON.parse(localStorage.getItem('cloudaos_nav') || '{}'));
+      saved = JSON.parse(localStorage.getItem('cloudaos_nav') || '{}');
     } catch {}
-  }, []);
+    return current ? { ...saved, [current]: true } : saved;
+  });
+
   useEffect(() => {
     if (current) setOpen((o) => ({ ...o, [current]: true }));
   }, [current]);
@@ -150,11 +154,11 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
   const favs = (info.favourites ?? []).filter((f) => !filter || `${f.label} ${f.section}`.toLowerCase().includes(filter.toLowerCase()));
 
   return (
-    <div className="glass flex h-full flex-col overflow-hidden rounded-3xl text-slate-700 dark:text-slate-300">
+    <div className="glass glass-float flex h-full flex-col overflow-hidden rounded-3xl text-slate-700 dark:text-slate-300">
       <ClientHeader b={info.company} period={info.openPeriod} />
       <div className="px-3 py-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className={cx('pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2', ICON_TEXT.sky)} />
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -169,7 +173,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
           onClick={onNavigate}
           className={cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', pathname === '/dashboard' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'hover:bg-black/[0.04] hover:text-slate-900 dark:hover:bg-white/[0.05] dark:hover:text-white')}
         >
-          <Home className="h-4 w-4" />
+          <Home className={cx('h-4 w-4', ICON_TEXT.brand)} />
           Home
         </Link>
         {favs.length > 0 && (
@@ -206,7 +210,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
                 className={cx('flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', current === g.id ? 'text-slate-900 dark:text-white' : 'hover:bg-black/[0.04] hover:text-slate-900 dark:hover:bg-white/[0.05] dark:hover:text-white')}
                 aria-expanded={isOpen}
               >
-                <Icon className={cx('h-4 w-4 flex-shrink-0', current === g.id && 'text-brand-600 dark:text-brand-300')} />
+                <Icon className={cx('h-4 w-4 flex-shrink-0', ICON_TEXT[MODULE_TONE[g.id] ?? 'brand'])} />
                 <span className="flex-1 truncate text-left">{g.label}</span>
                 <ChevronRight className={cx('h-4 w-4 text-slate-400 transition-transform', isOpen && 'rotate-90')} />
               </button>
@@ -239,7 +243,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
             Cloud <span className="neon-text">AOS</span>
           </span>
           <Link href="/dashboard/help" onClick={onNavigate} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 hover:bg-black/[0.04] hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white">
-            <LifeBuoy className="h-3.5 w-3.5" /> Help
+            <LifeBuoy className={cx('h-3.5 w-3.5', ICON_TEXT.sky)} /> Help
           </Link>
           <span>{info.mode === 'demo' ? 'Sample data' : 'Company database'}</span>
         </div>
@@ -291,7 +295,7 @@ function GlobalSearch({ onDone, autoFocus }: { onDone?: () => void; autoFocus?: 
 
   return (
     <div ref={box} className="relative w-full">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <Search className={cx('pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2', ICON_TEXT.sky)} />
       <input
         autoFocus={autoFocus}
         value={q}
@@ -329,15 +333,28 @@ function GlobalSearch({ onDone, autoFocus }: { onDone?: () => void; autoFocus?: 
 }
 
 function TasksBell() {
-  const pathname = usePathname();
   const [tasks, setTasks] = useState<{ label: string; count: number; href: string }[]>([]);
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    rpc<any[]>('home.tasks')
-      .then(setTasks)
-      .catch(() => {});
-  }, [pathname]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const fetchTasks = () =>
+      rpc<any[]>('home.tasks')
+        .then(setTasks)
+        .catch(() => {});
+    const soon = () => {
+      clearTimeout(timer);
+      timer = setTimeout(fetchTasks, 1200);
+    };
+    fetchTasks();
+    const every = setInterval(fetchTasks, 120_000);
+    window.addEventListener(CHANGED_EVENT, soon);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(every);
+      window.removeEventListener(CHANGED_EVENT, soon);
+    };
+  }, []);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
@@ -349,7 +366,7 @@ function TasksBell() {
   return (
     <div ref={box} className="relative">
       <button onClick={() => setOpen(!open)} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white" aria-label={`${total} tasks waiting`}>
-        <Bell className="h-5 w-5" />
+        <Bell className={cx('h-5 w-5', ICON_TEXT.amber)} />
         {total > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-b from-brand-500 to-brand-600 px-1 text-[10px] font-bold text-white shadow-[0_0_10px_rgba(47,127,255,0.8)]">{total > 99 ? '99+' : total}</span>}
       </button>
       {open && (
@@ -386,7 +403,7 @@ function UserMenu({ info, onSwitch }: { info: SessionInfo; onSwitch: () => void 
     try {
       await rpc('auth.logout');
     } catch {}
-    clearLookups();
+    forgetSession();
     router.replace('/');
   };
   return (
@@ -418,14 +435,14 @@ function UserMenu({ info, onSwitch }: { info: SessionInfo; onSwitch: () => void 
               }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-black/[0.04] dark:text-slate-200 dark:hover:bg-white/5"
             >
-              <ArrowLeftRight className="h-4 w-4" /> Switch company
+              <ArrowLeftRight className={cx('h-4 w-4', ICON_TEXT.violet)} /> Switch company
             </button>
           )}
           <Link href="/dashboard/account" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-black/[0.04] dark:text-slate-200 dark:hover:bg-white/5">
-            <KeyRound className="h-4 w-4" /> Change password
+            <KeyRound className={cx('h-4 w-4', ICON_TEXT.amber)} /> Change password
           </Link>
           <Link href="/dashboard/help" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-black/[0.04] dark:text-slate-200 dark:hover:bg-white/5">
-            <LifeBuoy className="h-4 w-4" /> Help &amp; About
+            <LifeBuoy className={cx('h-4 w-4', ICON_TEXT.sky)} /> Help &amp; About
           </Link>
           <button onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10">
             <LogOut className="h-4 w-4" /> Sign out
@@ -449,14 +466,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const load = useCallback(async () => {
     try {
-      setInfo(await rpc<SessionInfo>('auth.session'));
+      const fresh = await rpc<SessionInfo>('auth.session');
+      setInfo(fresh);
+      try {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(fresh));
+      } catch {}
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) router.replace('/?expired=1');
-      else setFailed(e instanceof Error ? e.message : String(e));
+      if (e instanceof ApiError && e.status === 401) {
+        forgetSession();
+        router.replace('/?expired=1');
+      } else setFailed(e instanceof Error ? e.message : String(e));
     }
   }, [router]);
 
   useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(SESSION_KEY);
+      if (cached) setInfo(JSON.parse(cached));
+    } catch {}
     load();
   }, [load]);
 
@@ -495,7 +522,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setSwitching(ba);
     try {
       await rpc('auth.switch', { ba });
-      clearLookups();
+      forgetSession();
       window.location.href = '/dashboard';
     } catch (e) {
       setSwitching(null);
@@ -525,9 +552,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
 
           <div className="lg:pl-[279px]">
-            <header className="glass sticky top-0 z-20 flex h-16 items-center gap-3 rounded-b-2xl border-t-0 px-4 sm:px-6 lg:top-3 lg:mx-3 lg:rounded-2xl lg:border-t">
+            <header className="glass glass-float sticky top-0 z-20 flex h-16 items-center gap-3 rounded-b-2xl border-t-0 px-4 sm:px-6 lg:top-3 lg:mx-3 lg:rounded-2xl lg:border-t">
               <button onClick={() => setDrawer(true)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5 lg:hidden" aria-label="Open menu">
-                <Menu className="h-5 w-5" />
+                <Menu className={cx('h-5 w-5', ICON_TEXT.violet)} />
               </button>
               <div className="hidden min-w-0 items-center gap-1.5 whitespace-nowrap text-sm md:flex">
                 <Link href="/dashboard" className="text-slate-500 hover:text-brand-700 dark:text-slate-400">
@@ -555,7 +582,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="ml-auto flex items-center gap-1 sm:ml-2">
                 {info.mode === 'demo' && <span className="hidden whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 2xl:inline">Sample data</span>}
                 <button onClick={toggle} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white" aria-label="Switch light or dark theme">
-                  {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                  {dark ? <Sun className={cx('h-5 w-5', ICON_TEXT.amber)} /> : <Moon className={cx('h-5 w-5', ICON_TEXT.indigo)} />}
                 </button>
                 <TasksBell />
                 <UserMenu info={info} onSwitch={() => setSwitchOpen(true)} />
@@ -564,7 +591,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <main className="mx-auto max-w-[1440px] px-4 pb-24 pt-6 sm:px-6 lg:px-6 lg:pb-10 lg:pt-8">
               {info.maintenance?.on && (
                 <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200" role="status">
-                  <Wrench className="h-4 w-4 shrink-0" />
+                  <Wrench className={cx('h-4 w-4 shrink-0', ICON_TEXT.amber)} />
                   <span className="min-w-0 flex-1">
                     <b>Maintenance mode is on.</b> Only administrators can work in this company until it is switched off.
                   </span>
@@ -578,15 +605,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Mobile bottom bar */}
-          <nav className="glass fixed inset-x-2 bottom-2 z-30 flex h-16 items-center justify-around rounded-2xl lg:hidden">
+          <nav className="glass glass-float fixed inset-x-2 bottom-2 z-30 flex h-16 items-center justify-around rounded-2xl lg:hidden">
             <Link href="/dashboard" className={cx('flex flex-1 flex-col items-center gap-0.5 text-[11px] font-medium', pathname === '/dashboard' ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500')}>
-              <Home className="h-5 w-5" /> Home
+              <Home className={cx('h-5 w-5', ICON_TEXT.brand)} /> Home
             </Link>
             <button onClick={() => setSearchOpen(true)} className="flex flex-1 flex-col items-center gap-0.5 text-[11px] font-medium text-slate-500">
-              <Search className="h-5 w-5" /> Find
+              <Search className={cx('h-5 w-5', ICON_TEXT.sky)} /> Find
             </button>
             <button onClick={() => setDrawer(true)} className="flex flex-1 flex-col items-center gap-0.5 text-[11px] font-medium text-slate-500">
-              <LayoutGrid className="h-5 w-5" /> Menu
+              <LayoutGrid className={cx('h-5 w-5', ICON_TEXT.violet)} /> Menu
             </button>
           </nav>
 
@@ -634,7 +661,7 @@ function FavStar({ href, label, info, onChanged }: { href: string; label: string
       aria-pressed={on}
       aria-label={on ? `Remove ${label} from Favourites` : `Add ${label} to Favourites`}
       title={on ? 'Remove from Favourites' : 'Add to Favourites'}
-      className="hidden rounded-lg p-1.5 text-slate-400 transition hover:bg-black/[0.04] hover:text-amber-500 disabled:opacity-50 dark:hover:bg-white/5 md:block"
+      className="hidden rounded-lg p-1.5 text-amber-500 transition hover:bg-amber-500/10 disabled:opacity-50 md:block"
     >
       <Star className={cx('h-4 w-4', on && 'fill-amber-400 text-amber-400')} />
     </button>
@@ -647,7 +674,7 @@ function MaintenanceScreen({ info, onRetry }: { info: SessionInfo; onRetry: () =
     try {
       await rpc('auth.logout');
     } catch {}
-    clearLookups();
+    forgetSession();
     router.replace('/');
   };
   return (

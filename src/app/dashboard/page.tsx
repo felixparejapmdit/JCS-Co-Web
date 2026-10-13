@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Activity, ArrowRight, Banknote, Boxes, ClipboardCheck, Coins, FilePlus2, HandCoins, Inbox, PackagePlus, Receipt, ShoppingCart, Sparkles, TrendingUp, Truck, Wallet, Warehouse } from 'lucide-react';
 import { useRpc } from '@/lib/api';
 import { fmtDate, monthName } from '@/shared/dates';
 import { fmtMoney } from '@/shared/money';
 import { useSession } from '@/components/shell/AppShell';
-import { Alert, Card, EmptyState, Spinner, Stat, cx } from '@/components/ui/kit';
+import { Alert, Card, EmptyState, ICON_CHIP, ICON_TEXT, Spinner, Stat, cx, toneOfForm, toneOfText } from '@/components/ui/kit';
 
 function greeting() {
   const h = new Date().getHours();
@@ -62,14 +62,14 @@ function Trend({ data }: { data: { label: string; revenue: number; costs: number
 export default function HomePage() {
   const { info, can } = useSession();
   const { data, loading, error } = useRpc<any>('home.dashboard');
-  const [hideIntro, setHideIntro] = useState(true);
-  useEffect(() => {
+  // Read before the first paint (the dashboard only renders in the browser), so the intro never jumps.
+  const [hideIntro, setHideIntro] = useState(() => {
     try {
-      setHideIntro(localStorage.getItem('cloudaos_intro_hidden') === '1');
+      return localStorage.getItem('cloudaos_intro_hidden') === '1';
     } catch {
-      setHideIntro(false);
+      return false;
     }
-  }, []);
+  });
 
   const quick = [
     { label: 'New sales order', href: '/dashboard/doc/so/new', form: '017', icon: ShoppingCart },
@@ -128,11 +128,11 @@ export default function HomePage() {
         data && (
           <>
             <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,188px),1fr))]">
-              {data.cash && <Stat label="Cash position" value={compact(data.cash.onHand + data.cash.inBank)} sub={`On hand ${compact(data.cash.onHand)} · Banks ${compact(data.cash.inBank)}`} icon={Banknote} tone="blue" href="/dashboard/fi/gl-reports" />}
-              {data.ar && <Stat label="Receivables" value={compact(data.ar.total)} sub={data.ar.overdue > 0 ? `${compact(data.ar.overdue)} overdue` : 'Nothing overdue'} icon={HandCoins} tone={data.ar.overdue > 0 ? 'amber' : 'emerald'} href="/dashboard/fi/ar" />}
-              {data.ap && <Stat label="Payables" value={compact(data.ap.total)} sub={`${compact(data.ap.dueThisWeek)} due within 7 days`} icon={Wallet} tone="violet" href="/dashboard/fi/ap" />}
-              {data.inventory && <Stat label="Inventory value" value={compact(data.inventory.value)} sub={data.inventory.alerts ? `${data.inventory.alerts} item(s) below reorder level` : 'Stock levels healthy'} icon={Boxes} tone={data.inventory.alerts ? 'rose' : 'sky'} href="/dashboard/mm/stock" />}
-              {data.sales && <Stat label="Sales this month" value={compact(data.sales.mtd)} sub={`${data.sales.invoices} invoice(s) · collected ${compact(data.sales.collections)}`} icon={TrendingUp} tone="emerald" href="/dashboard/sd/reports" />}
+              {data.cash && <Stat label="Cash position" value={compact(data.cash.onHand + data.cash.inBank)} sub={`On hand ${compact(data.cash.onHand)} · Banks ${compact(data.cash.inBank)}`} icon={Banknote} tone="teal" href="/dashboard/fi/gl-reports" />}
+              {data.ar && <Stat label="Receivables" value={compact(data.ar.total)} sub={data.ar.overdue > 0 ? `${compact(data.ar.overdue)} overdue` : 'Nothing overdue'} icon={HandCoins} tone="emerald" href="/dashboard/fi/ar" />}
+              {data.ap && <Stat label="Payables" value={compact(data.ap.total)} sub={`${compact(data.ap.dueThisWeek)} due within 7 days`} icon={Wallet} tone="amber" href="/dashboard/fi/ap" />}
+              {data.inventory && <Stat label="Inventory value" value={compact(data.inventory.value)} sub={data.inventory.alerts ? `${data.inventory.alerts} item(s) below reorder level` : 'Stock levels healthy'} icon={Boxes} tone="cyan" href="/dashboard/mm/stock" />}
+              {data.sales && <Stat label="Sales this month" value={compact(data.sales.mtd)} sub={`${data.sales.invoices} invoice(s) · collected ${compact(data.sales.collections)}`} icon={TrendingUp} tone="violet" href="/dashboard/sd/reports" />}
             </div>
 
             <div className="grid gap-6 lg:grid-cols-12">
@@ -146,7 +146,7 @@ export default function HomePage() {
                         <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t.label}</span>
                         <span className="flex items-center gap-2">
                           <span className="rounded-full bg-brand-500/15 px-2.5 py-0.5 text-sm font-bold tabular-nums text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-400/15 dark:text-brand-200">{t.count}</span>
-                          <ArrowRight className="h-4 w-4 text-slate-400" />
+                          <ArrowRight className={cx('h-4 w-4', ICON_TEXT[toneOfText(t.label)])} />
                         </span>
                       </Link>
                     ))}
@@ -160,7 +160,7 @@ export default function HomePage() {
                   <div className="grid grid-cols-2 gap-2">
                     {quick.map((q) => (
                       <Link key={q.href} href={q.href} className="tile-interactive flex flex-col gap-2 p-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 ring-1 ring-inset ring-brand-500/15 dark:text-brand-300">
+                        <span className={cx('flex h-8 w-8 items-center justify-center rounded-xl ring-1 ring-inset', ICON_CHIP[toneOfForm(q.form)])}>
                           <q.icon className="h-4 w-4" />
                         </span>
                         {q.label}

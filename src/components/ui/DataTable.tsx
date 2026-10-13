@@ -23,13 +23,15 @@ const VIEW_KEY = 'cloudaos_view';
 const AMOUNT_KEYS = ['amount', 'total', 'value', 'balance', 'netamt', 'net', 'debit', 'docamt'];
 
 function useViewPref(): [View, (v: View) => void] {
-  const [view, setView] = useState<View>('cards');
-  useEffect(() => {
+  // Read before the first paint (tables only render in the browser), so the view never switches visibly.
+  const [view, setView] = useState<View>(() => {
     try {
       const v = localStorage.getItem(VIEW_KEY);
-      if (v === 'list' || v === 'cards') setView(v);
-    } catch {}
-  }, []);
+      return v === 'list' ? 'list' : 'cards';
+    } catch {
+      return 'cards';
+    }
+  });
   return [
     view,
     (v: View) => {
@@ -135,7 +137,7 @@ export function DataTable<T extends Record<string, any>>({
           <div className="flex items-center gap-2">
             {sortable.length > 0 && (
               <label className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <ArrowUpDown className="h-3.5 w-3.5" />
+                <ArrowUpDown className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
                 <select
                   aria-label="Sort by"
                   className="h-8 rounded-lg border border-black/[0.07] bg-white/60 px-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200"

@@ -9,6 +9,10 @@ import { useLookup } from '@/lib/api';
 import type { StatusTone } from '@/shared/codes';
 import { statusTone } from '@/shared/codes';
 import { fmtMoney } from '@/shared/money';
+import { ICON_CHIP, ICON_TEXT, TONE_BAR, type Tone, textOf, toneOfText } from './tone';
+
+export { ICON_CHIP, ICON_TEXT, MODULE_TONE, textOf, toneOfForm, toneOfText } from './tone';
+export type { Tone } from './tone';
 
 export function cx(...parts: (string | false | null | undefined)[]) {
   return twMerge(parts.filter(Boolean).join(' '));
@@ -23,7 +27,7 @@ const VARIANTS: Record<Variant, string> = {
   primary:
     'bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:shadow-glow hover:from-brand-400 hover:to-brand-600 disabled:from-brand-500/50 disabled:to-brand-600/50 disabled:shadow-none',
   secondary:
-    'border border-black/[0.08] bg-white/70 text-slate-700 backdrop-blur-xl hover:border-black/[0.14] hover:bg-white dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-slate-200 dark:hover:border-white/[0.18] dark:hover:bg-white/[0.09]',
+    'border border-black/[0.08] bg-white/80 text-slate-700 hover:border-black/[0.14] hover:bg-white dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-slate-200 dark:hover:border-white/[0.18] dark:hover:bg-white/[0.09]',
   ghost: 'text-slate-600 hover:bg-black/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.06]',
   danger: 'bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:from-rose-400 hover:to-rose-600',
   subtle: 'bg-brand-500/10 text-brand-700 hover:bg-brand-500/15 dark:bg-brand-400/10 dark:text-brand-300 dark:hover:bg-brand-400/20',
@@ -34,11 +38,16 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: Variant;
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ComponentType<{ className?: string }>;
+  /** Colour of the icon; by default it follows the meaning of the button's text. */
+  iconTone?: Tone;
   loading?: boolean;
   href?: string;
 }
 
-export function Button({ variant = 'secondary', size = 'md', icon: Icon, loading, className, children, href, disabled, ...rest }: ButtonProps) {
+const FILLED: Variant[] = ['primary', 'danger', 'success'];
+
+export function Button({ variant = 'secondary', size = 'md', icon: Icon, iconTone, loading, className, children, href, disabled, ...rest }: ButtonProps) {
+  const iconCls = FILLED.includes(variant) ? '' : ICON_TEXT[iconTone ?? toneOfText(textOf(children) || String(rest.title ?? '') || String(rest['aria-label'] ?? ''))];
   const cls = cx(
     'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 whitespace-nowrap',
     size === 'sm' ? 'h-8 px-3 text-[13px]' : size === 'lg' ? 'h-11 px-5 text-[15px]' : 'h-9 px-4 text-sm',
@@ -47,7 +56,7 @@ export function Button({ variant = 'secondary', size = 'md', icon: Icon, loading
   );
   const content = (
     <>
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : Icon ? <Icon className="h-4 w-4" /> : null}
+      {loading ? <Loader2 className={cx('h-4 w-4 animate-spin', iconCls)} /> : Icon ? <Icon className={cx('h-4 w-4 flex-shrink-0', iconCls)} /> : null}
       {children}
     </>
   );
@@ -107,6 +116,7 @@ export function Card({
   className,
   padded = true,
   icon: Icon,
+  tone,
 }: {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -115,14 +125,16 @@ export function Card({
   className?: string;
   padded?: boolean;
   icon?: React.ComponentType<{ className?: string }>;
+  /** Colour of the icon; by default it follows the title. */
+  tone?: Tone;
 }) {
   return (
-    <section className={cx('glass animate-fade-up rounded-2xl', className)}>
+    <section className={cx('glass rounded-2xl', className)}>
       {(title || actions) && (
         <header className="flex flex-wrap items-start justify-between gap-3 px-5 pb-3 pt-4">
           <div className="flex min-w-0 items-start gap-3">
             {Icon && (
-              <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 ring-1 ring-inset ring-brand-500/15 dark:text-brand-300">
+              <span className={cx('mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ring-1 ring-inset', ICON_CHIP[tone ?? toneOfText(textOf(title))])}>
                 <Icon className="h-4 w-4" />
               </span>
             )}
@@ -154,10 +166,10 @@ export function PageHeader({ title, description, actions, eyebrow, children }: {
   );
 }
 
-export function EmptyState({ icon: Icon = Info, title, text, action }: { icon?: React.ComponentType<{ className?: string }>; title: string; text?: string; action?: React.ReactNode }) {
+export function EmptyState({ icon: Icon = Info, title, text, action, tone }: { icon?: React.ComponentType<{ className?: string }>; title: string; text?: string; action?: React.ReactNode; tone?: Tone }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600 ring-1 ring-inset ring-brand-500/15 dark:text-brand-300">
+      <div className={cx('mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ring-inset', ICON_CHIP[tone ?? toneOfText(title, 'sky')])}>
         <Icon className="h-6 w-6" />
       </div>
       <p className="font-semibold text-slate-800 dark:text-slate-200">{title}</p>
@@ -169,7 +181,7 @@ export function EmptyState({ icon: Icon = Info, title, text, action }: { icon?: 
 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500 dark:text-slate-400">
+    <div className="delayed-show flex min-h-[40vh] items-center justify-center gap-2 py-12 text-sm text-slate-500 dark:text-slate-400" role="status" aria-live="polite">
       <Loader2 className="h-5 w-5 animate-spin text-brand-500" />
       {label}
     </div>
@@ -185,7 +197,7 @@ export function Alert({ tone = 'info', title, children, onClose }: { tone?: 'inf
   } as const;
   const [cls, Icon] = map[tone];
   return (
-    <div className={cx('flex gap-3 rounded-2xl border px-4 py-3 text-sm backdrop-blur-xl', cls)} role={tone === 'danger' ? 'alert' : 'status'}>
+    <div className={cx('flex gap-3 rounded-2xl border px-4 py-3 text-sm', cls)} role={tone === 'danger' ? 'alert' : 'status'}>
       <Icon className="mt-0.5 h-4 w-4 flex-shrink-0" />
       <div className="min-w-0 flex-1">
         {title && <p className="font-semibold">{title}</p>}
@@ -200,30 +212,11 @@ export function Alert({ tone = 'info', title, children, onClose }: { tone?: 'inf
   );
 }
 
-export type Tone = 'teal' | 'brand' | 'blue' | 'sky' | 'amber' | 'rose' | 'violet' | 'emerald';
-const TONE_ICON: Record<Tone, string> = {
-  teal: 'bg-brand-500/10 text-brand-600 ring-brand-500/20 dark:text-brand-300',
-  brand: 'bg-brand-500/10 text-brand-600 ring-brand-500/20 dark:text-brand-300',
-  blue: 'bg-brand-500/10 text-brand-600 ring-brand-500/20 dark:text-brand-300',
-  sky: 'bg-sky-500/10 text-sky-600 ring-sky-500/20 dark:text-sky-300',
-  amber: 'bg-amber-500/10 text-amber-600 ring-amber-500/20 dark:text-amber-300',
-  rose: 'bg-rose-500/10 text-rose-600 ring-rose-500/20 dark:text-rose-300',
-  violet: 'bg-violet-500/10 text-violet-600 ring-violet-500/20 dark:text-violet-300',
-  emerald: 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/20 dark:text-emerald-300',
-};
-const TONE_BAR: Record<Tone, string> = {
-  teal: 'from-brand-500 to-brand-300',
-  brand: 'from-brand-500 to-brand-300',
-  blue: 'from-brand-500 to-brand-300',
-  sky: 'from-sky-500 to-sky-300',
-  amber: 'from-amber-500 to-amber-300',
-  rose: 'from-rose-500 to-rose-300',
-  violet: 'from-violet-500 to-violet-300',
-  emerald: 'from-emerald-500 to-emerald-300',
-};
+const TONE_ICON = ICON_CHIP;
 
 /** A Notion-style stat block: icon, label, a big number and a hint. Clickable when given href. */
-export function Stat({ label, value, sub, icon: Icon, tone = 'brand', href }: { label: string; value: React.ReactNode; sub?: React.ReactNode; icon?: React.ComponentType<{ className?: string }>; tone?: Tone; href?: string }) {
+export function Stat({ label, value, sub, icon: Icon, tone: given, href }: { label: string; value: React.ReactNode; sub?: React.ReactNode; icon?: React.ComponentType<{ className?: string }>; tone?: Tone; href?: string }) {
+  const tone = given ?? toneOfText(label);
   const body = (
     <div className={cx('glass relative h-full overflow-hidden rounded-2xl p-5', href && 'transition duration-200 group-hover:-translate-y-0.5 group-hover:border-brand-400/40')}>
       <div className={cx('absolute inset-x-5 top-0 h-px bg-gradient-to-r opacity-80', TONE_BAR[tone])} />
@@ -269,7 +262,7 @@ export function Money({ value, className, peso = false }: { value: number | null
 }
 
 /** Segmented pill tabs. */
-export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: string; count?: number }[]; value: string; onChange: (id: string) => void }) {
+export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: string; count?: number | null }[]; value: string; onChange: (id: string) => void }) {
   return (
     <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.05]" role="tablist">
       {tabs.map((t) => {
@@ -287,7 +280,8 @@ export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: str
           >
             {t.label}
             {t.count !== undefined && (
-              <span className={cx('rounded-full px-1.5 py-px text-[11px] font-semibold tabular-nums', active ? 'bg-brand-500/15 text-brand-700 dark:bg-brand-400/20 dark:text-brand-200' : 'bg-black/[0.05] text-slate-500 dark:bg-white/[0.06] dark:text-slate-400')}>{t.count}</span>
+              // Fixed minimum width, and an empty chip while counting, so tabs never shift when numbers arrive.
+              <span className={cx('min-w-[1.75rem] rounded-full px-1.5 py-px text-center text-[11px] font-semibold tabular-nums', active ? 'bg-brand-500/15 text-brand-700 dark:bg-brand-400/20 dark:text-brand-200' : 'bg-black/[0.05] text-slate-500 dark:bg-white/[0.06] dark:text-slate-400')}>{t.count ?? ' '}</span>
             )}
           </button>
         );
@@ -313,7 +307,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
             onClick={() => onChange(o.value)}
             className={cx('flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-medium transition-all', active ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06] dark:bg-white/[0.1] dark:text-white dark:ring-white/[0.1]' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200')}
           >
-            {Icon ? <Icon className="h-4 w-4" /> : null}
+            {Icon ? <Icon className={cx('h-4 w-4', ICON_TEXT[toneOfText(o.label, 'sky')])} /> : null}
             <span className={Icon ? 'hidden sm:inline' : undefined}>{o.label}</span>
           </button>
         );
@@ -326,7 +320,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
 // Form fields
 // ---------------------------------------------------------------------------
 export const inputCls =
-  'h-9 w-full rounded-xl border border-black/[0.09] bg-white/75 px-3 text-sm text-slate-900 placeholder-slate-400 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl transition-all focus:border-brand-500/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:bg-black/[0.03] disabled:text-slate-500 dark:border-white/[0.09] dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-brand-400/70 dark:focus:bg-white/[0.06] dark:focus:ring-brand-400/15 dark:disabled:bg-white/[0.02]';
+  'h-9 w-full rounded-xl border border-black/[0.09] bg-white/85 px-3 text-sm text-slate-900 placeholder-slate-400 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-colors focus:border-brand-500/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:bg-black/[0.03] disabled:text-slate-500 dark:border-white/[0.09] dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-brand-400/70 dark:focus:bg-white/[0.06] dark:focus:ring-brand-400/15 dark:disabled:bg-white/[0.02]';
 
 export function Field({ label, hint, error, required, children, className }: { label?: string; hint?: React.ReactNode; error?: string | null; required?: boolean; children: React.ReactNode; className?: string }) {
   return (
@@ -514,7 +508,7 @@ export function Combobox({
 export function SearchInput({ value, onChange, placeholder = 'Search…', className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
   return (
     <div className={cx('relative', className)}>
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <Search className={cx('pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2', ICON_TEXT.sky)} />
       <input className={cx(inputCls, 'pl-9')} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
       {value && (
         <button className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-700" onClick={() => onChange('')} aria-label="Clear search">
@@ -542,7 +536,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm dark:bg-black/60" onClick={onClose} />
       <div
         className={cx(
-          'glass-strong relative flex w-full flex-col animate-fade-up',
+          'glass-strong relative flex w-full flex-col animate-rise',
           side ? cx('h-full', width, 'rounded-l-3xl') : cx(width, 'max-h-[92vh] rounded-t-3xl sm:rounded-3xl')
         )}
       >
@@ -583,7 +577,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             className={cx(
-              'glass-strong pointer-events-auto flex animate-fade-up items-start gap-3 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-100',
+              'glass-strong pointer-events-auto flex animate-rise items-start gap-3 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-100',
               t.tone === 'success' && 'border-emerald-500/30 dark:border-emerald-400/30',
               t.tone === 'error' && 'border-rose-500/30 dark:border-rose-400/30',
               t.tone === 'info' && 'border-brand-500/30 dark:border-brand-400/30'

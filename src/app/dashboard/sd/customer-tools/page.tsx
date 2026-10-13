@@ -265,7 +265,7 @@ function Transfer({ data, run }: { data: any; run: Run }) {
         <Field label="From salesman">
           <Select value={from} onChange={(e) => (setFrom(e.target.value), setPicked(new Set()))} options={data.salesmen} />
         </Field>
-        <ArrowRightLeft className="mx-auto mb-2.5 hidden h-5 w-5 text-slate-400 sm:block" />
+        <ArrowRightLeft className="mx-auto mb-2.5 hidden h-5 w-5 text-violet-600 dark:text-violet-400 sm:block" />
         <Field label="To salesman">
           <Select value={to} onChange={(e) => setTo(e.target.value)} options={data.salesmen.filter((s: any) => s.value !== from)} />
         </Field>

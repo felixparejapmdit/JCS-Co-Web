@@ -241,7 +241,7 @@ export function DocEditor({ type, no }: { type: string; no?: string }) {
     <RequireRight form={cfg.form} action={no ? 2 : 3}>
       <div ref={top} className="mb-4">
         <Link href={no ? `/dashboard/doc/${type}/${encodeURIComponent(no)}` : `/dashboard/doc/${type}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-700 dark:text-slate-400">
-          <ArrowLeft className="h-4 w-4" /> {no ? `Back to ${no}` : cfg.plural}
+          <ArrowLeft className="h-4 w-4 text-brand-600 dark:text-brand-300" /> {no ? `Back to ${no}` : cfg.plural}
         </Link>
       </div>
       {loadError ? (
@@ -324,7 +324,7 @@ export function DocEditor({ type, no }: { type: string; no?: string }) {
                       <div key={idx} className="tile group p-3 transition-colors focus-within:border-brand-400/50">
                         <div className="mb-2 flex items-center justify-between">
                           <span className="rounded-md bg-black/[0.04] px-1.5 py-0.5 text-[11px] font-semibold text-slate-500 dark:bg-white/[0.06]">Line {idx + 1}</span>
-                          <button onClick={() => removeLine(idx)} className="rounded-lg p-1 text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-600" aria-label={`Remove line ${idx + 1}`}>
+                          <button onClick={() => removeLine(idx)} className="rounded-lg p-1 text-rose-500/80 transition hover:bg-rose-500/10 hover:text-rose-600 dark:text-rose-400/80" aria-label={`Remove line ${idx + 1}`}>
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -348,7 +348,7 @@ export function DocEditor({ type, no }: { type: string; no?: string }) {
                     onClick={addLine}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-black/[0.12] py-3 text-sm font-medium text-slate-500 transition hover:border-brand-500/50 hover:bg-brand-500/[0.05] hover:text-brand-700 dark:border-white/[0.12] dark:text-slate-400 dark:hover:border-brand-400/50 dark:hover:text-brand-300"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     {cfg.lines?.addLabel ?? 'Add line'}
                   </button>
                 </div>

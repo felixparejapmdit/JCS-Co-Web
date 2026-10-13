@@ -183,7 +183,7 @@ function EntryEditor({ doc, onClose, onSaved }: { doc: DocRow; onClose: () => vo
                   <NumberInput className="h-8" disabled={!editable} value={l.cramt} onValue={(v) => set(i, { cramt: v, ...(Number(v) ? { dramt: '' } : {}) })} />
                 </Field>
                 {editable && (
-                  <button onClick={() => setLines((ls) => (ls ?? []).filter((_, j) => j !== i))} className="mb-0.5 hidden rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-600 md:block" aria-label={`Remove line ${i + 1}`}>
+                  <button onClick={() => setLines((ls) => (ls ?? []).filter((_, j) => j !== i))} className="mb-0.5 hidden rounded-lg p-1.5 text-rose-500/80 hover:bg-rose-500/10 hover:text-rose-600 dark:text-rose-400/80 md:block" aria-label={`Remove line ${i + 1}`}>
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
@@ -194,7 +194,7 @@ function EntryEditor({ doc, onClose, onSaved }: { doc: DocRow; onClose: () => vo
                 onClick={() => setLines((ls) => [...(ls ?? []), { acctno: '', ccno: '', dramt: '', cramt: '' }])}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-black/[0.12] py-2.5 text-sm font-medium text-slate-500 transition hover:border-brand-500/50 hover:text-brand-700 dark:border-white/[0.12] dark:text-slate-400 dark:hover:text-brand-300"
               >
-                <Plus className="h-4 w-4" /> Add line
+                <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> Add line
               </button>
             )}
           </div>

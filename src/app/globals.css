@@ -53,13 +53,21 @@ body::before {
 }
 
 @layer components {
-  /* Liquid Glass surface: cards, panels, the side menu and the top bar. */
+  /*
+   * Liquid Glass surface for cards and panels. The page behind them is only the ambient
+   * gradient, so they need no backdrop blur: blurring a smooth gradient looks the same, and
+   * dozens of blur layers make scrolling heavy and flicker when content animates.
+   */
   .glass {
-    @apply border border-black/[0.06] bg-white/60 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/[0.08] dark:bg-white/[0.035];
+    @apply border border-black/[0.06] bg-white/[0.66] dark:border-white/[0.08] dark:bg-white/[0.035];
     box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.7), 0 10px 30px -14px rgba(15, 23, 42, 0.18);
   }
   .dark .glass {
     box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 24px 60px -28px rgba(0, 0, 0, 0.95);
+  }
+  /* Bars that content scrolls under (top bar, side menu, mobile bars): real blur. */
+  .glass-float {
+    @apply backdrop-blur-2xl backdrop-saturate-150;
   }
   /* Menus, dialogs and toasts float above everything: a denser glass. */
   .glass-strong {
@@ -81,6 +89,19 @@ body::before {
   }
   .neon-text {
     @apply bg-gradient-to-r from-brand-500 to-emerald-500 bg-clip-text text-transparent dark:from-neon-blue dark:to-neon-green;
+  }
+}
+
+/* Loading indicators show only when loading takes a moment, so quick loads never flash. */
+.delayed-show {
+  animation: delayed-show 0.2s ease-out 0.35s both;
+}
+@keyframes delayed-show {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

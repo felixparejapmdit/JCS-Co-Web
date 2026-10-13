@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Send, ShoppingBag, TrendingUp, Users, Wallet } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/api';
@@ -14,12 +14,13 @@ const KEY = 'cloudaos_smnno';
 
 export default function SalesmanPage() {
   const toast = useToast();
-  const [smnno, setSmnno] = useState('');
-  useEffect(() => {
+  const [smnno, setSmnno] = useState(() => {
     try {
-      setSmnno(localStorage.getItem(KEY) ?? '');
-    } catch {}
-  }, []);
+      return localStorage.getItem(KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
   const { data, loading, error, reload } = useRpc<any>('salesman.workspace', { smnno }, [smnno]);
   const [req, setReq] = useState<{ custno: string; deldate: string; pono: string; remarks: string; qty: Record<string, number | ''> } | null>(null);
   const [busy, setBusy] = useState(false);

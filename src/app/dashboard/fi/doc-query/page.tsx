@@ -105,7 +105,7 @@ export default function DocQueryPage() {
                           </Button>
                         ) : (
                           <p className="mt-2 flex items-start gap-1 text-[11px] text-slate-500">
-                            <Lock className="mt-0.5 h-3 w-3 shrink-0" /> {f.why}
+                            <Lock className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" /> {f.why}
                           </p>
                         )}
                       </div>

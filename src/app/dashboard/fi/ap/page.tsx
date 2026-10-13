@@ -34,7 +34,7 @@ export default function ApPage() {
         data && (
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
-              <Stat label="Total payables" value={`₱${fmtMoney(data.totals.total)}`} tone="violet" />
+              <Stat label="Total payables" value={`₱${fmtMoney(data.totals.total)}`} tone="amber" />
               <Stat label="Due within 7 days" value={`₱${fmtMoney(data.dueThisWeek)}`} tone="amber" />
               <Stat label="Past due" value={`₱${fmtMoney(data.totals.total - data.totals.current)}`} tone="rose" />
             </div>

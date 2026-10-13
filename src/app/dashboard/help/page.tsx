@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeftRight, Bell, CheckCircle2, CircleHelp, FileCheck2, Keyboard, LayoutGrid, LifeBuoy, Lock, Moon, Search, ShieldCheck, Star, WifiOff } from 'lucide-react';
 import { useSession } from '@/components/shell/AppShell';
-import { Badge, Card, KeyValue, PageHeader, SearchInput, cx } from '@/components/ui/kit';
+import { Badge, Card, ICON_CHIP, KeyValue, PageHeader, SearchInput, cx, toneOfText } from '@/components/ui/kit';
 import { monthName } from '@/shared/dates';
 
 const TIPS = [
@@ -58,7 +58,7 @@ export default function HelpPage() {
           <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))]">
             {tips.map((t) => (
               <div key={t.title} className="tile p-4">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-500/10 text-brand-600 ring-1 ring-inset ring-brand-500/20 dark:text-brand-300">
+                <span className={cx('grid h-9 w-9 place-items-center rounded-xl ring-1 ring-inset', ICON_CHIP[toneOfText(t.title)])}>
                   <t.icon className="h-4 w-4" />
                 </span>
                 <p className="mt-3 font-semibold text-slate-900 dark:text-white">{t.title}</p>
