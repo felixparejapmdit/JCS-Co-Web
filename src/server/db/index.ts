@@ -1,8 +1,10 @@
 import { MemoryDb, MemoryStore } from './memory';
 import { MysqlDb } from './mysql';
 import type { Db } from './types';
+import { dataSource, mysqlConfigured } from './source';
 
 export * from './types';
+export { dataSource, mysqlConfigured } from './source';
 
 export interface CompanyInfo {
   ba: string;
@@ -18,8 +20,9 @@ const COMPANY_DEFAULTS: CompanyInfo[] = [
   { ba: '8300', name: 'Chemag Trading Corporation', short: 'Chemag Trading', database: process.env.DB_CHEMAG || 'chemag' },
 ];
 
+/** True when the app reads the MySQL databases; false for the in-memory sample data (Administration > Data Source). */
 export function isMysqlMode(): boolean {
-  return Boolean(process.env.DATABASE_HOST);
+  return mysqlConfigured() && dataSource() === 'mysql';
 }
 
 export function companies(): CompanyInfo[] {
@@ -39,6 +42,11 @@ export function companyInfo(ba: string): CompanyInfo {
 type DemoState = { stores: Map<string, MemoryStore>; seeding: Map<string, Promise<MemoryStore>> };
 const g = globalThis as unknown as { __cloudAosDemo?: DemoState; __cloudAosPools?: Map<string, any> };
 const demo: DemoState = (g.__cloudAosDemo ??= { stores: new Map(), seeding: new Map() });
+
+/** Companies whose sample data is currently held in memory. */
+export function demoCompaniesInMemory(): string[] {
+  return [...demo.stores.keys()];
+}
 
 async function demoStore(ba: string): Promise<MemoryStore> {
   const ready = demo.stores.get(ba);
@@ -83,6 +91,9 @@ async function pool(database: string) {
       decimalNumbers: true,
       ssl: process.env.DATABASE_SSL === 'true' ? {} : undefined,
     });
+    // Optional session SQL mode, e.g. the lenient mode the legacy server runs with (local rebuilt schema).
+    const sqlMode = process.env.DATABASE_SQL_MODE;
+    if (sqlMode) p.on('connection', (conn: any) => conn.query('SET SESSION sql_mode = ?', [sqlMode]));
     pools.set(database, p);
   }
   return p;

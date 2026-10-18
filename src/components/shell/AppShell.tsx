@@ -44,6 +44,8 @@ export interface SessionInfo {
   rights: Record<string, number[]>;
   openPeriod: string;
   mode: 'demo' | 'mysql';
+  /** memory | mysql-sample | mysql (Administration > Data Source) */
+  source?: 'memory' | 'mysql-sample' | 'mysql';
   favourites: { href: string; label: string; section: string; form: string }[];
   maintenance: { on: boolean; message: string; bypass: boolean };
 }
@@ -245,7 +247,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
           <Link href="/dashboard/help" onClick={onNavigate} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 hover:bg-black/[0.04] hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white">
             <LifeBuoy className={cx('h-3.5 w-3.5', ICON_TEXT.sky)} /> Help
           </Link>
-          <span>{info.mode === 'demo' ? 'Sample data' : 'Company database'}</span>
+          <span>{info.source === 'mysql-sample' ? 'Sample data · MySQL' : info.mode === 'demo' ? 'Sample data' : 'Company database'}</span>
         </div>
       </div>
     </div>
@@ -580,7 +582,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <GlobalSearch />
               </div>
               <div className="ml-auto flex items-center gap-1 sm:ml-2">
-                {info.mode === 'demo' && <span className="hidden whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 2xl:inline">Sample data</span>}
+                {(info.mode === 'demo' || info.source === 'mysql-sample') && <span className="hidden whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 2xl:inline">{info.source === 'mysql-sample' ? 'Sample data · MySQL' : 'Sample data'}</span>}
                 <button onClick={toggle} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white" aria-label="Switch light or dark theme">
                   {dark ? <Sun className={cx('h-5 w-5', ICON_TEXT.amber)} /> : <Moon className={cx('h-5 w-5', ICON_TEXT.indigo)} />}
                 </button>

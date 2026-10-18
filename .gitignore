@@ -37,8 +37,14 @@ yarn-error.log*
 
 # scratch & cache
 /scratch/
+
+# this server's local settings (Administration > Data Source)
+/.cloudaos/
 /database/data_local/
 
 # client database backups (never commit)
 /database/restore/*
 !/database/restore/README.md
+
+# production schema dumps written by database/Sync-ProductionSchema.ps1 (never commit)
+/database/production_schema/

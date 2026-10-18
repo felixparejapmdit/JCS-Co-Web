@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE, readSession, sessionCookieOptions, signSession } from '@/server/auth';
 import { DbError, isMysqlMode } from '@/server/db';
+import { mysqlHoldsSampleData } from '@/server/db/source';
 import { runOp, session } from '@/server/rpc';
 
 export const dynamic = 'force-dynamic';
@@ -32,8 +33,9 @@ export async function POST(req: NextRequest) {
   try {
     if (op === 'app.info') {
       // Public: tells the sign-in page whether it is the sample-data preview. No company is named.
-      if (isMysqlMode()) return NextResponse.json({ ok: true, data: { mode: 'mysql' } });
+      if (isMysqlMode() && !mysqlHoldsSampleData()) return NextResponse.json({ ok: true, data: { mode: 'mysql' } });
       const { DEMO_ACCOUNTS, DEMO_PASSWORD } = await import('@/server/seed');
+      if (isMysqlMode()) return NextResponse.json({ ok: true, data: { mode: 'mysql', accounts: DEMO_ACCOUNTS, password: DEMO_PASSWORD, sampleInMysql: true } });
       return NextResponse.json({ ok: true, data: { mode: 'demo', accounts: DEMO_ACCOUNTS, password: DEMO_PASSWORD } });
     }
     if (op === 'auth.login') {

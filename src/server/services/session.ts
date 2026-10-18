@@ -1,3 +1,4 @@
+import { mysqlHoldsSampleData } from '../db/source';
 import { bypassesMaintenance, favourites, maintenance, maintenanceText } from './system';
 import type { Db } from '../db';
 import { companies, getDb } from '../db';
@@ -123,6 +124,8 @@ export async function sessionInfo(s: Session) {
     rights,
     openPeriod: await openPeriodDate(db),
     mode: db.mode,
+    // memory | mysql-sample (MySQL holding the sample data this app loaded) | mysql
+    source: db.mode === 'demo' ? 'memory' : mysqlHoldsSampleData() ? 'mysql-sample' : 'mysql',
     mustChangePassword: false,
     passwordUpgraded: Boolean(cred),
     favourites: await favourites(db, s.u, s.g),

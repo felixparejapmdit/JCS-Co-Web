@@ -10,6 +10,8 @@ export interface DemoInfo {
   mode: 'demo' | 'mysql';
   accounts?: { username: string; name: string; group: string; companies: number }[];
   password?: string;
+  /** The sample data is held in the local MySQL databases (Administration > Data Source). */
+  sampleInMysql?: boolean;
 }
 
 /** Sign-in form. Rendered on the server with the demo accounts, so nothing moves after the page appears. */
@@ -163,9 +165,9 @@ export function SignIn({ info, expired }: { info: DemoInfo; expired: boolean }) 
             </div>
           )}
 
-          {info?.mode === 'demo' && info.accounts && !choose && (
+          {info?.accounts && !choose && (
             <div className="mt-6 rounded-3xl border border-dashed border-brand-500/40 bg-brand-500/[0.05] p-5 dark:border-brand-400/30 dark:bg-brand-400/[0.05]">
-              <p className="text-sm font-semibold text-brand-900 dark:text-brand-200">Preview with sample data</p>
+              <p className="text-sm font-semibold text-brand-900 dark:text-brand-200">{info.sampleInMysql ? 'Sample data in local MySQL' : 'Preview with sample data'}</p>
               <p className="mt-0.5 text-xs text-brand-800/80 dark:text-brand-300/80">
                 Pick a role to try. Every sample account uses the password <span className="font-mono font-semibold">{info.password}</span>.
               </p>

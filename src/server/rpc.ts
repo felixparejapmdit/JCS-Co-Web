@@ -27,6 +27,7 @@ import * as budget from './services/budget';
 import * as production from './services/production';
 import * as admin from './services/admin';
 import * as session from './services/session';
+import * as datasource from './services/datasource';
 
 type Handler = (ctx: Ctx, args: Row, s: Session) => Promise<unknown>;
 
@@ -268,10 +269,22 @@ const ops: Record<string, Handler> = {
   },
 };
 
+/**
+ * Administration > Data Source. These run before a company database is opened, so an administrator
+ * can always switch back to the sample data, even when MySQL is down.
+ */
+const SOURCE_OPS: Record<string, (args: Row, s: Session) => Promise<unknown>> = {
+  'source.status': (_a, s) => datasource.dataSourceStatus(s),
+  'source.set': (a, s) => datasource.chooseDataSource(s, String(a.source ?? '')),
+  'source.loadSample': (_a, s) => datasource.loadSample(s),
+};
+
 /** Operations that still work while the company is in maintenance (the shell shows the notice). */
 const OPEN_IN_MAINTENANCE = new Set(['auth.session']);
 
 export async function runOp(op: string, args: Row, s: Session, ip?: string): Promise<unknown> {
+  const sourceOp = SOURCE_OPS[op];
+  if (sourceOp) return sourceOp(args ?? {}, s);
   const handler = ops[op];
   if (!handler) fail(`Unknown operation: ${op}`, 404);
   const db = await getDb(s.ba);
