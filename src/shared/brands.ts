@@ -15,12 +15,12 @@ export interface CompanyBrand {
 }
 
 export const COMPANY_BRANDS: Record<string, CompanyBrand> = {
-  // Chemag Trading: Green #005b21, Red #e21b20, White #FDFDFD, Black #231e1e.
+  // Chemag Trading: Green #005b21, Red #e21b20, White #FDFDFD, Black #0f0d0d.
   '8300': {
     key: 'ba8300', // neutral key: the stylesheet also loads on the sign-in page
     accent: '#005b21',
     wordmark: { light: '/brand/chemag/logo-light.png', dark: '/brand/chemag/logo-dark.png', alt: 'Chemag' },
-    page: { light: '#FDFDFD', dark: '#231e1e' },
+    page: { light: '#FDFDFD', dark: '#0f0d0d' },
   },
 };
 

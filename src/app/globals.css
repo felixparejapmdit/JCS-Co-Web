@@ -41,7 +41,7 @@ html.dark {
 }
 
 /*
- * Chemag Trading palette (shared/brands.ts): Green #005b21, Red #e21b20, White #FDFDFD, Black #231e1e.
+ * Chemag Trading palette (shared/brands.ts): Green #005b21, Red #e21b20, White #FDFDFD, Black #0f0d0d.
  * Applied only while someone is signed in to Chemag; the sign-in page stays neutral.
  */
 html[data-brand='ba8300'] {
@@ -62,7 +62,7 @@ html[data-brand='ba8300'] {
   --neon-1: 46 158 85;
   --neon-2: 125 224 160;
   --page: #fdfdfd;
-  --ink: #231e1e;
+  --ink: #0f0d0d;
   --ink-dark: #fdfdfd;
   --glow-blue: rgba(0, 91, 33, 0.09);
   --glow-green: rgba(226, 27, 32, 0.05);
@@ -70,7 +70,7 @@ html[data-brand='ba8300'] {
 }
 
 html.dark[data-brand='ba8300'] {
-  --page: #231e1e;
+  --page: #0f0d0d;
   --glow-blue: rgba(46, 158, 85, 0.14);
   --glow-green: rgba(226, 27, 32, 0.08);
   --glow-3: rgba(46, 158, 85, 0.05);
