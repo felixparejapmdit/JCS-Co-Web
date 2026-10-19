@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE, readSession, sessionCookieOptions, signSession } from '@/server/auth';
-import { DbError, isMysqlMode } from '@/server/db';
+import { DbError, isActiveCompany, isMysqlMode } from '@/server/db';
 import { mysqlHoldsSampleData } from '@/server/db/source';
 import { runOp, session } from '@/server/rpc';
 
@@ -54,6 +54,11 @@ export async function POST(req: NextRequest) {
 
     const s = readSession(req.cookies.get(SESSION_COOKIE)?.value);
     if (!s) return NextResponse.json({ ok: false, error: 'Your session has ended. Please sign in again.', signedOut: true }, { status: 401 });
+    if (!isActiveCompany(s.ba)) {
+      const out = NextResponse.json({ ok: false, error: 'This company is no longer active. Please sign in again.', signedOut: true }, { status: 401 });
+      out.cookies.set(SESSION_COOKIE, '', { ...cookie, maxAge: 0 });
+      return out;
+    }
 
     if (op === 'auth.switch') {
       const next = await session.switchCompany(s, String(args.ba));

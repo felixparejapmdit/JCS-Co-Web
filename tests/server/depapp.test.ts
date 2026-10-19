@@ -12,7 +12,7 @@ async function ctxFor(ba: string): Promise<Ctx> {
   return { db: await getDb(ba), ba, user: 'admin', fullName: 'System Administrator', group: 'ADMIN' };
 }
 
-describe.each(['8100', '8200', '8300'])('deposit application, company %s', (ba) => {
+describe.each(['8100', '8300'])('deposit application, company %s', (ba) => {
   it('has an applied deposit and one waiting in the sample data', async () => {
     const ctx = await ctxFor(ba);
     expect((await ctx.db.all('depapptbl')).some((r) => r.savestat === 'Applied')).toBe(true);

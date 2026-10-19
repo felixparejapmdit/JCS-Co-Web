@@ -23,7 +23,7 @@ describe('transaction codes of van sales', () => {
   });
 });
 
-describe.each(['8100', '8200', '8300'])('daily sales report, company %s', (ba) => {
+describe.each(['8100', '8300'])('daily sales report, company %s', (ba) => {
   it('has an open report for the van salesman in the sample data', async () => {
     const ctx = await ctxFor(ba);
     const list = await dsrList(ctx);

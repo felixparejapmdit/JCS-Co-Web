@@ -44,7 +44,7 @@ describe('DTR upload', () => {
   });
 
   it('checks, saves and applies time records to the attendance', async () => {
-    const ctx = await ctxFor('8200');
+    const ctx = await ctxFor('8100');
     const open = (await payrollIds(ctx)).rows.find((r) => r.paytype === 'Monthly' && r.idstat === 'OPEN')!;
     const s0 = await dtrSummary(ctx, open.payidno);
     expect(s0.lines).toBeGreaterThan(0); // seeded biometric records

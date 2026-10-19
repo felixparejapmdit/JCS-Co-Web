@@ -39,17 +39,17 @@ describe('favourites (sys_mymenu)', () => {
 
 describe('maintenance mode', () => {
   it('pauses other groups, keeps administrators working and blocks sign-in', async () => {
-    const admin = await ctxFor('8200');
+    const admin = await ctxFor('8100');
     await setMaintenance(admin, { on: true, message: 'Year-end closing.', until: '6:00 AM' });
     expect((await maintenance(admin.db)).on).toBe(true);
 
-    const acct = { u: 'accountant', n: 'Accountant', g: 'ACCTG', ba: '8200', cos: ['8200'] };
+    const acct = { u: 'accountant', n: 'Accountant', g: 'ACCTG', ba: '8100', cos: ['8100'] };
     await expect(runOp('home.tasks', {}, acct)).rejects.toThrow(/Year-end closing/);
     const info = await runOp('auth.session', {}, acct);
     expect((info as any).maintenance).toMatchObject({ on: true, bypass: false });
     await expect(runOp('home.tasks', {}, { ...acct, u: 'admin', g: 'ADMIN' })).resolves.toBeTruthy();
 
-    const signIn = await session.signIn('accountant', DEMO_PASSWORD, '8200');
+    const signIn = await session.signIn('accountant', DEMO_PASSWORD, '8100');
     expect(signIn.maintenance).toBe(true);
     expect(signIn.error).toMatch(/6:00 AM/);
 

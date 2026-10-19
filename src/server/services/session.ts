@@ -1,7 +1,7 @@
 import { mysqlHoldsSampleData } from '../db/source';
 import { bypassesMaintenance, favourites, maintenance, maintenanceText } from './system';
 import type { Db } from '../db';
-import { companies, getDb } from '../db';
+import { companies, getDb, isActiveCompany } from '../db';
 import { nowStamp } from '@/shared/dates';
 import { Session, hashPassword, legacyMatches, verifyPassword } from '../auth';
 import { AppError, num, openPeriodDate, rightsOf, truthy } from './context';
@@ -109,7 +109,7 @@ export async function sessionInfo(s: Session) {
   const group = await db.one('sys_usergroup', { ug_code: s.g });
   const rights = await rightsOf(db, s.g);
   const others = [];
-  for (const ba of s.cos.filter((x) => x !== s.ba)) {
+  for (const ba of s.cos.filter((x) => x !== s.ba && isActiveCompany(x))) {
     const odb = await getDb(ba);
     const { branding: b } = await companyProfile({ db: odb, ba, user: s.u, fullName: s.n, group: s.g });
     others.push({ ba, name: b.display_name });
@@ -135,6 +135,7 @@ export async function sessionInfo(s: Session) {
 
 export async function switchCompany(s: Session, ba: string): Promise<Session> {
   if (!s.cos.includes(ba)) throw new AppError('You did not sign in to that company.', 403);
+  if (!isActiveCompany(ba)) throw new AppError('That company is no longer active.', 403);
   const db = await getDb(ba);
   const u = await db.one('sys_userrecords', { username: s.u });
   if (!u || String(u.idstat) === 'Locked' || String(u.stat ?? 'Active').toLowerCase() === 'inactive') throw new AppError('Your account is not active in that company.', 403);

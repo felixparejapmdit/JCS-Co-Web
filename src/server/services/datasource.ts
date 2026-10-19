@@ -1,4 +1,4 @@
-import { companies, dataSource, demoCompaniesInMemory, isMysqlMode, mysqlConfigured } from '../db';
+import { allCompanies, companies, dataSource, demoCompaniesInMemory, isMysqlMode, mysqlConfigured } from '../db';
 import { loadSampleIntoMysql } from '../db/sample-mysql';
 import { DataSource, sampleLoadAllowed, sampleLoadedAt, setDataSource } from '../db/source';
 import type { Session } from '../auth';
@@ -81,6 +81,8 @@ export async function dataSourceStatus(s: Session) {
       : null,
     sampleLoad: sampleLoadAllowed(),
     companies: list,
+    // Switched-off companies (e.g. APF, dissolved): not listed, not loaded, their database left as it is.
+    inactive: allCompanies().filter((c) => !c.active).map((c) => ({ ba: c.ba, name: c.name, database: c.database })),
     activeBa: s.ba,
   };
 }

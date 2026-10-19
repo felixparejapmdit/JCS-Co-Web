@@ -5,7 +5,7 @@ import { dashboard } from '@/server/services/admin';
 import '@/server/rpc';
 
 describe('demo data coverage', () => {
-  it.each(['8100', '8200', '8300'])('company %s has activity in every module it uses', async (ba) => {
+  it.each(['8100', '8300'])('company %s has activity in every module it uses', async (ba) => {
     const ctx = { db: await getDb(ba), ba, user: 'admin', fullName: 'System Administrator', group: 'ADMIN' };
     const counts: Record<string, string> = {};
     for (const svc of allDocServices()) {

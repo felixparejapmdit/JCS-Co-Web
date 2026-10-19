@@ -13,7 +13,7 @@ async function ctxFor(ba: string): Promise<Ctx> {
   return { db: await getDb(ba), ba, user: 'admin', fullName: 'System Administrator', group: 'ADMIN' };
 }
 
-describe.each(['8100', '8200', '8300'])('demo company %s', (ba) => {
+describe.each(['8100', '8300'])('demo company %s', (ba) => {
   it('seeds and keeps the books balanced', async () => {
     const ctx = await ctxFor(ba);
     const tb = await trialBalance(ctx, { asOf: today(), includeUnposted: true });

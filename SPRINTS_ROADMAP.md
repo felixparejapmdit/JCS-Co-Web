@@ -6,7 +6,8 @@ This is the working roadmap for **Cloud AOS** (AOS100 NextGen). It follows [PLAN
 
 **Ground rules (from the plan)**
 
-* **The client's existing MySQL databases stay** (`jcs`, `apf`, `chemag`, plus `bfi` / `bfi_admin`). There is no data migration, no ETL and no cutover weekend. Cloud AOS reads and writes the legacy tables in the legacy format (PLAN.md Appendix A); its own data lives only in additive `ng_*` tables (PLAN.md Section 7.2).
+* **The client's existing MySQL databases stay** (`jcs`, `apf`, `chemag`, plus `bfi` / `bfi_admin`). There is no data migration, no ETL and no cutover weekend.
+* **Active companies: JCS Chemical (8100) and Chemag Trading (8300).** APF Corporation (8200) is disabled since 2026-10-20 (dissolved, per the client); its `apf` database is kept but not used. `COMPANIES_DISABLED` switches it back on. Cloud AOS reads and writes the legacy tables in the legacy format (PLAN.md Appendix A); its own data lives only in additive `ng_*` tables (PLAN.md Section 7.2).
 * **One module group at a time, on the live database.** Legacy AOS100 and Cloud AOS run side by side until every module has been switched over.
 * **Every phase ends with a verification gate.** The same transactions are entered in both systems on two identical database copies, and must give the same documents, GL lines, balances and printed forms (PLAN.md Section 8.3).
 * **Privacy between companies.** The login page lists no companies, and no screen has a company dropdown. Each company sees only its own customised header at the top of the side menu (PLAN.md Sections 5.1 and 6.2).

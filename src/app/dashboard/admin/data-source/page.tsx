@@ -26,6 +26,7 @@ interface Status {
   mysql: { host: string; port: number; user: string; writesAllowed: boolean } | null;
   sampleLoad: { allowed: boolean; reason?: string };
   companies: CompanyStatus[];
+  inactive: { ba: string; name: string; database: string }[];
   activeBa: string;
 }
 
@@ -36,6 +37,9 @@ interface LoadReport {
   rows: number;
   schemaChanges: string[];
 }
+
+/** e.g. "jcs and chemag" */
+const listDbs = (names: string[]) => (names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] ?? '');
 
 const when = (iso: string | null) => (iso ? `${fmtDate(iso.slice(0, 10))} ${new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Never');
 
@@ -129,7 +133,7 @@ export default function DataSourcePage() {
                 subtitle={data.mysql ? `${data.mysql.host}:${data.mysql.port}` : 'Not configured'}
                 icon={Database}
                 inUse={data.current === 'mysql'}
-                description="Reads and saves in the company databases on the MySQL server set in .env: jcs, apf and chemag. Everything you enter is kept."
+                description={`Reads and saves in the company databases on the MySQL server set in .env: ${listDbs(data.companies.map((c) => c.database))}. Everything you enter is kept.`}
                 items={
                   data.mysql
                     ? [
@@ -156,6 +160,12 @@ export default function DataSourcePage() {
                 }
               />
             </div>
+
+            {data.inactive.length > 0 && (
+              <Alert tone="info" title="Inactive companies">
+                {data.inactive.map((c) => `${c.name} (${c.ba})`).join(', ')} {data.inactive.length > 1 ? 'are' : 'is'} switched off: nobody can sign in to {data.inactive.length > 1 ? 'them' : 'it'}, and {data.inactive.length > 1 ? 'their databases are' : 'its database is'} not touched.
+              </Alert>
+            )}
 
             {data.mysqlConfigured && (
               <Card title="Company databases" subtitle="What each MySQL database holds right now" icon={Database}>
@@ -206,8 +216,8 @@ export default function DataSourcePage() {
               <Card title="Load the sample data into MySQL" subtitle="The same companies, users and transactions as the sample data in memory" icon={DatabaseZap} tone="amber">
                 <div className="grid gap-4">
                   <p className="text-sm text-slate-600 dark:text-slate-300">
-                    Empties every table in <span className="font-mono">jcs</span>, <span className="font-mono">apf</span> and <span className="font-mono">chemag</span>, adds the Cloud AOS tables,
-                    then copies the sample data in. The shared <span className="font-mono">bfi</span> and <span className="font-mono">bfi_admin</span> databases are left as they are. Where the schema
+                    Empties every table in <span className="font-mono">{listDbs(data.companies.map((c) => c.database))}</span>, adds the Cloud AOS tables,
+                    then copies the sample data in. The shared <span className="font-mono">bfi</span> and <span className="font-mono">bfi_admin</span> databases are left as they are{data.inactive.length ? <>, and so is the database of each inactive company (<span className="font-mono">{listDbs(data.inactive.map((c) => c.database))}</span>)</> : null}. Where the schema
                     rebuilt from code cannot hold a value, the column is widened, and every change is listed below.
                   </p>
                   {data.sampleLoad.allowed ? (
@@ -240,7 +250,7 @@ export default function DataSourcePage() {
         open={confirmLoad}
         onClose={() => setConfirmLoad(false)}
         title="Load the sample data into MySQL?"
-        description="Everything now in the jcs, apf and chemag databases will be deleted and replaced with the sample data."
+        description={`Everything now in the ${listDbs((data?.companies ?? []).map((c) => c.database))} databases will be deleted and replaced with the sample data.`}
         footer={
           <>
             <Button onClick={() => setConfirmLoad(false)}>Cancel</Button>

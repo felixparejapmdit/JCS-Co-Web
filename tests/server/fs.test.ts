@@ -14,7 +14,7 @@ async function ctxFor(ba: string): Promise<Ctx> {
 const Y = Number(today().slice(0, 4));
 const M = Number(today().slice(5, 7));
 
-describe.each(['8100', '8200', '8300'])('financial statement schedules, company %s', (ba) => {
+describe.each(['8100', '8300'])('financial statement schedules, company %s', (ba) => {
   it('gives the same net income as the standard income statement', async () => {
     const ctx = await ctxFor(ba);
     const fs = await financialStatements(ctx, { year: Y, month: M, includeUnposted: true });

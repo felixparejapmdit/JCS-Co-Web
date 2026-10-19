@@ -20,15 +20,15 @@ describe("salesman's workspace and order requests", () => {
   });
 
   it('turns an approved request into a sales order, and rejects with a reason', async () => {
-    const sales = await ctxFor('8200', 'sales', 'SALES');
-    const w = await salesmanWorkspace(await ctxFor('8200'), 'S001');
+    const sales = await ctxFor('8100', 'sales', 'SALES');
+    const w = await salesmanWorkspace(await ctxFor('8100'), 'S001');
     const cust = w.customers[0];
     const fg = w.products[0];
     await expect(submitOrderRequest(sales, { smnno: 'S001', custno: cust.custno, lines: [] })).rejects.toThrow(/product/);
     const msg = await submitOrderRequest(sales, { smnno: 'S001', custno: cust.custno, lines: [{ codeno: fg.codeno, qty: 5 }] });
     const reqno = msg.match(/REQ-\S+/)![0];
     await expect(decideOrderRequest(sales, { reqno, approve: true, plntno: 'X' })).rejects.toThrow(/sales manager/);
-    const fin = await ctxFor('8200', 'finance', 'FINHEAD');
+    const fin = await ctxFor('8100', 'finance', 'FINHEAD');
     const q = await managerQueue(fin);
     expect(q.rows.find((r) => r.reqno === reqno)?.exposure).toBeTruthy();
     await decideOrderRequest(fin, { reqno, approve: true, plntno: q.plants[0].value });

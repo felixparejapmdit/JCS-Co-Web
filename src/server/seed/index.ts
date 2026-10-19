@@ -1,4 +1,5 @@
 import type { Db, Row } from '../db';
+import { isActiveCompany } from '../db';
 import { ACTION, FORM, FORM_CATALOG, TC, TC_NAMES } from '@/shared/codes';
 import { addDays, monthEnd, monthStart, nowStamp, parseIso, today, toIso } from '@/shared/dates';
 import { r2, r4 } from '@/shared/money';
@@ -88,7 +89,7 @@ const USERS: { username: string; name: string; group: string; companies: string[
 ];
 
 /** Sample sign-ins shown on the login page of the hosted preview only. */
-export const DEMO_ACCOUNTS = USERS.map((u) => ({ username: u.username, name: u.name, group: GROUPS.find((g) => g.code === u.group)?.name ?? u.group, companies: u.companies.length }));
+export const DEMO_ACCOUNTS = USERS.map((u) => ({ username: u.username, name: u.name, group: GROUPS.find((g) => g.code === u.group)?.name ?? u.group, companies: u.companies.filter(isActiveCompany).length }));
 
 async function seedSecurity(db: Db, p: Profile) {
   await db.insertMany('sys_forms', FORM_CATALOG.map((f) => ({ code: f.code, description: f.description, tc: '', inused: 'Y' })));

@@ -1,6 +1,7 @@
 import { MemoryDb, MemoryStore } from './memory';
 import { MysqlDb } from './mysql';
 import type { Db } from './types';
+import { DbError } from './types';
 import { dataSource, mysqlConfigured } from './source';
 
 export * from './types';
@@ -11,27 +12,50 @@ export interface CompanyInfo {
   name: string;
   short: string;
   database: string;
+  /** False for a company that is switched off: it cannot be signed in to or opened, and its database is left alone. */
+  active: boolean;
 }
 
 /** The three business areas served by the legacy system (PLAN.md section 2.3). */
-const COMPANY_DEFAULTS: CompanyInfo[] = [
+const COMPANY_DEFAULTS: Omit<CompanyInfo, 'active'>[] = [
   { ba: '8100', name: 'JCS Chemical Industries, Inc.', short: 'JCS Chemical', database: process.env.DB_JCS || 'jcs' },
   { ba: '8200', name: 'APF Corporation', short: 'APF Corp.', database: process.env.DB_APF || 'apf' },
   { ba: '8300', name: 'Chemag Trading Corporation', short: 'Chemag Trading', database: process.env.DB_CHEMAG || 'chemag' },
 ];
+
+/**
+ * Companies switched off. APF Corporation (8200) was dissolved (client, October 2026), so it is off by
+ * default; nothing is deleted, and COMPANIES_DISABLED (a comma list, empty for none) turns it back on.
+ */
+function disabledCompanies(): Set<string> {
+  const raw = process.env.COMPANIES_DISABLED ?? '8200';
+  return new Set(raw.split(',').map((x) => x.trim()).filter(Boolean));
+}
 
 /** True when the app reads the MySQL databases; false for the in-memory sample data (Administration > Data Source). */
 export function isMysqlMode(): boolean {
   return mysqlConfigured() && dataSource() === 'mysql';
 }
 
+/** Every company the system knows, active or not (for administration screens). */
+export function allCompanies(): CompanyInfo[] {
+  const off = disabledCompanies();
+  return COMPANY_DEFAULTS.map((c) => ({ ...c, active: !off.has(c.ba) }));
+}
+
+/** The active companies: the only ones that can be signed in to, listed or opened. */
 export function companies(): CompanyInfo[] {
-  return COMPANY_DEFAULTS;
+  return allCompanies().filter((c) => c.active);
+}
+
+export function isActiveCompany(ba: string): boolean {
+  return companies().some((c) => c.ba === ba);
 }
 
 export function companyInfo(ba: string): CompanyInfo {
-  const c = COMPANY_DEFAULTS.find((x) => x.ba === ba);
+  const c = allCompanies().find((x) => x.ba === ba);
   if (!c) throw new Error(`Unknown business area ${ba}`);
+  if (!c.active) throw new DbError(`${c.name} is no longer active in Cloud AOS.`, 403);
   return c;
 }
 

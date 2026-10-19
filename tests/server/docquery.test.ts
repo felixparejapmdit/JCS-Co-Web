@@ -25,7 +25,7 @@ describe('document query', () => {
   });
 
   it('moves the date of a document and its open ledger lines, and logs it', async () => {
-    const ctx = await ctxFor('8200');
+    const ctx = await ctxFor('8100');
     const vp = (await ctx.db.all('exphdrtbl', { where: { tc: TC.VOUCHER_PAYABLE, status: 'Open' } }))[0]
       ?? (await ctx.db.one('exphdrtbl', { docno: (await saveDoc(ctx, 'vp', { transdate: today(), venno: (await ctx.db.all('venmasttbl'))[0].venno, refdoc: 'INV-1', lines: [{ acctno: '6200700', ccno: 'ADM', amount: 1000 }] })).no }));
     const info = await correctionInfo(ctx, 'vp', vp!.docno);

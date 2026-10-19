@@ -50,7 +50,7 @@ describe('saving the access matrix', () => {
   });
 
   it('keeps the administrator group complete', async () => {
-    const ctx = await ctxFor('8200');
+    const ctx = await ctxFor('8100');
     await saveAccessMatrix(ctx, { ADMIN: {} });
     const admin = (await groupsWithRights(ctx)).groups.find((g) => g.ug_code === 'ADMIN')!.rights as Record<string, number[]>;
     for (const p of permissionPairs()) expect(admin[p.form] ?? [], `${p.form}:${p.action}`).toContain(p.action);

@@ -10,7 +10,7 @@ async function ctxFor(ba: string, user = 'admin', group = 'ADMIN'): Promise<Ctx>
 
 const YEAR = { from: '2000-01-01', to: '2100-12-31' };
 
-describe.each(['8100', '8200', '8300'])('report library, company %s', (ba) => {
+describe.each(['8100', '8300'])('report library, company %s', (ba) => {
   it.each(REPORTS.map((r) => r.id))('%s runs and its totals add up', async (id) => {
     const ctx = await ctxFor(ba);
     const r = await runReport(ctx, id, YEAR);

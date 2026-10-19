@@ -37,7 +37,7 @@ describe('replenishment remarks', () => {
   });
 });
 
-describe.each(['8100', '8200', '8300'])('finance modules, company %s', (ba) => {
+describe.each(['8100', '8300'])('finance modules, company %s', (ba) => {
   it('keeps the petty cash fund in balance with its vouchers and replenishments', async () => {
     const ctx = await ctxFor(ba);
     const reps = await ctx.db.all('fundrepltbl');

@@ -103,7 +103,7 @@
 | :--- | :--- |
 | **Project Designation** | AOS100 NextGen (JCS Co. Enterprise ERP Modernization) |
 | **Predecessor System** | AOS100 Web (ASP.NET Web Forms, VB.NET, .NET Framework 4.6, MySQL 5.7, SAP Crystal Reports 13.0) |
-| **Target Organizations** | **JCS Chemical Industries, Inc.** (BA 8100), **APF Corporation** (BA 8200), **Chemag Trading Corporation** (BA 8300) |
+| **Target Organizations** | **JCS Chemical Industries, Inc.** (BA 8100) and **Chemag Trading Corporation** (BA 8300). **APF Corporation** (BA 8200) is **disabled**: the client reports it has been dissolved (October 2026). |
 | **Core Strategy** | **Upgrade the application, keep the database.** NextGen is a new web application that connects to the client's **existing MySQL databases** (`jcs`, `apf`, `chemag`, plus shared `bfi` / `bfi_admin`). No data migration, no re-encoding, no "big bang" cutover. Legacy and NextGen run side by side on the same data while modules are switched over one at a time. |
 | **Document Purpose** | Architectural, product, UI/UX and engineering specification for NextGen, including the complete legacy table catalog (Section 2.4, Appendix A) and complete legacy form inventory (Section 2.7, Appendix B). |
 | **Compliance Mandates** | Philippine Tax Code (TRAIN Law, CREATE Act, Ease of Paying Taxes Act - RA 11976), BIR CAS (Computerized Accounting System) Regulations (RMC 10-2020 / RR 9-2009), Philippine Data Privacy Act of 2012 (RA 10173), Philippine Clearing House Corporation (PCHC) Check Standards. |
@@ -115,6 +115,7 @@
 
 | Rev | Date | Change |
 | :--- | :--- | :--- |
+| 7 | 2026-10-20 | **APF Corporation (8200) disabled**: dissolved, per the client. Cloud AOS treats it as inactive: it is not offered at sign-in or in the company switcher, cannot be opened, is not loaded with sample data, and its `apf` database is left untouched. Nothing is deleted; `COMPANIES_DISABLED` in `.env` (default `8200`, empty for none) switches it back on. Active companies: JCS Chemical (8100) and Chemag Trading (8300). Also: Administration > Data Source chooses the in-memory sample data or MySQL and loads the sample data into a local MySQL. |
 | 6 | 2026-10-13 | Remaining legacy pages built in the project: Access Matrix for Group Access (every page and button per group; rights of forms Cloud AOS does not show are preserved), Favourites (`sys_mymenu`), Help & About, Maintenance Mode (`ng_settings`, replaces `App_Data/MainStat.txt` for Cloud AOS), Document Setup (`batbl.dloadstat`), Report Library (APReports, CashierReports, SD and FI report viewers), Deposit Application (`depapptbl`), Daily Sales Report for van / event sales, Salesman's and Sales Manager's workspace (`reqsohdrtbl` keyed by `sono`), Customer Tools (Excel update, salesman transfer, `qryreqttbl` customer-number requests), Payroll IDs (legacy numbering prefix + MMdd + MMddyy), DTR upload (`paydtrtbl`), Clinic (`ng_clinic_*`, the legacy page had no tables), FS schedules (P&L by schedule, cost of sales, expense schedules by cost-centre group, prior years' adjustments on `gljvdettbl.prioryradjt`) and Document Query corrections (logged in `updatetbl`). Transaction codes corrected: `84` and `85` are the DSR cash and charge invoices (ETCSI / ETCI, collected on ORs like `53`) and the return receipt is `88` (it was `84`). Section 7.2 gains `ng_settings`, `ng_dsr_amstock` and the clinic tables (`database/mysql/002_ng_modules.sql`). Appendix A gains `smnmtbl.smntype` and the `paydtrtbl` time-record columns. |
 | 5 | 2026-10-12 | Finance Core gaps closed in the project: Petty Cash / Revolving Fund vouchers (`CashDisb.aspx`, which had no server code in the legacy project), Fund Replenishment, CA Liquidation, Budget Monitoring and Edit Auto JV Entry. Transaction codes re-checked against the legacy source: JV is `00`, petty cash `40`, weekly expense report `41`, revolving fund `44`, payroll `45`, CA liquidation `46`, gas PO `48`, delivery order `30`, sales invoice `53`, bank deposit `64`. Appendix A gains `buddettbl.year`, `dateto`, `budamt` (BudgetMonitor.aspx.vb) and `venmasttbl.pcfcust` (FundRepl.aspx.vb). Visual identity updated (Section 6.1.0). |
 | 4 | 2026-10-12 | Plan applied to the project. The hosted preview is rebuilt as **Cloud AOS** on the legacy table and column names (Appendix A), with a sample-data driver and a MySQL driver for the client's databases. Sign-in no longer lists or names companies: the company comes from the account, and only users who belong to several companies get a chooser after signing in, limited to their own companies (Section 5.1). Each company has its own customised header at the top of the side menu, with no company dropdown (Section 6.2, `ng_company_branding` in Section 7.2). `SPRINTS_ROADMAP.md` rewritten to match Section 8. |
@@ -133,7 +134,7 @@ This section incorporates and preserves all architectural, operational, and data
 * **Primary Business Scope**: Financial Accounting (General Ledger, Payables, Receivables, Cashiering, Withholding Tax, Controlling), Sales & Distribution (Sales Orders, Invoices, Salesman / DSR), Materials Management (Receiving, Delivery Orders, Inventory per Plant, Purchasing, Production & Costing, Lab Monitoring), Human Resources & Payroll, and System Administration (Users, Rights, Approvals, Voids, Clinic Monitoring). See Section 2.7 for every page.
 * **Target Entities**: Multi-tenant support across 3 primary business areas:
   * **8100**: JCS Chemical Industries, Inc.
-  * **8200**: APF Corporation
+  * **8200**: APF Corporation (**disabled in Cloud AOS since 2026-10-20: dissolved, per the client**)
   * **8300**: Chemag Trading Corporation
 
 ## 2.2 Legacy Technology Stack
@@ -154,7 +155,7 @@ All transactional, operational, and masterfile data in the legacy system persist
 | Business Area (BA) | Entity Name | Database Name | Default Connection Host |
 | :--- | :--- | :--- | :--- |
 | **8100** | JCS Chemical Industries, Inc. | `jcs` | `127.0.0.1` (Local) |
-| **8200** | APF Corporation | `apf` | `127.0.0.1` (Local) / `192.168.3.154` (Server) |
+| **8200** | APF Corporation (**disabled: dissolved**) | `apf` | `127.0.0.1` (Local) / `192.168.3.154` (Server) |
 | **8300** | Chemag Trading Corporation | `chemag` | `127.0.0.1` (Local) |
 | *(shared)* | Admin requests & master-data requests | `bfi` | Same server |
 | *(shared)* | Company list (`batbl`) | `bfi_admin` | Same server |

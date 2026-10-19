@@ -29,14 +29,23 @@ test.describe('Sign-in and company privacy', () => {
     await expect(sidebar).not.toContainText('Chemag');
   });
 
-  test('multi-company user picks a company after signing in', async ({ page }) => {
+  test('multi-company user picks a company after signing in, and APF is never offered', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[autocomplete=username]', 'accountant');
+    await page.fill('input[autocomplete=username]', 'finance');
     await page.fill('input[autocomplete=current-password]', DEMO_PASSWORD);
     await page.click('button[type=submit]');
-    await expect(page.getByRole('heading', { name: 'Choose a company' })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: /APF Corporation/ }).click();
+    const chooser = page.getByRole('heading', { name: 'Choose a company' });
+    await expect(chooser).toBeVisible({ timeout: 30_000 });
+    const card = page.locator('div', { has: chooser }).last();
+    await expect(card).not.toContainText('APF');
+    await card.getByRole('button', { name: /Chemag/ }).click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
-    await expect(page.locator('aside').first()).toContainText('APF');
+    await expect(page.locator('aside').first()).toContainText('Chemag');
+  });
+
+  test('a user of JCS and the dissolved APF goes straight to JCS', async ({ page }) => {
+    await signIn(page, 'accountant');
+    await expect(page.locator('aside').first()).toContainText('JCS Chemical Industries');
+    await expect(page.locator('aside').first()).not.toContainText('APF');
   });
 });
