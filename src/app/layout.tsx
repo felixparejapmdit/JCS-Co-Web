@@ -46,7 +46,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                   var doc = document.documentElement;
                   doc.classList.toggle('dark', dark);
-                  doc.style.backgroundColor = dark ? '#000000' : '#f3f4f7';
+                  // The palette of the company last opened here, inside the app only:
+                  // the sign-in page stays neutral and never names a company.
+                  var page = { light: '#f3f4f7', dark: '#000000' };
+                  if (location.pathname.indexOf('/dashboard') === 0) {
+                    var brand = JSON.parse(localStorage.getItem('cloudaos_brand') || 'null');
+                    if (brand && brand.key) {
+                      doc.setAttribute('data-brand', brand.key);
+                      if (brand.page) page = brand.page;
+                    }
+                  }
+                  doc.style.backgroundColor = dark ? page.dark : page.light;
                   doc.style.colorScheme = dark ? 'dark' : 'light';
                 } catch (e) {}
               })();

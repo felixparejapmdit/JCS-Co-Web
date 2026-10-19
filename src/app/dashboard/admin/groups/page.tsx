@@ -185,7 +185,7 @@ export default function AccessMatrixPage() {
                           <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-white">
                             <span className="truncate">{g.ug_name}</span>
                             {locked && <Lock className="h-3 w-3 shrink-0 text-emerald-500" aria-label="Always has every right" />}
-                            {edited && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(47,127,255,0.8)]" title="Unsaved changes" />}
+                            {edited && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500 shadow-[0_0_8px_rgb(var(--brand-500)/0.8)]" title="Unsaved changes" />}
                           </span>
                           <span className="block text-xs text-slate-500">
                             {g.ug_code} · {g.members} user(s)
@@ -242,7 +242,7 @@ export default function AccessMatrixPage() {
                         key={g.ug_code}
                         id={`col-${g.ug_code}`}
                         role="columnheader"
-                        className={cx('sticky top-0 z-20 flex flex-col items-center gap-1.5 px-2 py-3 text-center', sel ? 'bg-brand-50 dark:bg-[#07142b]' : 'bg-white dark:bg-[#07080b]', edited && 'shadow-[inset_0_-2px_0_rgba(47,127,255,0.9)]')}
+                        className={cx('sticky top-0 z-20 flex flex-col items-center gap-1.5 px-2 py-3 text-center', sel ? 'bg-brand-50 dark:bg-[#07142b]' : 'bg-white dark:bg-[#07080b]', edited && 'shadow-[inset_0_-2px_0_rgb(var(--brand-500)/0.9)]')}
                       >
                         <button type="button" onClick={() => pick(g.ug_code)} className="max-w-full" title={`${g.ug_name}${g.ug_notes ? ` — ${g.ug_notes}` : ''}`}>
                           <Badge tone={locked ? 'success' : tone(g.ug_code)} dot={!locked} className="max-w-full">
@@ -402,7 +402,7 @@ function TriBox({ value, onChange, disabled, label }: { value: Tri; onChange: (o
       onClick={() => onChange(!on)}
       className={cx(
         'grid h-5 w-5 place-items-center rounded-md ring-1 ring-inset transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-60',
-        on || mixed ? 'bg-brand-500 text-white ring-brand-500 shadow-[0_0_10px_rgba(47,127,255,0.55)]' : 'bg-white/60 ring-black/15 hover:ring-brand-500/60 dark:bg-white/[0.04] dark:ring-white/20'
+        on || mixed ? 'bg-brand-500 text-white ring-brand-500 shadow-[0_0_10px_rgb(var(--brand-500)/0.55)]' : 'bg-white/60 ring-black/15 hover:ring-brand-500/60 dark:bg-white/[0.04] dark:ring-white/20'
       )}
     >
       {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}

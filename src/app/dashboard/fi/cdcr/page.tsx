@@ -58,6 +58,8 @@ export default function CdcrPage() {
   };
 
   const openCdcrs = (list.data ?? []).filter((c) => c.status === 'Open');
+  // The three lists load together; show the page once all have arrived, so no card pushes another down.
+  const firstLoad = [cand, list, deps].some((r) => r.loading && !r.data);
 
   return (
     <RequireRight form="011">
@@ -65,25 +67,25 @@ export default function CdcrPage() {
         title="CDCR & Bank Deposits"
         description="At the end of the day, prepare the Cashier's Daily Collection Report in one click. It totals cash, cheques and online payments for you. Post-dated cheques wait until their date. Then record the bank deposit."
       />
-      <div className="space-y-6">
-        <Card
-          title="Collections not yet in a CDCR"
-          subtitle={`${ready.length} receipt(s) ready${held.length ? `, ${held.length} post-dated cheque(s) held` : ''}`}
-          actions={
-            can('011', 3) && (
-              <div className="flex items-end gap-2">
-                <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-40" />
-                <Button variant="primary" icon={ListChecks} loading={busy} disabled={!ready.length} onClick={generate}>
-                  Prepare CDCR
-                </Button>
-              </div>
-            )
-          }
-          padded={false}
-        >
-          {cand.loading && !cand.data ? (
-            <Spinner />
-          ) : (
+      {firstLoad ? (
+        <Spinner />
+      ) : (
+        <div className="space-y-6">
+          <Card
+            title="Collections not yet in a CDCR"
+            subtitle={`${ready.length} receipt(s) ready${held.length ? `, ${held.length} post-dated cheque(s) held` : ''}`}
+            actions={
+              can('011', 3) && (
+                <div className="flex items-end gap-2">
+                  <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-40" />
+                  <Button variant="primary" icon={ListChecks} loading={busy} disabled={!ready.length} onClick={generate}>
+                    Prepare CDCR
+                  </Button>
+                </div>
+              )
+            }
+            padded={false}
+          >
             <DataTable
               rows={cand.data ?? []}
               rowKey={(r) => r.orno}
@@ -99,24 +101,20 @@ export default function CdcrPage() {
                 { key: 'pdcHeld', header: '', render: (r) => (r.pdcHeld ? <Badge tone="warning">PDC dated {fmtDate(r.pdate)}</Badge> : '') },
               ]}
             />
-          )}
-        </Card>
+          </Card>
 
-        <Card
-          title="Daily collection reports"
-          actions={
-            can('011', 5) &&
-            openCdcrs.length > 0 && (
-              <Button icon={Landmark} onClick={() => setDeposit({ cdcrnos: openCdcrs.map((c) => c.cdcrno), acctno: '', transdate: today() })}>
-                Deposit open CDCRs
-              </Button>
-            )
-          }
-          padded={false}
-        >
-          {list.loading && !list.data ? (
-            <Spinner />
-          ) : (
+          <Card
+            title="Daily collection reports"
+            actions={
+              can('011', 5) &&
+              openCdcrs.length > 0 && (
+                <Button icon={Landmark} onClick={() => setDeposit({ cdcrnos: openCdcrs.map((c) => c.cdcrno), acctno: '', transdate: today() })}>
+                  Deposit open CDCRs
+                </Button>
+              )
+            }
+            padded={false}
+          >
             <DataTable
               rows={list.data ?? []}
               rowKey={(r) => r.cdcrno}
@@ -132,24 +130,24 @@ export default function CdcrPage() {
                 { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
               ]}
             />
-          )}
-        </Card>
+          </Card>
 
-        <Card title="Bank deposits" padded={false}>
-          <DataTable
-            rows={deps.data ?? []}
-            rowKey={(r) => r.depno}
-            empty={<EmptyState title="No deposits recorded yet" />}
-            columns={[
-              { key: 'depno', header: 'Deposit no.', render: (r) => <span className="font-mono text-[13px]">{r.depno}</span> },
-              { key: 'transdate', header: 'Date', render: (r) => fmtDate(r.transdate) },
-              { key: 'bank', header: 'Bank' },
-              { key: 'cdcrs', header: 'CDCRs', render: (r) => r.cdcrs.join(', ') },
-              { key: 'total', header: 'Amount', align: 'right', render: (r) => fmtMoney(r.total) },
-            ]}
-          />
-        </Card>
-      </div>
+          <Card title="Bank deposits" padded={false}>
+            <DataTable
+              rows={deps.data ?? []}
+              rowKey={(r) => r.depno}
+              empty={<EmptyState title="No deposits recorded yet" />}
+              columns={[
+                { key: 'depno', header: 'Deposit no.', render: (r) => <span className="font-mono text-[13px]">{r.depno}</span> },
+                { key: 'transdate', header: 'Date', render: (r) => fmtDate(r.transdate) },
+                { key: 'bank', header: 'Bank' },
+                { key: 'cdcrs', header: 'CDCRs', render: (r) => r.cdcrs.join(', ') },
+                { key: 'total', header: 'Amount', align: 'right', render: (r) => fmtMoney(r.total) },
+              ]}
+            />
+          </Card>
+        </div>
+      )}
 
       <Modal
         open={Boolean(deposit)}

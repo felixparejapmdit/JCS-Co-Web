@@ -29,7 +29,7 @@ const VARIANTS: Record<Variant, string> = {
   secondary:
     'border border-black/[0.08] bg-white/80 text-slate-700 hover:border-black/[0.14] hover:bg-white dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-slate-200 dark:hover:border-white/[0.18] dark:hover:bg-white/[0.09]',
   ghost: 'text-slate-600 hover:bg-black/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.06]',
-  danger: 'bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:from-rose-400 hover:to-rose-600',
+  danger: 'bg-gradient-to-b from-danger-500 to-danger-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:from-danger-400 hover:to-danger-600',
   subtle: 'bg-brand-500/10 text-brand-700 hover:bg-brand-500/15 dark:bg-brand-400/10 dark:text-brand-300 dark:hover:bg-brand-400/20',
   success: 'bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:shadow-glow-green',
 };
@@ -84,11 +84,11 @@ const TONES: Record<StatusTone, string> = {
 };
 const DOTS: Record<StatusTone, string> = {
   neutral: 'bg-slate-400',
-  info: 'bg-brand-500 shadow-[0_0_8px_rgba(47,127,255,0.8)]',
+  info: 'bg-brand-500 shadow-[0_0_8px_rgb(var(--brand-500)/0.8)]',
   warning: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.7)]',
   success: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]',
   danger: 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]',
-  accent: 'bg-brand-500 shadow-[0_0_8px_rgba(47,127,255,0.8)]',
+  accent: 'bg-brand-500 shadow-[0_0_8px_rgb(var(--brand-500)/0.8)]',
 };
 
 export function Badge({ tone = 'neutral', children, className, dot = true }: { tone?: StatusTone; children: React.ReactNode; className?: string; dot?: boolean }) {

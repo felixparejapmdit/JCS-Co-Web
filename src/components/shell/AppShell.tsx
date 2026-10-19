@@ -25,6 +25,7 @@ import { ApiError, CHANGED_EVENT, clearLookups, forgetSession, rpc } from '@/lib
 import { fmtDate, monthName } from '@/shared/dates';
 import { Badge, ICON_TEXT, MODULE_TONE, Modal, Spinner, ToastProvider, cx } from '@/components/ui/kit';
 import { NAV, findNav, type NavItem } from './nav';
+import { applyBrand, brandOf } from '@/shared/brands';
 import { toneOfText } from '@/components/ui/tone';
 
 /** Items in menu order, grouped under their category (items without one form a single unnamed list). */
@@ -90,6 +91,17 @@ export function ClientHeader({ b, period }: { b: Branding; period?: string }) {
     <div className="relative overflow-hidden px-4 pb-4 pt-5">
       <div className="pointer-events-none absolute -left-10 -top-16 h-40 w-40 rounded-full opacity-30 blur-3xl" style={{ background: b.accent }} />
       <div className="absolute inset-x-4 top-0 h-[2px] rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${b.accent}, transparent)` }} />
+      {!b.logo_data && brandOf(b.ba)?.wordmark ? (
+        // The company's wordmark (e.g. Chemag): a version for light and one for dark surfaces.
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={brandOf(b.ba)!.wordmark!.light} alt={b.display_name} className="h-8 w-auto max-w-full dark:hidden" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={brandOf(b.ba)!.wordmark!.dark} alt={b.display_name} className="hidden h-8 w-auto max-w-full dark:block" />
+          <div className="mt-2 truncate text-[13px] font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">{b.display_name}</div>
+          {b.tagline && <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{b.tagline}</div>}
+        </div>
+      ) : (
       <div className="relative flex items-center gap-3">
         {b.logo_data ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -104,6 +116,7 @@ export function ClientHeader({ b, period }: { b: Branding; period?: string }) {
           {b.tagline && <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{b.tagline}</div>}
         </div>
       </div>
+      )}
       {(b.show_code === 'Y' || period) && (
         <div className="relative mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
           {b.show_code === 'Y' && <span className="rounded-lg bg-black/[0.05] px-2 py-0.5 font-medium dark:bg-white/[0.07]">BA {b.ba}</span>}
@@ -132,7 +145,8 @@ function useTheme() {
     } catch {}
     document.documentElement.classList.toggle('dark', next);
     document.documentElement.style.colorScheme = next ? 'dark' : 'light';
-    document.documentElement.style.backgroundColor = next ? '#000000' : '#f3f4f7';
+    // Let the stylesheet paint the page in the active palette (Cloud AOS or the company's own).
+    document.documentElement.style.backgroundColor = '';
   };
   return { dark, toggle };
 }
@@ -283,6 +297,7 @@ function GlobalSearch({ onDone, autoFocus }: { onDone?: () => void; autoFocus?: 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const latest = useRef(0);
 
   useEffect(() => {
     if (q.trim().length < 2) {
@@ -290,15 +305,19 @@ function GlobalSearch({ onDone, autoFocus }: { onDone?: () => void; autoFocus?: 
       return;
     }
     setBusy(true);
+    // A short pause after the last key, then search; an answer to an older query is ignored,
+    // so the list never jumps back to results for what was typed before.
     const t = setTimeout(() => {
+      const ticket = ++latest.current;
       rpc<any[]>('search', { q })
         .then((r) => {
+          if (ticket !== latest.current) return;
           setResults(r);
           setOpen(true);
         })
-        .catch(() => setResults([]))
-        .finally(() => setBusy(false));
-    }, 250);
+        .catch(() => ticket === latest.current && setResults([]))
+        .finally(() => ticket === latest.current && setBusy(false));
+    }, 120);
     return () => clearTimeout(t);
   }, [q]);
 
@@ -391,7 +410,7 @@ function TasksBell() {
     <div ref={box} className="relative">
       <button onClick={() => setOpen(!open)} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white" aria-label={`${total} tasks waiting`}>
         <Bell className={cx('h-5 w-5', ICON_TEXT.amber)} />
-        {total > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-b from-brand-500 to-brand-600 px-1 text-[10px] font-bold text-white shadow-[0_0_10px_rgba(47,127,255,0.8)]">{total > 99 ? '99+' : total}</span>}
+        {total > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-b from-brand-500 to-brand-600 px-1 text-[10px] font-bold text-white shadow-[0_0_10px_rgb(var(--brand-500)/0.8)]">{total > 99 ? '99+' : total}</span>}
       </button>
       {open && (
         <div className="glass-strong absolute right-0 z-50 mt-2 w-80 rounded-2xl p-2">
@@ -523,8 +542,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // The signed-in company's own palette and accent (Chemag), or the Cloud AOS look.
+  const brandBa = info?.company.ba;
+  useEffect(() => {
+    if (brandBa) applyBrand(brandOf(brandBa));
+  }, [brandBa]);
+  const branded = useMemo(() => {
+    const brand = brandOf(info?.company.ba);
+    return info && brand ? { ...info, company: { ...info.company, accent: brand.accent } } : info;
+  }, [info]);
+
   const can = useCallback((form: string, action = 1) => Boolean(info?.rights[form]?.includes(action)), [info]);
-  const ctx = useMemo(() => (info ? { info, can, refresh: load } : null), [info, can, load]);
+  const ctx = useMemo(() => (branded ? { info: branded, can, refresh: load } : null), [branded, can, load]);
 
   if (failed)
     return (
@@ -560,7 +589,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="min-h-screen">
           {/* Desktop sidebar: a floating glass panel */}
           <aside className="fixed inset-y-3 left-3 z-30 hidden w-[264px] lg:block">
-            <Sidebar info={info} can={can} />
+            <Sidebar info={branded!} can={can} />
           </aside>
           {/* Mobile drawer */}
           {drawer && (
@@ -570,7 +599,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <button onClick={() => setDrawer(false)} className="absolute right-3 top-3 z-10 rounded-xl p-1.5 text-slate-500 hover:bg-black/[0.05] dark:text-slate-300 dark:hover:bg-white/10" aria-label="Close menu">
                   <X className="h-5 w-5" />
                 </button>
-                <Sidebar info={info} can={can} onNavigate={() => setDrawer(false)} />
+                <Sidebar info={branded!} can={can} onNavigate={() => setDrawer(false)} />
               </div>
             </div>
           )}
@@ -609,7 +638,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {dark ? <Sun className={cx('h-5 w-5', ICON_TEXT.amber)} /> : <Moon className={cx('h-5 w-5', ICON_TEXT.indigo)} />}
                 </button>
                 <TasksBell />
-                <UserMenu info={info} onSwitch={() => setSwitchOpen(true)} />
+                <UserMenu info={branded!} onSwitch={() => setSwitchOpen(true)} />
               </div>
             </header>
             <main className="mx-auto max-w-[1440px] px-4 pb-24 pt-6 sm:px-6 lg:px-6 lg:pb-10 lg:pt-8">

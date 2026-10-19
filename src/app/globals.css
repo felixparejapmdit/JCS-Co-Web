@@ -9,9 +9,71 @@
  * - "Liquid Glass" surfaces: translucent fill, backdrop-blur-2xl, ultra-thin borders
  */
 :root {
+  /* Electric Blue accent scale (R G B), used by the Tailwind brand-* colours. */
+  --brand-50: 238 246 255;
+  --brand-100: 217 234 255;
+  --brand-200: 188 219 255;
+  --brand-300: 142 196 255;
+  --brand-400: 89 162 255;
+  --brand-500: 47 127 255;
+  --brand-600: 26 98 245;
+  --brand-700: 20 77 225;
+  --brand-800: 23 63 182;
+  --brand-900: 25 56 143;
+  --brand-950: 20 35 87;
+  --danger-400: 251 113 133;
+  --danger-500: 244 63 94;
+  --danger-600: 225 29 72;
+  --neon-1: 61 139 255;
+  --neon-2: 25 230 160;
   --page: #f3f4f7;
+  --ink: #0f172a;
+  --ink-dark: #e8ebf0;
   --glow-blue: rgba(47, 127, 255, 0.16);
   --glow-green: rgba(16, 185, 129, 0.12);
+  --glow-3: rgba(47, 127, 255, 0.06);
+}
+
+html.dark {
+  --page: #000000;
+  --glow-blue: rgba(47, 127, 255, 0.2);
+  --glow-green: rgba(16, 185, 129, 0.13);
+}
+
+/*
+ * Chemag Trading palette (shared/brands.ts): Green #005b21, Red #e21b20, White #FDFDFD, Black #231e1e.
+ * Applied only while someone is signed in to Chemag; the sign-in page stays neutral.
+ */
+html[data-brand='ba8300'] {
+  --brand-50: 234 246 238;
+  --brand-100: 205 235 215;
+  --brand-200: 159 216 178;
+  --brand-300: 95 191 131;
+  --brand-400: 31 138 70;
+  --brand-500: 0 91 33;
+  --brand-600: 0 77 28;
+  --brand-700: 0 63 23;
+  --brand-800: 0 50 19;
+  --brand-900: 0 39 15;
+  --brand-950: 0 24 10;
+  --danger-400: 236 69 73;
+  --danger-500: 226 27 32;
+  --danger-600: 185 21 26;
+  --neon-1: 46 158 85;
+  --neon-2: 125 224 160;
+  --page: #fdfdfd;
+  --ink: #231e1e;
+  --ink-dark: #fdfdfd;
+  --glow-blue: rgba(0, 91, 33, 0.09);
+  --glow-green: rgba(226, 27, 32, 0.05);
+  --glow-3: rgba(0, 91, 33, 0.04);
+}
+
+html.dark[data-brand='ba8300'] {
+  --page: #231e1e;
+  --glow-blue: rgba(46, 158, 85, 0.14);
+  --glow-green: rgba(226, 27, 32, 0.08);
+  --glow-3: rgba(46, 158, 85, 0.05);
 }
 
 html {
@@ -20,9 +82,6 @@ html {
 }
 
 html.dark {
-  --page: #000000;
-  --glow-blue: rgba(47, 127, 255, 0.2);
-  --glow-green: rgba(16, 185, 129, 0.13);
   color-scheme: dark;
 }
 
@@ -30,13 +89,13 @@ body {
   margin: 0;
   padding: 0;
   background-color: var(--page);
-  color: #0f172a;
+  color: var(--ink);
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
 }
 
 html.dark body {
-  color: #e8ebf0;
+  color: var(--ink-dark);
 }
 
 /* Ambient light behind the glass: a soft electric-blue and emerald glow. */
@@ -49,7 +108,7 @@ body::before {
   background:
     radial-gradient(900px 600px at 0% 0%, var(--glow-blue), transparent 60%),
     radial-gradient(800px 600px at 100% 100%, var(--glow-green), transparent 60%),
-    radial-gradient(700px 500px at 85% 5%, rgba(47, 127, 255, 0.06), transparent 60%);
+    radial-gradient(700px 500px at 85% 5%, var(--glow-3), transparent 60%);
 }
 
 @layer components {
@@ -85,7 +144,7 @@ body::before {
     @apply tile cursor-pointer transition duration-200 hover:-translate-y-0.5 hover:border-brand-400/50 hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:hover:border-brand-400/40 dark:hover:bg-white/[0.06];
   }
   .tile-interactive:hover {
-    box-shadow: 0 0 0 1px rgba(47, 127, 255, 0.18), 0 16px 36px -18px rgba(47, 127, 255, 0.55);
+    box-shadow: 0 0 0 1px rgb(var(--brand-500) / 0.18), 0 16px 36px -18px rgb(var(--brand-500) / 0.55);
   }
   .neon-text {
     @apply bg-gradient-to-r from-brand-500 to-emerald-500 bg-clip-text text-transparent dark:from-neon-blue dark:to-neon-green;
@@ -136,7 +195,7 @@ body::before {
 }
 
 ::selection {
-  background: rgba(47, 127, 255, 0.28);
+  background: rgb(var(--brand-500) / 0.28);
 }
 
 /* Thin, quiet scrollbars. */

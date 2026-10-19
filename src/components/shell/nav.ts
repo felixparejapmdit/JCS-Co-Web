@@ -183,7 +183,6 @@ export const NAV: NavGroup[] = [
     icon: Settings,
     items: [
       // Organization
-      { label: 'Companies', href: '/dashboard/admin/companies', form: '001', category: 'Organization', icon: Building2, tone: 'emerald', keywords: 'company active disable enable dissolved business area' },
       { label: 'Company & Branding', href: '/dashboard/admin/company', form: '001', category: 'Organization', icon: Palette, tone: 'fuchsia', keywords: 'logo header profile settings' },
       { label: 'Departments', href: '/dashboard/master/departments', form: '054', category: 'Organization', icon: Network, tone: 'cyan' },
       // Users & Access
@@ -200,6 +199,7 @@ export const NAV: NavGroup[] = [
       { label: 'Withholding Tax Codes', href: '/dashboard/master/ewtCodes', form: '023', category: 'Finance Setup', icon: Percent, tone: 'amber', keywords: 'atc ewt bir' },
       { label: 'Cheque Printing Setup', href: '/dashboard/admin/cheques', form: '024', category: 'Finance Setup', icon: Printer, tone: 'slate', keywords: 'calibration layout' },
       // System
+      { label: 'Companies', href: '/dashboard/admin/companies', form: '001', category: 'System', icon: Building2, tone: 'emerald', keywords: 'company active disable enable dissolved business area' },
       { label: 'Document Setup', href: '/dashboard/admin/doc-setup', form: '001', category: 'System', icon: FileCog, tone: 'blue', keywords: 'numbering series docconfig upload download hold app' },
       { label: 'Maintenance Mode', href: '/dashboard/admin/maintenance', form: '001', category: 'System', icon: Wrench, tone: 'orange', keywords: 'downtime server note offline' },
       { label: 'Data Source', href: '/dashboard/admin/data-source', form: '001', category: 'System', icon: Database, tone: 'cyan', keywords: 'mysql memory memorystore sample data database storage local' },

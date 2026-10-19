@@ -9,20 +9,11 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Electric Blue: the Cloud AOS accent.
-        brand: {
-          50: '#eef6ff',
-          100: '#d9eaff',
-          200: '#bcdbff',
-          300: '#8ec4ff',
-          400: '#59a2ff',
-          500: '#2f7fff',
-          600: '#1a62f5',
-          700: '#144de1',
-          800: '#173fb6',
-          900: '#19388f',
-          950: '#142357',
-        },
+        // The accent scale. Electric Blue by default; a company with its own palette (Chemag) swaps
+        // the values through CSS variables while someone is signed in to it (globals.css, shared/brands.ts).
+        brand: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((k) => [k, `rgb(var(--brand-${k}) / <alpha-value>)`])),
+        // Destructive actions: rose by default, Chemag red for Chemag.
+        danger: Object.fromEntries([400, 500, 600].map((k) => [k, `rgb(var(--danger-${k}) / <alpha-value>)`])),
         // Deep slate grays used on true-black surfaces.
         ink: {
           950: '#000000',
@@ -32,8 +23,8 @@ module.exports = {
           700: '#1a1c21',
         },
         neon: {
-          blue: '#3d8bff',
-          green: '#19e6a0',
+          blue: 'rgb(var(--neon-1) / <alpha-value>)',
+          green: 'rgb(var(--neon-2) / <alpha-value>)',
         },
       },
       fontFamily: {
@@ -41,7 +32,7 @@ module.exports = {
         mono: ['var(--font-geist-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       boxShadow: {
-        glow: '0 0 0 1px rgba(47,127,255,0.35), 0 10px 32px -8px rgba(47,127,255,0.55)',
+        glow: '0 0 0 1px rgb(var(--brand-500) / 0.35), 0 10px 32px -8px rgb(var(--brand-500) / 0.55)',
         'glow-green': '0 0 0 1px rgba(16,185,129,0.35), 0 10px 32px -8px rgba(16,185,129,0.45)',
         lift: '0 18px 40px -18px rgba(15,23,42,0.35)',
       },

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Building2, CheckCircle2, Eye, EyeOff, Lock, ShieldCheck, Smartphone, Zap } from 'lucide-react';
 import { ApiError, forgetSession, rpc } from '@/lib/api';
+import { applyBrand } from '@/shared/brands';
 import { Alert, Button, Field, ICON_TEXT, Input, cx } from '@/components/ui/kit';
 
 export interface DemoInfo {
@@ -26,7 +27,11 @@ export function SignIn({ info, expired }: { info: DemoInfo; expired: boolean }) 
   const [locked, setLocked] = useState(false);
   const [choose, setChoose] = useState<{ ba: string; name: string }[] | null>(null);
   // Whatever this tab remembered about a previous user is dropped on the sign-in page.
-  useEffect(() => forgetSession(), []);
+  // The sign-in page stays neutral: no company palette, whatever company was open before.
+  useEffect(() => {
+    forgetSession();
+    applyBrand(null);
+  }, []);
 
   const signIn = async (ba?: string) => {
     setBusy(true);

@@ -43,6 +43,16 @@ test.describe('Sign-in and company privacy', () => {
     await expect(sidebar).not.toContainText('APF');
   });
 
+  test("the company's own palette applies inside the app only, never on the sign-in page", async ({ page }) => {
+    await signIn(page, 'cashier');
+    await expect(page.locator('html')).toHaveAttribute('data-brand', 'ba8300');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-brand', 'ba8300'); // from the first paint
+    await page.context().clearCookies();
+    await page.goto('/');
+    await expect(page.locator('html')).not.toHaveAttribute('data-brand', /.+/);
+  });
+
   test('every sample role can open Chemag Trading', async ({ page }) => {
     for (const user of ['accountant', 'lab', 'auditor', 'purchasing']) {
       await page.context().clearCookies();

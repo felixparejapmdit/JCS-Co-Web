@@ -163,7 +163,7 @@ export const PROFILES: Record<string, Profile> = {
   '8300': {
     ba: '8300',
     company: { bussname: 'Chemag Trading Corporation', shrtname: 'Chemag Trading', address: 'Lot 7 Light Industry & Science Park, Calamba, Laguna', tin: '006-345-678-000', signatory: 'Maria C. Santos', position: 'Chief Financial Officer', zip: '4027' },
-    branding: { display_name: 'Chemag Trading', tagline: 'Calamba, Laguna · Agri-Chemical Distribution', logo_text: 'CT', accent: '#d97706' },
+    branding: { display_name: 'Chemag Trading', tagline: 'Calamba, Laguna · Agri-Chemical Distribution', logo_text: 'CT', accent: '#005b21' },
     plants: [
       { plntno: 'W300', plntname: 'Calamba Main Warehouse', prodnplnt: 'N', invset: 'Y', ownertype: 'Company', ccno: 'LOG' },
       { plntno: 'W310', plntname: 'Davao Branch Warehouse', prodnplnt: 'N', invset: 'Y', ownertype: 'Company', ccno: 'LOG' },

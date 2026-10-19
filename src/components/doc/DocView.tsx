@@ -167,7 +167,7 @@ export function DocView({ type, no }: { type: string; no: string }) {
 
             {v.actions.length > 0 && v.actions.find((a: ActionDef) => a.tone === 'primary')?.hint && (
               <p className="-mt-2 inline-flex items-start gap-2 rounded-2xl bg-brand-500/[0.07] px-3.5 py-2 text-sm text-slate-600 ring-1 ring-inset ring-brand-500/15 dark:bg-brand-400/[0.07] dark:text-slate-300 dark:ring-brand-400/15">
-                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(47,127,255,0.9)]" />
+                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-500 shadow-[0_0_8px_rgb(var(--brand-500)/0.9)]" />
                 <span>
                   <span className="font-semibold text-slate-800 dark:text-white">Next step:</span> {v.actions.find((a: ActionDef) => a.tone === 'primary')!.hint}
                 </span>

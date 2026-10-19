@@ -33,7 +33,7 @@ function Trend({ data }: { data: { label: string; revenue: number; costs: number
             </span>
             <div className="flex h-40 w-full items-end justify-center gap-1.5">
               <div
-                className="w-1/2 max-w-[26px] rounded-t-lg bg-gradient-to-t from-brand-600 to-brand-400 shadow-[0_0_18px_-2px_rgba(47,127,255,0.55)] transition-all duration-500"
+                className="w-1/2 max-w-[26px] rounded-t-lg bg-gradient-to-t from-brand-600 to-brand-400 shadow-[0_0_18px_-2px_rgb(var(--brand-500)/0.55)] transition-all duration-500"
                 style={{ height: `${Math.max(1, (d.revenue / max) * 100)}%` }}
                 title={`Revenue ₱${fmtMoney(d.revenue)}`}
               />
@@ -45,7 +45,7 @@ function Trend({ data }: { data: { label: string; revenue: number; costs: number
       </div>
       <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(47,127,255,0.8)]" /> Revenue
+          <span className="h-2.5 w-2.5 rounded-full bg-brand-500 shadow-[0_0_8px_rgb(var(--brand-500)/0.8)]" /> Revenue
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Cost of sales and expenses
@@ -204,7 +204,7 @@ export default function HomePage() {
                 <ol className="relative space-y-4 before:absolute before:bottom-2 before:left-[5px] before:top-2 before:w-px before:bg-black/[0.08] dark:before:bg-white/[0.08]">
                   {data.activity.map((a: any, i: number) => (
                     <li key={i} className="relative flex flex-wrap items-start justify-between gap-2 pl-6 text-sm">
-                      <span className={cx('absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full ring-4 ring-white/80 dark:ring-black/60', i === 0 ? 'bg-brand-500 shadow-[0_0_10px_rgba(47,127,255,0.9)]' : 'bg-slate-300 dark:bg-slate-600')} />
+                      <span className={cx('absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full ring-4 ring-white/80 dark:ring-black/60', i === 0 ? 'bg-brand-500 shadow-[0_0_10px_rgb(var(--brand-500)/0.9)]' : 'bg-slate-300 dark:bg-slate-600')} />
                       <span className="text-slate-700 dark:text-slate-300">
                         <span className="font-semibold text-slate-900 dark:text-white">{a.user}</span> · {a.trans} {a.docno && <span className="font-mono text-xs text-slate-500">{a.docno}</span>}
                       </span>
