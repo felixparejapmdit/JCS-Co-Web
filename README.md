@@ -110,7 +110,7 @@ Always on a **restored test copy** first (PLAN.md Section 8.3).
 | `DATABASE_POOL_SIZE` | Connections per database (default 5). |
 | `DATABASE_ALLOW_WRITES` | `true` to allow saving. Default: read-only. |
 | `DB_JCS`, `DB_APF`, `DB_CHEMAG`, `DB_BFI`, `DB_BFI_ADMIN` | Database names (legacy defaults `jcs`, `apf`, `chemag`, `bfi`, `bfi_admin`). |
-| `COMPANIES_DISABLED` | Business areas switched off (comma list). Default `8200`: APF Corporation is dissolved, so only JCS Chemical (8100) and Chemag Trading (8300) are active. Empty turns every company on. |
+| `COMPANIES_DISABLED` | Business areas switched off (comma list), until an administrator decides in *Administration → Companies*. Unset: `8100` (JCS Chemical, on hold) and `8200` (APF, dissolved) are off, so only Chemag Trading (8300) is active. Empty turns every company on. |
 | `JWT_SECRET` | Signs the session cookie. **Required** with a database; also recommended for the hosted preview. |
 | `COOKIE_SECURE` | The session cookie is `Secure` automatically on HTTPS. Set `true` to force it behind a TLS proxy that does not send `X-Forwarded-Proto`. |
 

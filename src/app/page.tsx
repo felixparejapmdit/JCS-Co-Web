@@ -10,7 +10,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   let info: DemoInfo = { mode: 'mysql' };
   if (!isMysqlMode() || mysqlHoldsSampleData()) {
     // Sample data only (in memory, or loaded into local MySQL): shows the sample roles. No company is named.
-    const { DEMO_ACCOUNTS, DEMO_PASSWORD } = await import('@/server/seed');
+    const { demoAccounts, DEMO_PASSWORD } = await import('@/server/seed');
+    const DEMO_ACCOUNTS = demoAccounts();
     info = isMysqlMode()
       ? { mode: 'mysql', accounts: DEMO_ACCOUNTS, password: DEMO_PASSWORD, sampleInMysql: true }
       : { mode: 'demo', accounts: DEMO_ACCOUNTS, password: DEMO_PASSWORD };

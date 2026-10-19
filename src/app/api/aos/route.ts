@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
     if (op === 'app.info') {
       // Public: tells the sign-in page whether it is the sample-data preview. No company is named.
       if (isMysqlMode() && !mysqlHoldsSampleData()) return NextResponse.json({ ok: true, data: { mode: 'mysql' } });
-      const { DEMO_ACCOUNTS, DEMO_PASSWORD } = await import('@/server/seed');
+      const { demoAccounts, DEMO_PASSWORD } = await import('@/server/seed');
+      const DEMO_ACCOUNTS = demoAccounts();
       if (isMysqlMode()) return NextResponse.json({ ok: true, data: { mode: 'mysql', accounts: DEMO_ACCOUNTS, password: DEMO_PASSWORD, sampleInMysql: true } });
       return NextResponse.json({ ok: true, data: { mode: 'demo', accounts: DEMO_ACCOUNTS, password: DEMO_PASSWORD } });
     }

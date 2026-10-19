@@ -7,6 +7,7 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    setupFiles: ['tests/setup.ts'],
     exclude: ['e2e/**', 'node_modules/**', '.next/**'],
     testTimeout: 120000,
   },

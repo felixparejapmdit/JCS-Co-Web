@@ -10,16 +10,25 @@ import path from 'node:path';
  */
 export type DataSource = 'memory' | 'mysql';
 
+/** Why and by whom a company was switched off (Administration > Companies). */
+export interface CompanyOff {
+  reason?: string;
+  by?: string;
+  at?: string;
+}
+
 interface LocalSettings {
   dataSource?: DataSource;
+  /** Companies switched off by an administrator, by business area. Absent until someone uses the page. */
+  disabledCompanies?: Record<string, CompanyOff>;
   /** When the sample data was last loaded into each company database, by business area. */
   sampleLoadedAt?: Record<string, string>;
 }
 
-const g = globalThis as unknown as { __cloudAosSettings?: LocalSettings };
+const g = globalThis as unknown as { __cloudAosSettings?: LocalSettings; __cloudAosSettingsSaved?: boolean };
 
 function settingsFile(): string {
-  return path.join(process.cwd(), '.cloudaos', 'settings.json');
+  return process.env.CLOUDAOS_SETTINGS_FILE || path.join(process.cwd(), '.cloudaos', 'settings.json');
 }
 
 function readSettings(): LocalSettings {
@@ -36,9 +45,29 @@ function readSettings(): LocalSettings {
 
 function writeSettings(patch: LocalSettings): void {
   const next = { ...readSettings(), ...patch };
-  fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
-  fs.writeFileSync(settingsFile(), JSON.stringify(next, null, 2) + '\n', 'utf8');
   g.__cloudAosSettings = next;
+  try {
+    fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
+    fs.writeFileSync(settingsFile(), JSON.stringify(next, null, 2) + '\n', 'utf8');
+    g.__cloudAosSettingsSaved = true;
+  } catch {
+    // Read-only host (e.g. a serverless preview): the change holds only while this server runs.
+    g.__cloudAosSettingsSaved = false;
+  }
+}
+
+/** False when the last change could not be written to disk and lasts only until the server restarts. */
+export function settingsSaved(): boolean {
+  return g.__cloudAosSettingsSaved !== false;
+}
+
+/** The companies an administrator switched off, or undefined when nobody has used Administration > Companies yet. */
+export function companySettings(): Record<string, CompanyOff> | undefined {
+  return readSettings().disabledCompanies;
+}
+
+export function saveDisabledCompanies(map: Record<string, CompanyOff>): void {
+  writeSettings({ disabledCompanies: map });
 }
 
 export function mysqlConfigured(): boolean {

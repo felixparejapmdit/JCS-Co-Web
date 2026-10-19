@@ -78,18 +78,21 @@ const GROUPS: { code: string; name: string; notes: string; rights: Record<string
 const USERS: { username: string; name: string; group: string; companies: string[]; email: string }[] = [
   { username: 'admin', name: 'System Administrator', group: 'ADMIN', companies: ['8100', '8200', '8300'], email: 'it@jcsgroup.example' },
   { username: 'finance', name: 'Maria C. Santos', group: 'FINHEAD', companies: ['8100', '8200', '8300'], email: 'msantos@jcsgroup.example' },
-  { username: 'accountant', name: 'Juan Dela Cruz', group: 'ACCTG', companies: ['8100', '8200'], email: 'jdelacruz@jcsgroup.example' },
-  { username: 'cashier', name: 'Elena Gomez', group: 'CASHIER', companies: ['8100'], email: 'egomez@jcsgroup.example' },
-  { username: 'purchasing', name: 'Dennis Navarro', group: 'PURCH', companies: ['8100'], email: 'dnavarro@jcsgroup.example' },
+  { username: 'accountant', name: 'Juan Dela Cruz', group: 'ACCTG', companies: ['8100', '8200', '8300'], email: 'jdelacruz@jcsgroup.example' },
+  { username: 'cashier', name: 'Elena Gomez', group: 'CASHIER', companies: ['8100', '8300'], email: 'egomez@jcsgroup.example' },
+  { username: 'purchasing', name: 'Dennis Navarro', group: 'PURCH', companies: ['8100', '8300'], email: 'dnavarro@jcsgroup.example' },
   { username: 'warehouse', name: 'Carlos Reyes', group: 'WHSE', companies: ['8100', '8200', '8300'], email: 'creyes@jcsgroup.example' },
   { username: 'sales', name: 'Rhea Aquino', group: 'SALES', companies: ['8100', '8300'], email: 'raquino@jcsgroup.example' },
   { username: 'hr', name: 'Teresa Lim', group: 'HR', companies: ['8100', '8200', '8300'], email: 'tlim@jcsgroup.example' },
-  { username: 'lab', name: 'Liza Garcia', group: 'LAB', companies: ['8100', '8200'], email: 'lgarcia@jcsgroup.example' },
-  { username: 'auditor', name: 'Roberto Tan', group: 'AUDIT', companies: ['8100'], email: 'rtan@jcsgroup.example' },
+  { username: 'lab', name: 'Liza Garcia', group: 'LAB', companies: ['8100', '8200', '8300'], email: 'lgarcia@jcsgroup.example' },
+  { username: 'auditor', name: 'Roberto Tan', group: 'AUDIT', companies: ['8100', '8300'], email: 'rtan@jcsgroup.example' },
 ];
 
 /** Sample sign-ins shown on the login page of the hosted preview only. */
-export const DEMO_ACCOUNTS = USERS.map((u) => ({ username: u.username, name: u.name, group: GROUPS.find((g) => g.code === u.group)?.name ?? u.group, companies: u.companies.filter(isActiveCompany).length }));
+/** The sample accounts shown at sign-in, with the number of active companies each can open (read live, as companies can be switched off). */
+export function demoAccounts() {
+  return USERS.map((u) => ({ username: u.username, name: u.name, group: GROUPS.find((g) => g.code === u.group)?.name ?? u.group, companies: u.companies.filter(isActiveCompany).length })).filter((a) => a.companies > 0);
+}
 
 async function seedSecurity(db: Db, p: Profile) {
   await db.insertMany('sys_forms', FORM_CATALOG.map((f) => ({ code: f.code, description: f.description, tc: '', inused: 'Y' })));

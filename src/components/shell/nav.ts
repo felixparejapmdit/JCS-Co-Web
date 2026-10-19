@@ -167,6 +167,7 @@ export const NAV: NavGroup[] = [
       { label: 'Audit Trail', href: '/dashboard/admin/audit', form: '001', keywords: 'log history translog' },
       { label: 'Document Setup', href: '/dashboard/admin/doc-setup', form: '001', keywords: 'numbering series docconfig upload download hold app' },
       { label: 'Maintenance Mode', href: '/dashboard/admin/maintenance', form: '001', keywords: 'downtime server note offline' },
+      { label: 'Companies', href: '/dashboard/admin/companies', form: '001', keywords: 'company active disable enable dissolved business area' },
       { label: 'Data Source', href: '/dashboard/admin/data-source', form: '001', keywords: 'mysql memory memorystore sample data database storage local' },
       { label: 'Chart of Accounts', href: '/dashboard/master/accounts', form: '052', keywords: 'gl accounts coa' },
       { label: 'Cost Centers', href: '/dashboard/master/costCenters', form: '052' },

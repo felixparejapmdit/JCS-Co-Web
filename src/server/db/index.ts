@@ -2,7 +2,7 @@ import { MemoryDb, MemoryStore } from './memory';
 import { MysqlDb } from './mysql';
 import type { Db } from './types';
 import { DbError } from './types';
-import { dataSource, mysqlConfigured } from './source';
+import { CompanyOff, companySettings, dataSource, mysqlConfigured } from './source';
 
 export * from './types';
 export { dataSource, mysqlConfigured } from './source';
@@ -24,12 +24,34 @@ const COMPANY_DEFAULTS: Omit<CompanyInfo, 'active'>[] = [
 ];
 
 /**
- * Companies switched off. APF Corporation (8200) was dissolved (client, October 2026), so it is off by
- * default; nothing is deleted, and COMPANIES_DISABLED (a comma list, empty for none) turns it back on.
+ * Companies switched off until an administrator decides otherwise in Administration > Companies.
+ * APF Corporation (8200) was dissolved and JCS Chemical (8100) is on hold (client, October 2026),
+ * so only Chemag Trading is active by default. Nothing is deleted.
  */
+const DEFAULT_OFF: Record<string, CompanyOff> = {
+  '8100': { reason: 'On hold for now' },
+  '8200': { reason: 'Dissolved' },
+};
+
+/** Where the on/off choice comes from: the Companies page, COMPANIES_DISABLED in .env, or the built-in default. */
+export function companySettingsSource(): 'administration' | 'environment' | 'default' {
+  if (companySettings()) return 'administration';
+  return process.env.COMPANIES_DISABLED !== undefined ? 'environment' : 'default';
+}
+
+/** The switched-off companies with their reasons, by business area. */
+export function disabledCompanyMap(): Record<string, CompanyOff> {
+  const chosen = companySettings();
+  if (chosen) return chosen;
+  const env = process.env.COMPANIES_DISABLED;
+  if (env === undefined) return DEFAULT_OFF;
+  const map: Record<string, CompanyOff> = {};
+  for (const ba of env.split(',').map((x) => x.trim()).filter(Boolean)) map[ba] = DEFAULT_OFF[ba] ?? {};
+  return map;
+}
+
 function disabledCompanies(): Set<string> {
-  const raw = process.env.COMPANIES_DISABLED ?? '8200';
-  return new Set(raw.split(',').map((x) => x.trim()).filter(Boolean));
+  return new Set(Object.keys(disabledCompanyMap()));
 }
 
 /** True when the app reads the MySQL databases; false for the in-memory sample data (Administration > Data Source). */

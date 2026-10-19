@@ -20,32 +20,34 @@ test.describe('Sign-in and company privacy', () => {
     await expect(page.getByText('The username or password is not correct.')).toBeVisible({ timeout: 15_000 });
   });
 
-  test('single-company user goes straight to Home with their own header', async ({ page }) => {
+  // By default only Chemag Trading is active (JCS Chemical on hold, APF dissolved): see Administration > Companies.
+  test('a user goes straight to Home with their own company header', async ({ page }) => {
     await signIn(page, 'cashier');
     const sidebar = page.locator('aside').first();
     await expect(sidebar.locator('select')).toHaveCount(0);
-    await expect(sidebar).toContainText('JCS Chemical Industries');
+    await expect(sidebar).toContainText('Chemag Trading');
     await expect(sidebar).not.toContainText('APF');
-    await expect(sidebar).not.toContainText('Chemag');
+    await expect(sidebar).not.toContainText('JCS Chemical');
   });
 
-  test('multi-company user picks a company after signing in, and APF is never offered', async ({ page }) => {
+  test('a user of several companies is never offered a switched-off one', async ({ page }) => {
     await page.goto('/');
     await page.fill('input[autocomplete=username]', 'finance');
     await page.fill('input[autocomplete=current-password]', DEMO_PASSWORD);
     await page.click('button[type=submit]');
-    const chooser = page.getByRole('heading', { name: 'Choose a company' });
-    await expect(chooser).toBeVisible({ timeout: 30_000 });
-    const card = page.locator('div', { has: chooser }).last();
-    await expect(card).not.toContainText('APF');
-    await card.getByRole('button', { name: /Chemag/ }).click();
+    // With one active company there is nothing to choose: Home opens directly.
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
-    await expect(page.locator('aside').first()).toContainText('Chemag');
+    const sidebar = page.locator('aside').first();
+    await expect(sidebar).toContainText('Chemag Trading');
+    await expect(sidebar).not.toContainText('JCS Chemical');
+    await expect(sidebar).not.toContainText('APF');
   });
 
-  test('a user of JCS and the dissolved APF goes straight to JCS', async ({ page }) => {
-    await signIn(page, 'accountant');
-    await expect(page.locator('aside').first()).toContainText('JCS Chemical Industries');
-    await expect(page.locator('aside').first()).not.toContainText('APF');
+  test('every sample role can open Chemag Trading', async ({ page }) => {
+    for (const user of ['accountant', 'lab', 'auditor', 'purchasing']) {
+      await page.context().clearCookies();
+      await signIn(page, user);
+      await expect(page.locator('aside').first()).toContainText('Chemag Trading');
+    }
   });
 });
