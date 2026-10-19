@@ -1,23 +1,46 @@
 import {
+  BadgeCheck,
+  Ban,
+  Banknote,
   BarChart3,
   Boxes,
+  Building2,
   ClipboardList,
+  Database,
   Factory,
+  FileCog,
   FileText,
+  History,
   Landmark,
+  ListTree,
+  Network,
+  Palette,
+  Percent,
+  PieChart,
+  Printer,
   Receipt,
   Settings,
+  ShieldCheck,
   ShoppingCart,
+  Target,
+  UserCog,
   Users,
   Wallet,
+  Wrench,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { Tone } from '@/components/ui/tone';
 
 export interface NavItem {
   label: string;
   href: string;
   form: string; // legacy permission form code; the item shows when the group may view it
   keywords?: string;
+  /** Sub-heading the item is listed under inside its group (items of one category stay together). */
+  category?: string;
+  /** Icon shown before the label, coloured by its meaning. */
+  icon?: LucideIcon;
+  tone?: Tone;
 }
 
 export interface NavGroup {
@@ -159,23 +182,27 @@ export const NAV: NavGroup[] = [
     label: 'Administration',
     icon: Settings,
     items: [
-      { label: 'Company & Branding', href: '/dashboard/admin/company', form: '001', keywords: 'logo header profile settings' },
-      { label: 'Users', href: '/dashboard/admin/users', form: '001', keywords: 'accounts unlock password' },
-      { label: 'Group Access', href: '/dashboard/admin/groups', form: '002', keywords: 'rights roles permissions' },
-      { label: 'Approval Limits', href: '/dashboard/admin/limits', form: '045', keywords: 'authorization' },
-      { label: 'Void Requests', href: '/dashboard/admin/voids', form: '003', keywords: 'cancel' },
-      { label: 'Audit Trail', href: '/dashboard/admin/audit', form: '001', keywords: 'log history translog' },
-      { label: 'Document Setup', href: '/dashboard/admin/doc-setup', form: '001', keywords: 'numbering series docconfig upload download hold app' },
-      { label: 'Maintenance Mode', href: '/dashboard/admin/maintenance', form: '001', keywords: 'downtime server note offline' },
-      { label: 'Companies', href: '/dashboard/admin/companies', form: '001', keywords: 'company active disable enable dissolved business area' },
-      { label: 'Data Source', href: '/dashboard/admin/data-source', form: '001', keywords: 'mysql memory memorystore sample data database storage local' },
-      { label: 'Chart of Accounts', href: '/dashboard/master/accounts', form: '052', keywords: 'gl accounts coa' },
-      { label: 'Cost Centers', href: '/dashboard/master/costCenters', form: '052' },
-      { label: 'Profit Centers', href: '/dashboard/master/profitCenters', form: '052' },
-      { label: 'Bank Accounts', href: '/dashboard/master/banks', form: '024' },
-      { label: 'Cheque Printing Setup', href: '/dashboard/admin/cheques', form: '024', keywords: 'calibration layout' },
-      { label: 'Withholding Tax Codes', href: '/dashboard/master/ewtCodes', form: '023', keywords: 'atc ewt bir' },
-      { label: 'Departments', href: '/dashboard/master/departments', form: '054' },
+      // Organization
+      { label: 'Companies', href: '/dashboard/admin/companies', form: '001', category: 'Organization', icon: Building2, tone: 'emerald', keywords: 'company active disable enable dissolved business area' },
+      { label: 'Company & Branding', href: '/dashboard/admin/company', form: '001', category: 'Organization', icon: Palette, tone: 'fuchsia', keywords: 'logo header profile settings' },
+      { label: 'Departments', href: '/dashboard/master/departments', form: '054', category: 'Organization', icon: Network, tone: 'cyan' },
+      // Users & Access
+      { label: 'Users', href: '/dashboard/admin/users', form: '001', category: 'Users & Access', icon: UserCog, tone: 'sky', keywords: 'accounts unlock password' },
+      { label: 'Group Access', href: '/dashboard/admin/groups', form: '002', category: 'Users & Access', icon: ShieldCheck, tone: 'violet', keywords: 'rights roles permissions' },
+      { label: 'Approval Limits', href: '/dashboard/admin/limits', form: '045', category: 'Users & Access', icon: BadgeCheck, tone: 'emerald', keywords: 'authorization' },
+      { label: 'Void Requests', href: '/dashboard/admin/voids', form: '003', category: 'Users & Access', icon: Ban, tone: 'rose', keywords: 'cancel' },
+      { label: 'Audit Trail', href: '/dashboard/admin/audit', form: '001', category: 'Users & Access', icon: History, tone: 'amber', keywords: 'log history translog' },
+      // Finance Setup
+      { label: 'Chart of Accounts', href: '/dashboard/master/accounts', form: '052', category: 'Finance Setup', icon: ListTree, tone: 'indigo', keywords: 'gl accounts coa' },
+      { label: 'Cost Centers', href: '/dashboard/master/costCenters', form: '052', category: 'Finance Setup', icon: Target, tone: 'orange' },
+      { label: 'Profit Centers', href: '/dashboard/master/profitCenters', form: '052', category: 'Finance Setup', icon: PieChart, tone: 'teal' },
+      { label: 'Bank Accounts', href: '/dashboard/master/banks', form: '024', category: 'Finance Setup', icon: Banknote, tone: 'emerald' },
+      { label: 'Withholding Tax Codes', href: '/dashboard/master/ewtCodes', form: '023', category: 'Finance Setup', icon: Percent, tone: 'amber', keywords: 'atc ewt bir' },
+      { label: 'Cheque Printing Setup', href: '/dashboard/admin/cheques', form: '024', category: 'Finance Setup', icon: Printer, tone: 'slate', keywords: 'calibration layout' },
+      // System
+      { label: 'Document Setup', href: '/dashboard/admin/doc-setup', form: '001', category: 'System', icon: FileCog, tone: 'blue', keywords: 'numbering series docconfig upload download hold app' },
+      { label: 'Maintenance Mode', href: '/dashboard/admin/maintenance', form: '001', category: 'System', icon: Wrench, tone: 'orange', keywords: 'downtime server note offline' },
+      { label: 'Data Source', href: '/dashboard/admin/data-source', form: '001', category: 'System', icon: Database, tone: 'cyan', keywords: 'mysql memory memorystore sample data database storage local' },
     ],
   },
 ];

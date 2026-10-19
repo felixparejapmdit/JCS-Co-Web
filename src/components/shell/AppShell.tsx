@@ -24,7 +24,19 @@ import {
 import { ApiError, CHANGED_EVENT, clearLookups, forgetSession, rpc } from '@/lib/api';
 import { fmtDate, monthName } from '@/shared/dates';
 import { Badge, ICON_TEXT, MODULE_TONE, Modal, Spinner, ToastProvider, cx } from '@/components/ui/kit';
-import { NAV, findNav } from './nav';
+import { NAV, findNav, type NavItem } from './nav';
+import { toneOfText } from '@/components/ui/tone';
+
+/** Items in menu order, grouped under their category (items without one form a single unnamed list). */
+function byCategory(items: NavItem[]): [string, NavItem[]][] {
+  const out = new Map<string, NavItem[]>();
+  for (const i of items) {
+    const key = i.category ?? '';
+    if (!out.has(key)) out.set(key, []);
+    out.get(key)!.push(i);
+  }
+  return [...out];
+}
 
 export interface Branding {
   ba: string;
@@ -218,20 +230,30 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
               </button>
               {isOpen && (
                 <div className="mb-1 ml-5 border-l border-black/[0.08] pl-2 dark:border-white/[0.08]">
-                  {g.items.map((i) => {
-                    const active = pathname === i.href || pathname.startsWith(i.href + '/');
-                    return (
-                      <Link
-                        key={i.href}
-                        href={i.href}
-                        onClick={onNavigate}
-                        className={cx('relative block rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'text-slate-500 hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white')}
-                      >
-                        {active && <span className="absolute -left-[9px] top-1.5 bottom-1.5 w-[3px] rounded-full" style={{ background: info.company.accent, boxShadow: `0 0 10px ${info.company.accent}` }} />}
-                        {i.label}
-                      </Link>
-                    );
-                  })}
+                  {byCategory(g.items).map(([category, items]) => (
+                    <div key={category || 'items'} className={cx(category && 'pt-1.5 first:pt-0.5')}>
+                      {category && <div className="px-3 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{category}</div>}
+                      {items.map((i) => {
+                        const active = pathname === i.href || pathname.startsWith(i.href + '/');
+                        const ItemIcon = i.icon;
+                        return (
+                          <Link
+                            key={i.href}
+                            href={i.href}
+                            onClick={onNavigate}
+                            className={cx(
+                              'relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition-colors',
+                              active ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'text-slate-500 hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white'
+                            )}
+                          >
+                            {active && <span className="absolute -left-[9px] top-1.5 bottom-1.5 w-[3px] rounded-full" style={{ background: info.company.accent, boxShadow: `0 0 10px ${info.company.accent}` }} />}
+                            {ItemIcon && <ItemIcon className={cx('h-3.5 w-3.5 flex-shrink-0', ICON_TEXT[i.tone ?? toneOfText(i.label)])} aria-hidden />}
+                            <span className="truncate">{i.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
