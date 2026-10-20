@@ -14,13 +14,13 @@ module.exports = {
         brand: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((k) => [k, `rgb(var(--brand-${k}) / <alpha-value>)`])),
         // Destructive actions: rose by default, Chemag red for Chemag.
         danger: Object.fromEntries([400, 500, 600].map((k) => [k, `rgb(var(--danger-${k}) / <alpha-value>)`])),
-        // Dark surfaces, built on the dark theme's black #0e1416.
+        // Deep slate grays used on true-black surfaces.
         ink: {
-          950: '#0a0f11',
-          900: '#0e1416',
-          850: '#121a1d',
-          800: '#172124',
-          700: '#1d292d',
+          950: '#000000',
+          900: '#07080a',
+          850: '#0c0d10',
+          800: '#121317',
+          700: '#1a1c21',
         },
         neon: {
           blue: 'rgb(var(--neon-1) / <alpha-value>)',

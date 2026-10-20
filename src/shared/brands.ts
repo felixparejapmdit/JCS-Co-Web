@@ -20,11 +20,11 @@ export const COMPANY_BRANDS: Record<string, CompanyBrand> = {
     key: 'ba8300', // neutral key: the stylesheet also loads on the sign-in page
     accent: '#005b21',
     wordmark: { light: '/brand/chemag/logo-light.png', dark: '/brand/chemag/logo-dark.png', alt: 'Chemag' },
-    page: { light: '#FDFDFD', dark: '#0e1416' }, // dark: the dark theme's black, as everywhere
+    page: { light: '#FDFDFD', dark: '#000000' }, // dark: the original true-black dark theme
   },
 };
 
-export const DEFAULT_PAGE = { light: '#f3f4f7', dark: '#0e1416' };
+export const DEFAULT_PAGE = { light: '#f3f4f7', dark: '#000000' };
 
 /** localStorage key holding the brand of the company last opened in this browser. */
 export const BRAND_KEY = 'cloudaos_brand';

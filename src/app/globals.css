@@ -35,8 +35,8 @@
 }
 
 html.dark {
-  /* The dark theme's black, for every page and company. */
-  --page: #0e1416;
+  /* The original dark theme: true black with neon glows and a faint grid, for every company. */
+  --page: #000000;
   --glow-blue: rgba(47, 127, 255, 0.2);
   --glow-green: rgba(16, 185, 129, 0.13);
 }
@@ -71,10 +71,11 @@ html[data-brand='ba8300'] {
 }
 
 html.dark[data-brand='ba8300'] {
-  --page: #0e1416;
-  --glow-blue: rgba(46, 158, 85, 0.14);
-  --glow-green: rgba(226, 27, 32, 0.08);
-  --glow-3: rgba(46, 158, 85, 0.05);
+  /* Same true-black dark theme; the main glow takes Chemag's green. */
+  --page: #000000;
+  --glow-blue: rgba(46, 158, 85, 0.2);
+  --glow-green: rgba(16, 185, 129, 0.13);
+  --glow-3: rgba(46, 158, 85, 0.06);
 }
 
 html {
@@ -110,6 +111,19 @@ body::before {
     radial-gradient(900px 600px at 0% 0%, var(--glow-blue), transparent 60%),
     radial-gradient(800px 600px at 100% 100%, var(--glow-green), transparent 60%),
     radial-gradient(700px 500px at 85% 5%, var(--glow-3), transparent 60%);
+}
+
+/* Dark theme: the faint grid of the sign-in page behind everything, fading towards the edges. */
+html.dark body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 78%);
+  mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 78%);
 }
 
 @layer components {
@@ -168,7 +182,7 @@ body::before {
     top: 50%;
     margin-top: -7px;
     border: 7px solid transparent;
-    border-right-color: var(--page);
+    border-right-color: #fff;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.12s ease;
@@ -235,7 +249,8 @@ body::before {
 
 /* Printing: only the document prepared in #print-area goes to paper. */
 @media print {
-  body::before {
+  body::before,
+  body::after {
     display: none;
   }
   body * {

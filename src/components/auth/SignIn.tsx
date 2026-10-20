@@ -56,7 +56,7 @@ export function SignIn({ info, expired }: { info: DemoInfo; expired: boolean }) 
   return (
     <div className="flex min-h-screen">
       {/* Brand panel: true black with neon light */}
-      <div className="relative m-3 hidden w-[46%] flex-col justify-between overflow-hidden rounded-[2rem] bg-ink-900 p-12 text-white ring-1 ring-white/10 lg:flex">
+      <div className="relative m-3 hidden w-[46%] flex-col justify-between overflow-hidden rounded-[2rem] bg-black p-12 text-white ring-1 ring-white/10 lg:flex">
         <div className="absolute -left-24 -top-24 h-[26rem] w-[26rem] rounded-full bg-brand-500/30 blur-[110px]" />
         <div className="absolute -bottom-32 -right-20 h-[24rem] w-[24rem] rounded-full bg-emerald-500/20 blur-[110px]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
