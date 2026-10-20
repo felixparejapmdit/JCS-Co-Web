@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+    { media: '(prefers-color-scheme: dark)', color: '#0e1416' },
     { media: '(prefers-color-scheme: light)', color: '#f3f4f7' },
   ],
   width: 'device-width',
@@ -48,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   doc.classList.toggle('dark', dark);
                   // The palette of the company last opened here, inside the app only:
                   // the sign-in page stays neutral and never names a company.
-                  var page = { light: '#f3f4f7', dark: '#000000' };
+                  var page = { light: '#f3f4f7', dark: '#0e1416' };
                   if (location.pathname.indexOf('/dashboard') === 0) {
                     var brand = JSON.parse(localStorage.getItem('cloudaos_brand') || 'null');
                     if (brand && brand.key) {
@@ -58,6 +58,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   }
                   doc.style.backgroundColor = dark ? page.dark : page.light;
                   doc.style.colorScheme = dark ? 'dark' : 'light';
+                  // Collapsed side menu, as last left: applied before the first paint, so no jump.
+                  if (localStorage.getItem('cloudaos_sidebar') === 'collapsed') doc.setAttribute('data-sidebar', 'collapsed');
                 } catch (e) {}
               })();
             `,

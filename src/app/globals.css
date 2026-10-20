@@ -35,7 +35,8 @@
 }
 
 html.dark {
-  --page: #000000;
+  /* The dark theme's black, for every page and company. */
+  --page: #0e1416;
   --glow-blue: rgba(47, 127, 255, 0.2);
   --glow-green: rgba(16, 185, 129, 0.13);
 }
@@ -70,7 +71,7 @@ html[data-brand='ba8300'] {
 }
 
 html.dark[data-brand='ba8300'] {
-  --page: #0f0d0d;
+  --page: #0e1416;
   --glow-blue: rgba(46, 158, 85, 0.14);
   --glow-green: rgba(226, 27, 32, 0.08);
   --glow-3: rgba(46, 158, 85, 0.05);
@@ -148,6 +149,74 @@ body::before {
   }
   .neon-text {
     @apply bg-gradient-to-r from-brand-500 to-emerald-500 bg-clip-text text-transparent dark:from-neon-blue dark:to-neon-green;
+  }
+}
+
+@layer components {
+  /* In the components layer, so utilities on an item (e.g. absolute) still win. */
+  /*
+   * Side menu hover: the item fills with the accent colour, its text and icon turn white, and a
+   * small notch points from it into the page (the classic admin-menu highlight).
+   */
+  .nav-hl {
+    position: relative;
+  }
+  .nav-hl::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    margin-top: -7px;
+    border: 7px solid transparent;
+    border-right-color: var(--page);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+  }
+  .nav-hl:hover,
+  .nav-hl:focus-visible {
+    background-color: rgb(var(--brand-500)) !important;
+    color: #fff !important;
+    box-shadow: 0 8px 22px -12px rgb(var(--brand-500) / 0.9) !important;
+    outline: none;
+  }
+  .nav-hl:hover::after,
+  .nav-hl:focus-visible::after {
+    opacity: 1;
+  }
+  .nav-hl:hover svg,
+  .nav-hl:focus-visible svg {
+    color: #fff !important;
+  }
+}
+
+/*
+ * Collapsible side menu (desktop). html[data-sidebar='collapsed'] is set before the first paint
+ * (layout.tsx) from the saved choice, so the page opens at the right width without a jump.
+ */
+.rail-show {
+  display: none !important;
+}
+@media (min-width: 1024px) {
+  .app-aside {
+    width: 264px;
+    transition: width 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .app-main {
+    padding-left: 279px;
+    transition: padding-left 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  html[data-sidebar='collapsed'] .app-aside {
+    width: 76px;
+  }
+  html[data-sidebar='collapsed'] .app-main {
+    padding-left: 91px;
+  }
+  html[data-sidebar='collapsed'] .app-aside .rail-hide {
+    display: none !important;
+  }
+  html[data-sidebar='collapsed'] .app-aside .rail-show {
+    display: flex !important;
   }
 }
 

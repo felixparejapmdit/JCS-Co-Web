@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -8,6 +9,8 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Home,
   KeyRound,
   LayoutGrid,
@@ -151,9 +154,53 @@ function useTheme() {
   return { dark, toggle };
 }
 
+const SIDEBAR_KEY = 'cloudaos_sidebar';
+
+/** Collapses or expands the desktop side menu. The state lives on <html> (globals.css), so no React render is needed. */
+function setRailCollapsed(collapsed: boolean) {
+  const doc = document.documentElement;
+  if (collapsed) doc.dataset.sidebar = 'collapsed';
+  else delete doc.dataset.sidebar;
+  try {
+    localStorage.setItem(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded');
+  } catch {}
+}
+
+const ACTIVE_ITEM = 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]';
+
+/** The pages of one menu group, under their categories (the expanded menu and the collapsed fly-out). */
+function GroupItems({ items, pathname, accent, onNavigate }: { items: NavItem[]; pathname: string; accent: string; onNavigate?: () => void }) {
+  return (
+    <>
+      {byCategory(items).map(([category, list]) => (
+        <div key={category || 'items'} className={cx(category && 'pt-1.5 first:pt-0.5')}>
+          {category && <div className="px-3 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{category}</div>}
+          {list.map((i) => {
+            const active = pathname === i.href || pathname.startsWith(i.href + '/');
+            const ItemIcon = i.icon;
+            return (
+              <Link
+                key={i.href}
+                href={i.href}
+                onClick={onNavigate}
+                className={cx('nav-hl relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? cx(ACTIVE_ITEM, 'font-semibold') : 'text-slate-500 dark:text-slate-400')}
+              >
+                {active && <span className="absolute -left-[9px] top-1.5 bottom-1.5 w-[3px] rounded-full" style={{ background: accent, boxShadow: `0 0 10px ${accent}` }} />}
+                {ItemIcon && <ItemIcon className={cx('h-3.5 w-3.5 flex-shrink-0', ICON_TEXT[i.tone ?? toneOfText(i.label)])} aria-hidden />}
+                <span className="truncate">{i.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+}
+
 function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtxValue['can']; onNavigate?: () => void }) {
   const pathname = usePathname();
   const [filter, setFilter] = useState('');
+  const filterRef = useRef<HTMLInputElement>(null);
   const current = findNav(pathname).group?.id;
   const [open, setOpen] = useState<Record<string, boolean>>(() => {
     let saved: Record<string, boolean> = {};
@@ -176,116 +223,218 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
       return n;
     });
 
-  const groups = NAV.filter((g) => g.id !== 'reports')
-    .map((g) => ({ ...g, items: g.items.filter((i) => can(i.form) && (!filter || `${i.label} ${g.label} ${i.keywords ?? ''}`.toLowerCase().includes(filter.toLowerCase()))) }))
+  // Collapsed rail: a group's pages fly out beside its icon, on hover or click.
+  const [fly, setFly] = useState<{ id: string; top: number } | null>(null);
+  const closeTimer = useRef<number | undefined>(undefined);
+  const openFly = (id: string, el: HTMLElement) => {
+    window.clearTimeout(closeTimer.current);
+    setFly({ id, top: el.getBoundingClientRect().top });
+  };
+  const closeFlySoon = () => {
+    window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setFly(null), 160);
+  };
+  const keepFly = () => window.clearTimeout(closeTimer.current);
+  useEffect(() => setFly(null), [pathname]);
+  useEffect(() => {
+    if (!fly) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFly(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fly]);
+
+  const visible = NAV.filter((g) => g.id !== 'reports')
+    .map((g) => ({ ...g, items: g.items.filter((i) => can(i.form)) }))
     .filter((g) => g.items.length);
-  const favs = (info.favourites ?? []).filter((f) => !filter || `${f.label} ${f.section}`.toLowerCase().includes(filter.toLowerCase()));
+  const groups = visible
+    .map((g) => ({ ...g, items: g.items.filter((i) => !filter || `${i.label} ${g.label} ${i.keywords ?? ''}`.toLowerCase().includes(filter.toLowerCase())) }))
+    .filter((g) => g.items.length);
+  const allFavs = info.favourites ?? [];
+  const favs = allFavs.filter((f) => !filter || `${f.label} ${f.section}`.toLowerCase().includes(filter.toLowerCase()));
+  const accent = info.company.accent;
+  const flyGroup = fly && fly.id !== 'fav' ? visible.find((g) => g.id === fly.id) : null;
+  const railItem = (active: boolean) =>
+    cx('nav-hl flex h-11 w-11 flex-shrink-0 flex-col items-center justify-center rounded-xl text-slate-500 transition-colors dark:text-slate-400', active && 'bg-brand-500/15 text-brand-700 ring-1 ring-inset ring-brand-500/40 dark:text-brand-300');
 
   return (
-    <div className="glass glass-float flex h-full flex-col overflow-hidden rounded-3xl text-slate-700 dark:text-slate-300">
-      <ClientHeader b={info.company} period={info.openPeriod} />
-      <div className="px-3 py-3">
-        <div className="relative">
-          <Search className={cx('pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2', ICON_TEXT.sky)} />
-          <input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Find a screen…"
-            className="h-9 w-full rounded-xl border border-black/[0.07] bg-white/60 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-brand-500/60 focus:outline-none focus:ring-4 focus:ring-brand-500/15 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-          />
+    <div className="glass glass-float relative flex h-full flex-col overflow-hidden rounded-3xl text-slate-700 dark:text-slate-300">
+      {/* Expanded menu */}
+      <div className="rail-hide flex min-h-0 flex-1 flex-col">
+        <button
+          onClick={() => setRailCollapsed(true)}
+          className="nav-hl absolute right-3 top-3 z-10 hidden h-8 w-8 place-items-center rounded-lg text-slate-500 dark:text-slate-400 lg:grid"
+          title="Collapse the menu"
+          aria-label="Collapse the menu"
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </button>
+        <ClientHeader b={info.company} period={info.openPeriod} />
+        <div className="px-3 py-3">
+          <div className="relative">
+            <Search className={cx('pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2', ICON_TEXT.sky)} />
+            <input
+              ref={filterRef}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Find a screen…"
+              className="h-9 w-full rounded-xl border border-black/[0.07] bg-white/60 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-brand-500/60 focus:outline-none focus:ring-4 focus:ring-brand-500/15 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+            />
+          </div>
+        </div>
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Main menu">
+          <Link href="/dashboard" onClick={onNavigate} className={cx('nav-hl flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', pathname === '/dashboard' && ACTIVE_ITEM)}>
+            <Home className={cx('h-4 w-4', ICON_TEXT.brand)} />
+            Home
+          </Link>
+          {favs.length > 0 && (
+            <div className="pb-1">
+              <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-900 dark:text-white">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                Favourites
+              </div>
+              <div className="mb-1 ml-5 border-l border-black/[0.08] pl-2 dark:border-white/[0.08]">
+                {favs.map((f) => {
+                  const active = pathname === f.href || pathname.startsWith(f.href + '/');
+                  return (
+                    <Link
+                      key={f.href}
+                      href={f.href}
+                      onClick={onNavigate}
+                      title={f.section}
+                      className={cx('nav-hl relative block truncate rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? cx(ACTIVE_ITEM, 'font-semibold') : 'text-slate-500 dark:text-slate-400')}
+                    >
+                      {f.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {groups.map((g) => {
+            const Icon = g.icon;
+            const isOpen = filter ? true : open[g.id];
+            return (
+              <div key={g.id}>
+                <button
+                  onClick={() => toggle(g.id)}
+                  className={cx('nav-hl flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', current === g.id && 'text-slate-900 dark:text-white')}
+                  aria-expanded={isOpen}
+                >
+                  <Icon className={cx('h-4 w-4 flex-shrink-0', ICON_TEXT[MODULE_TONE[g.id] ?? 'brand'])} />
+                  <span className="flex-1 truncate text-left">{g.label}</span>
+                  <ChevronRight className={cx('h-4 w-4 text-slate-400 transition-transform', isOpen && 'rotate-90')} />
+                </button>
+                {isOpen && (
+                  <div className="mb-1 ml-5 border-l border-black/[0.08] pl-2 dark:border-white/[0.08]">
+                    <GroupItems items={g.items} pathname={pathname} accent={accent} onNavigate={onNavigate} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!groups.length && <p className="px-3 py-4 text-sm text-slate-400">No screen matches “{filter}”.</p>}
+        </nav>
+        <div className="border-t border-black/[0.06] px-4 py-3 text-[11px] text-slate-500 dark:border-white/[0.07] dark:text-slate-400">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold tracking-wide text-slate-700 dark:text-slate-200">
+              Cloud <span className="neon-text">AOS</span>
+            </span>
+            <Link href="/dashboard/help" onClick={onNavigate} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 hover:bg-black/[0.04] hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white">
+              <LifeBuoy className={cx('h-3.5 w-3.5', ICON_TEXT.sky)} /> Help
+            </Link>
+            <span>{info.source === 'mysql-sample' ? 'Sample data · MySQL' : info.mode === 'demo' ? 'Sample data' : 'Company database'}</span>
+          </div>
         </div>
       </div>
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Main menu">
-        <Link
-          href="/dashboard"
-          onClick={onNavigate}
-          className={cx('flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', pathname === '/dashboard' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'hover:bg-black/[0.04] hover:text-slate-900 dark:hover:bg-white/[0.05] dark:hover:text-white')}
+
+      {/* Collapsed rail (desktop): icons only; a group's pages fly out beside it */}
+      <div className="rail-show min-h-0 flex-1 flex-col items-center gap-1 px-2 pb-3 pt-3">
+        <button onClick={() => setRailCollapsed(false)} className={railItem(false)} title="Expand the menu" aria-label="Expand the menu">
+          <ChevronsRight className="h-5 w-5" />
+        </button>
+        <div
+          title={info.company.display_name}
+          className="my-1.5 grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl text-[13px] font-bold tracking-tight text-white ring-1 ring-white/20"
+          style={{ background: accent, boxShadow: `0 8px 20px -8px ${accent}` }}
         >
-          <Home className={cx('h-4 w-4', ICON_TEXT.brand)} />
-          Home
+          {info.company.logo_text}
+        </div>
+        <button
+          onClick={() => {
+            setRailCollapsed(false);
+            window.setTimeout(() => filterRef.current?.focus(), 220);
+          }}
+          className={railItem(false)}
+          title="Find a screen"
+          aria-label="Find a screen"
+        >
+          <Search className={cx('h-5 w-5', ICON_TEXT.sky)} />
+        </button>
+        <div className="my-1 h-px w-8 flex-shrink-0 bg-black/[0.07] dark:bg-white/[0.08]" />
+        <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overflow-x-hidden py-0.5" aria-label="Main menu (collapsed)">
+          <Link href="/dashboard" className={railItem(pathname === '/dashboard')} title="Home" aria-label="Home">
+            <Home className={cx('h-5 w-5', ICON_TEXT.brand)} />
+          </Link>
+          {allFavs.length > 0 && (
+            <button
+              onMouseEnter={(e) => openFly('fav', e.currentTarget)}
+              onMouseLeave={closeFlySoon}
+              onClick={(e) => (fly?.id === 'fav' ? setFly(null) : openFly('fav', e.currentTarget))}
+              className={railItem(false)}
+              aria-label="Favourites"
+              aria-expanded={fly?.id === 'fav'}
+            >
+              <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+            </button>
+          )}
+          {visible.map((g) => {
+            const Icon = g.icon;
+            return (
+              <button
+                key={g.id}
+                onMouseEnter={(e) => openFly(g.id, e.currentTarget)}
+                onMouseLeave={closeFlySoon}
+                onClick={(e) => (fly?.id === g.id ? setFly(null) : openFly(g.id, e.currentTarget))}
+                className={railItem(current === g.id)}
+                aria-label={g.label}
+                aria-expanded={fly?.id === g.id}
+              >
+                <Icon className={cx('h-5 w-5', ICON_TEXT[MODULE_TONE[g.id] ?? 'brand'])} />
+                <ChevronDown className="-mb-1 h-3 w-3 text-slate-400" />
+              </button>
+            );
+          })}
+        </nav>
+        <div className="my-1 h-px w-8 flex-shrink-0 bg-black/[0.07] dark:bg-white/[0.08]" />
+        <Link href="/dashboard/help" className={railItem(pathname.startsWith('/dashboard/help'))} title="Help" aria-label="Help">
+          <LifeBuoy className={cx('h-5 w-5', ICON_TEXT.sky)} />
         </Link>
-        {favs.length > 0 && (
-          <div className="pb-1">
-            <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-900 dark:text-white">
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-              Favourites
+      </div>
+
+      {fly &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            onMouseEnter={keepFly}
+            onMouseLeave={closeFlySoon}
+            className="glass-strong animate-rise fixed left-[100px] z-50 max-h-[calc(100vh-24px)] w-64 overflow-y-auto rounded-2xl p-2 text-slate-700 dark:text-slate-300"
+            style={{ top: Math.max(12, Math.min(fly.top - 6, window.innerHeight - 380)) }}
+            role="menu"
+          >
+            <div className="flex items-center gap-2 px-3 pb-1.5 pt-1 text-sm font-semibold text-slate-900 dark:text-white">
+              {fly.id === 'fav' ? <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> : flyGroup && <flyGroup.icon className={cx('h-4 w-4', ICON_TEXT[MODULE_TONE[flyGroup.id] ?? 'brand'])} />}
+              {fly.id === 'fav' ? 'Favourites' : flyGroup?.label}
             </div>
-            <div className="mb-1 ml-5 border-l border-black/[0.08] pl-2 dark:border-white/[0.08]">
-              {favs.map((f) => {
-                const active = pathname === f.href || pathname.startsWith(f.href + '/');
-                return (
-                  <Link
-                    key={f.href}
-                    href={f.href}
-                    onClick={onNavigate}
-                    title={f.section}
-                    className={cx('relative block truncate rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'text-slate-500 hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white')}
-                  >
+            {fly.id === 'fav'
+              ? allFavs.map((f) => (
+                  <Link key={f.href} href={f.href} title={f.section} className={cx('nav-hl block truncate rounded-lg px-3 py-1.5 text-[13px]', pathname === f.href ? cx(ACTIVE_ITEM, 'font-semibold') : 'text-slate-500 dark:text-slate-400')}>
                     {f.label}
                   </Link>
-                );
-              })}
-            </div>
-          </div>
+                ))
+              : flyGroup && <GroupItems items={flyGroup.items} pathname={pathname} accent={accent} />}
+          </div>,
+          document.body
         )}
-        {groups.map((g) => {
-          const Icon = g.icon;
-          const isOpen = filter ? true : open[g.id];
-          return (
-            <div key={g.id}>
-              <button
-                onClick={() => toggle(g.id)}
-                className={cx('flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', current === g.id ? 'text-slate-900 dark:text-white' : 'hover:bg-black/[0.04] hover:text-slate-900 dark:hover:bg-white/[0.05] dark:hover:text-white')}
-                aria-expanded={isOpen}
-              >
-                <Icon className={cx('h-4 w-4 flex-shrink-0', ICON_TEXT[MODULE_TONE[g.id] ?? 'brand'])} />
-                <span className="flex-1 truncate text-left">{g.label}</span>
-                <ChevronRight className={cx('h-4 w-4 text-slate-400 transition-transform', isOpen && 'rotate-90')} />
-              </button>
-              {isOpen && (
-                <div className="mb-1 ml-5 border-l border-black/[0.08] pl-2 dark:border-white/[0.08]">
-                  {byCategory(g.items).map(([category, items]) => (
-                    <div key={category || 'items'} className={cx(category && 'pt-1.5 first:pt-0.5')}>
-                      {category && <div className="px-3 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{category}</div>}
-                      {items.map((i) => {
-                        const active = pathname === i.href || pathname.startsWith(i.href + '/');
-                        const ItemIcon = i.icon;
-                        return (
-                          <Link
-                            key={i.href}
-                            href={i.href}
-                            onClick={onNavigate}
-                            className={cx(
-                              'relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition-colors',
-                              active ? 'bg-white font-semibold text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]' : 'text-slate-500 hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white'
-                            )}
-                          >
-                            {active && <span className="absolute -left-[9px] top-1.5 bottom-1.5 w-[3px] rounded-full" style={{ background: info.company.accent, boxShadow: `0 0 10px ${info.company.accent}` }} />}
-                            {ItemIcon && <ItemIcon className={cx('h-3.5 w-3.5 flex-shrink-0', ICON_TEXT[i.tone ?? toneOfText(i.label)])} aria-hidden />}
-                            <span className="truncate">{i.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {!groups.length && <p className="px-3 py-4 text-sm text-slate-400">No screen matches “{filter}”.</p>}
-      </nav>
-      <div className="border-t border-black/[0.06] px-4 py-3 text-[11px] text-slate-500 dark:border-white/[0.07] dark:text-slate-400">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-semibold tracking-wide text-slate-700 dark:text-slate-200">
-            Cloud <span className="neon-text">AOS</span>
-          </span>
-          <Link href="/dashboard/help" onClick={onNavigate} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 hover:bg-black/[0.04] hover:text-slate-800 dark:hover:bg-white/[0.06] dark:hover:text-white">
-            <LifeBuoy className={cx('h-3.5 w-3.5', ICON_TEXT.sky)} /> Help
-          </Link>
-          <span>{info.source === 'mysql-sample' ? 'Sample data · MySQL' : info.mode === 'demo' ? 'Sample data' : 'Company database'}</span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -588,7 +737,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <ToastProvider>
         <div className="min-h-screen">
           {/* Desktop sidebar: a floating glass panel */}
-          <aside className="fixed inset-y-3 left-3 z-30 hidden w-[264px] lg:block">
+          <aside className="app-aside fixed inset-y-3 left-3 z-30 hidden lg:block">
             <Sidebar info={branded!} can={can} />
           </aside>
           {/* Mobile drawer */}
@@ -604,7 +753,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          <div className="lg:pl-[279px]">
+          <div className="app-main">
             <header className="glass glass-float sticky top-0 z-20 flex h-16 items-center gap-3 rounded-b-2xl border-t-0 px-4 sm:px-6 lg:top-3 lg:mx-3 lg:rounded-2xl lg:border-t">
               <button onClick={() => setDrawer(true)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5 lg:hidden" aria-label="Open menu">
                 <Menu className={cx('h-5 w-5', ICON_TEXT.violet)} />

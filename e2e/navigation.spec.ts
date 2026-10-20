@@ -88,4 +88,17 @@ test.describe('Modules', () => {
     await expect(page.getByRole('heading', { level: 1, name: /New sales order/i })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Order total/i).first()).toBeVisible();
   });
+  test('the side menu collapses to icons, pages fly out, and it stays collapsed after a reload', async ({ page }) => {
+    await page.goto('/dashboard');
+    await page.getByRole('button', { name: 'Collapse the menu' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-sidebar', 'collapsed');
+    await page.getByRole('button', { name: 'Payables' }).hover();
+    await page.getByRole('menu').getByRole('link', { name: 'Vouchers Payable' }).click();
+    await expect(page).toHaveURL(/\/dashboard\/doc\/vp$/, { timeout: 30_000 });
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-sidebar', 'collapsed');
+    await page.getByRole('button', { name: 'Expand the menu' }).click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-sidebar', /.+/);
+    await expect(page.getByPlaceholder('Find a screen…')).toBeVisible();
+  });
 });
