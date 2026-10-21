@@ -30,6 +30,14 @@ interface Status {
   activeBa: string;
 }
 
+interface Job {
+  id: string;
+  status: 'running' | 'done' | 'failed';
+  progress?: string;
+  result?: unknown;
+  error?: string;
+}
+
 interface LoadReport {
   ba: string;
   database: string;
@@ -50,6 +58,7 @@ export default function DataSourcePage() {
   const [busy, setBusy] = useState<'' | 'memory' | 'mysql' | 'load'>('');
   const [confirmLoad, setConfirmLoad] = useState(false);
   const [report, setReport] = useState<LoadReport[] | null>(null);
+  const [progress, setProgress] = useState('');
 
   const isAdmin = info.user.group === 'ADMIN';
   const active = data?.companies.find((c) => c.ba === data.activeBa);
@@ -74,9 +83,18 @@ export default function DataSourcePage() {
     setBusy('load');
     setReport(null);
     try {
-      const res = await rpc<{ reports: LoadReport[] }>('source.loadSample');
-      setReport(res.reports);
-      toast.success(`Sample data loaded into MySQL: ${res.reports.reduce((s, r) => s + r.rows, 0).toLocaleString()} rows in ${res.reports.length} databases.`);
+      // A background job (Async API): start it, then follow it until it is done.
+      let { job } = await rpc<{ job: Job }>('source.loadSample');
+      while (job.status === 'running') {
+        setProgress(job.progress ?? 'Starting…');
+        await new Promise((r) => setTimeout(r, 700));
+        job = await rpc<Job>('jobs.get', { id: job.id });
+      }
+      setProgress('');
+      if (job.status === 'failed') throw new Error(job.error ?? 'Loading the sample data failed.');
+      const reports = (job.result as { reports: LoadReport[] }).reports;
+      setReport(reports);
+      toast.success(`Sample data loaded into MySQL: ${reports.reduce((s, r) => s + r.rows, 0).toLocaleString()} rows in ${reports.length} database${reports.length === 1 ? '' : 's'}.`);
       await reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -231,7 +249,7 @@ export default function DataSourcePage() {
                   ) : (
                     <Alert tone="warning">{data.sampleLoad.reason}</Alert>
                   )}
-                  {busy === 'load' && <p className="text-sm text-slate-500">Building and copying the sample data. This takes a little while…</p>}
+                  {busy === 'load' && <p className="text-sm text-slate-500">{progress || 'Starting…'} This runs in the background and takes about 20 seconds.</p>}
                   {report && <LoadResult reports={report} />}
                 </div>
               </Card>

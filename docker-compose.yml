@@ -38,6 +38,10 @@ services:
       DB_BFI_ADMIN: ${DB_BFI_ADMIN:-bfi_admin}
       JWT_SECRET: ${JWT_SECRET:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # Optional Redis (docker compose --profile redis up -d): REDIS_URL=redis://redis:6379/0
+      REDIS_URL: ${REDIS_URL:-}
+      CACHE_READS: ${CACHE_READS:-}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-15}
     ports:
       - "8180:8180"
     healthcheck:
@@ -46,6 +50,17 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks:
+      - cloud_aos
+
+  # Optional: Redis for the read cache, rate limits, idempotency and jobs across instances.
+  #   docker compose --profile redis up -d   and set REDIS_URL=redis://redis:6379/0 for web.
+  redis:
+    profiles: ["redis"]
+    image: redis:7-alpine
+    container_name: cloud_aos_redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     networks:
       - cloud_aos
 

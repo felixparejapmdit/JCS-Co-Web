@@ -1,5 +1,18 @@
+/**
+ * The internal API (POST /api/aos): a backend-for-frontend (BFF). Its operations are shaped like the
+ * screens that call them (home.dashboard, doc.list, ...), so each screen needs one round trip.
+ * Outside systems use the public, versioned API instead (server/api/v1, docs/API.md).
+ *
+ * Every operation runs through runOp: maintenance guard, read cache for reads, and after a write
+ * the company's cached answers are cleared. HTTP concerns (sessions, rate limits, idempotency,
+ * errors) are in app/api/aos/route.ts and server/platform.
+ */
 import type { Row } from './db';
-import { getDb, isMysqlMode, resetDemoCompany } from './db';
+import { companies, getDb, isMysqlMode, resetDemoCompany } from './db';
+import { isReadOp } from '@/shared/ops';
+import { cachedRead, invalidateCompany, readCacheEnabled } from './platform/read-cache';
+import { getJob } from './platform/jobs';
+import * as apikeys from './services/apikeys';
 import type { Session } from './auth';
 import { ACTION, FORM } from '@/shared/codes';
 import { Ctx, fail, requireRight } from './services/context';
@@ -259,6 +272,9 @@ const ops: Record<string, Handler> = {
   'admin.requestVoid': (c, a) => admin.requestVoid(c, a),
   'admin.decideVoid': (c, a) => admin.decideVoid(c, String(a.docno), String(a.tc), Boolean(a.approve), String(a.note ?? '')),
   'admin.audit': (c, a) => admin.auditTrail(c, a),
+  'apikeys.list': (c) => apikeys.listKeys(c),
+  'apikeys.create': (c, a) => apikeys.createKey(c, { name: String(a.name ?? ''), group: String(a.group ?? '') }),
+  'apikeys.revoke': (c, a) => apikeys.revokeKey(c, String(a.id ?? '')),
   search: (c, a) => admin.findDocuments(c, String(a.q ?? '')),
   'home.dashboard': (c) => admin.dashboard(c),
   'home.tasks': (c) => admin.myTasks(c),
@@ -280,20 +296,39 @@ const SOURCE_OPS: Record<string, (args: Row, s: Session) => Promise<unknown>> = 
   'source.loadSample': (_a, s) => datasource.loadSample(s),
   'companies.list': (_a, s) => companyAdmin.companyList(s),
   'companies.setActive': (a, s) => companyAdmin.setCompanyActive(s, a),
+  'jobs.get': (a, s) => getJob(String(a.id ?? ''), s.u),
 };
+
+/** Operations that change which data is served at all: every company's cached answers go. */
+const CLEARS_ALL = new Set(['source.set', 'source.loadSample', 'companies.setActive']);
+
+async function invalidateAll() {
+  for (const c of companies()) await invalidateCompany(c.ba);
+}
 
 /** Operations that still work while the company is in maintenance (the shell shows the notice). */
 const OPEN_IN_MAINTENANCE = new Set(['auth.session']);
 
 export async function runOp(op: string, args: Row, s: Session, ip?: string): Promise<unknown> {
+  args = args ?? {};
   const sourceOp = SOURCE_OPS[op];
-  if (sourceOp) return sourceOp(args ?? {}, s);
+  if (sourceOp) {
+    const out = await sourceOp(args, s);
+    if (CLEARS_ALL.has(op)) await invalidateAll();
+    return out;
+  }
   const handler = ops[op];
   if (!handler) fail(`Unknown operation: ${op}`, 404);
   const db = await getDb(s.ba);
   const ctx: Ctx = { db, ba: s.ba, user: s.u, fullName: s.n, group: s.g, ip };
   if (!OPEN_IN_MAINTENANCE.has(op)) await system.guardMaintenance(db, s.g);
-  return handler(ctx, args ?? {}, s);
+  if (isReadOp(op)) {
+    if (!readCacheEnabled(db.mode === 'mysql')) return handler(ctx, args, s);
+    return cachedRead({ ba: s.ba, user: s.u, op, args }, () => handler(ctx, args, s));
+  }
+  const out = await handler(ctx, args, s);
+  await invalidateCompany(s.ba); // a save: earlier cached answers of this company are stale
+  return out;
 }
 
 export { session };

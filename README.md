@@ -18,16 +18,24 @@ Cloud AOS is the modern web version of AOS100, the accounting and operations sys
 ## 1. How It Works
 
 ```
-Browser ──POST /api/aos {op, args}──▶ src/server/rpc.ts ──▶ services (GL, AP, AR, sales,
-                                                             inventory, purchasing, production,
-                                                             payroll, DSR, clinic, reports,
-                                                             system, admin)
-                                                                   │
-                                                                   ▼
-                                                         Db interface (legacy tables)
-                                                          ├─ MemoryDb: sample data (preview)
-                                                          └─ MysqlDb:  client's databases
+Browser ──POST /api/aos {op, args}──┐         ┌──GET /api/v1/... (API key)── other systems
+                                    ▼         ▼
+                     API gateway: request id · errors · rate limits · logs
+                                    │         │
+             internal API (BFF) ────┘         └──── public API v1 (resources, paging)
+                                    ▼
+                         src/server/rpc.ts  (operations · read cache · idempotency)
+                                    ▼
+             services (GL, AP, AR, sales, inventory, purchasing, production,
+                       payroll, DSR, clinic, reports, system, admin)
+                                    ▼
+                         Db interface (legacy tables)
+                          ├─ MemoryDb: sample data (preview)
+                          └─ MysqlDb:  client's databases
 ```
+
+How the pieces fit, and the rules for extending them: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+The public API for other systems: **[docs/API.md](docs/API.md)**.
 
 * **Legacy tables, legacy columns.** Every service works on the AOS100 tables (`gljvhdrtbl`, `exphdrtbl`, `cvhdrtbl`, `colhdrtbl`, `sohdrtbl`, `invhdrtbl`, `payearntbl` and the rest; PLAN.md Appendix A). Cloud AOS keeps its own data only in additive `ng_*` tables (PLAN.md Section 7.2).
 * **Legacy rights.** Menus, buttons and approvals follow `IsAllowed(group, form, action)` over `sys_usergrouprights`, exactly as the old system does.
@@ -54,19 +62,19 @@ Browser ──POST /api/aos {op, args}──▶ src/server/rpc.ts ──▶ serv
 
 ### Sample accounts (hosted preview and local sample data)
 
-All sample accounts use the password **`Demo@2026`**; the login page lists them in sample-data mode only.
+All sample accounts use the password **`Demo@2026`**; the login page lists them in sample-data mode only. Every role exists in Chemag Trading; with JCS Chemical and APF switched off (*Administration → Companies*), each account opens Chemag directly.
 
 | Username | Role | Companies |
 | :--- | :--- | :---: |
-| `admin` | System Administrator | 3 |
-| `finance` | Finance Head / CFO | 3 |
-| `accountant` | Accountant | 2 |
+| `admin` | System Administrator | 1 |
+| `finance` | Finance Head / CFO | 1 |
+| `accountant` | Accountant | 1 |
 | `cashier` | Cashier / Treasury | 1 |
 | `purchasing` | Purchasing | 1 |
-| `warehouse` | Warehouse & Plant | 3 |
-| `sales` | Sales & Billing | 2 |
-| `hr` | HR & Payroll | 3 |
-| `lab` | QA Laboratory | 2 |
+| `warehouse` | Warehouse & Plant | 1 |
+| `sales` | Sales & Billing | 1 |
+| `hr` | HR & Payroll | 1 |
+| `lab` | QA Laboratory | 1 |
 | `auditor` | Internal Audit (view only) | 1 |
 
 ---
@@ -113,6 +121,10 @@ Always on a **restored test copy** first (PLAN.md Section 8.3).
 | `COMPANIES_DISABLED` | Business areas switched off (comma list), until an administrator decides in *Administration → Companies*. Unset: `8100` (JCS Chemical, on hold) and `8200` (APF, dissolved) are off, so only Chemag Trading (8300) is active. Empty turns every company on. |
 | `JWT_SECRET` | Signs the session cookie. **Required** with a database; also recommended for the hosted preview. |
 | `COOKIE_SECURE` | The session cookie is `Secure` automatically on HTTPS. Set `true` to force it behind a TLS proxy that does not send `X-Forwarded-Proto`. |
+| `REDIS_URL` | Redis for the read cache, rate limits, idempotency and background jobs, shared by every instance. Empty: this server's memory. |
+| `CACHE_READS`, `CACHE_TTL_SECONDS` | Read cache: on by default against MySQL, 15 s. See docs/ARCHITECTURE.md, section 5. |
+| `LOG_REQUESTS`, `LOG_SLOW_MS` | API log: errors and requests slower than 1 s by default; `all` logs every request. |
+| `API_CORS_ORIGINS` | Web origins allowed to call `/api/v1` from a browser. |
 
 Transaction codes written on documents follow the legacy code (`src/shared/codes.ts`), including `84` / `85` for the van cash and charge invoices and `88` for van returns; confirm them against the client's `tccodestbl` in Phase 1. A few columns that the new modules write were not seen in the legacy code (for example `dsrnotbl` and `reqsohdrtbl` details); Cloud AOS writes only the columns listed in PLAN.md Appendix A, but check them against the schema dump before `DATABASE_ALLOW_WRITES` is turned on.
 
@@ -124,7 +136,8 @@ Transaction codes written on documents follow the legacy code (`src/shared/codes
 src/
 ├─ app/                     Pages (App Router)
 │  ├─ page.tsx              Sign-in and post-sign-in company chooser
-│  ├─ api/aos/route.ts      Single RPC endpoint (sign-in, sign-out, all operations)
+│  ├─ api/aos/route.ts      Internal API (BFF): sign-in, sign-out, all screen operations
+│  ├─ api/v1/               Public, versioned API for other systems (docs/API.md)
 │  └─ dashboard/            Home, documents (doc/[type]), masters, GL, AR/AP, inventory,
 │                           purchasing, production, HR & payroll, administration
 ├─ components/
@@ -135,13 +148,18 @@ src/
 │  ├─ sales/                Order request card
 │  └─ ui/                   UI kit and data table
 ├─ server/
+│  ├─ platform/             Gateway, Redis/memory store, read cache, idempotency,
+│  │                        rate limits, background jobs
+│  ├─ api/v1/               Public API routes, pagination, versioning
 │  ├─ db/                   Db interface, sample-data driver, MySQL driver
 │  ├─ services/             Business rules per module, on legacy tables
 │  ├─ seed/                 Sample companies and transaction history
 │  ├─ auth.ts               Session cookie, legacy and Argon2id passwords
-│  └─ rpc.ts                Operation registry
-└─ shared/                  Money and VAT helpers, amount in words, dates, legacy codes
-database/mysql/             ng_* tables migration
+│  └─ rpc.ts                Operation registry (the internal API's operations)
+└─ shared/                  Read-operation list, money and VAT, amount in words, dates, legacy codes, brands
+database/mysql/             ng_* table migrations (run in each company database)
+docs/                       Architecture guide and public API reference
+scripts/perf-sweep.cjs      Speed and layout-shift check of every menu page
 tests/server/               Server tests on the sample books
 e2e/                        Browser tests (Playwright)
 ```
@@ -157,7 +175,7 @@ npm run test:e2e                           # Playwright: Chromium, Firefox and W
 npm run test:e2e -- --project=chromium     # one browser
 ```
 
-The server tests (199) check that every company's books balance, that AR and AP subledgers equal their control accounts, that no stock goes negative, that every document opens, that every report adds up, that the van inventory account equals the stock on the vans, that the schedule P&L gives the same net income as the standard statement, and that funds, deposit applications, payroll IDs, the DTR, the clinic, maintenance mode and the Access Matrix behave as intended. The browser tests (43) cover sign-in privacy (no company list or dropdown, the chooser for multi-company users), every screen, the Access Matrix, favourites, the report viewer and the installable app.
+The server tests (184) check that every company's books balance, that AR and AP subledgers equal their control accounts, that no stock goes negative, that every document opens, that every report adds up, that the van inventory account equals the stock on the vans, that the schedule P&L gives the same net income as the standard statement, and that funds, deposit applications, payroll IDs, the DTR, the clinic, maintenance mode, the Access Matrix, switched-off companies and the platform (cache, idempotency, rate limits, jobs, the public API) behave as intended. The browser tests (46) cover sign-in privacy (no company list or dropdown, the chooser for multi-company users), every screen, the Access Matrix, favourites, the report viewer and the installable app.
 
 ---
 

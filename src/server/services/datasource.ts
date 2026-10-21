@@ -3,6 +3,8 @@ import { loadSampleIntoMysql } from '../db/sample-mysql';
 import { DataSource, sampleLoadAllowed, sampleLoadedAt, setDataSource } from '../db/source';
 import type { Session } from '../auth';
 import { AppError } from './context';
+import { markRunning, runningJob, startJob } from '../platform/jobs';
+import { invalidateCompany } from '../platform/read-cache';
 
 /**
  * Administration > Data Source: choose between the in-memory sample data and the MySQL
@@ -117,8 +119,25 @@ export async function chooseDataSource(s: Session, source: string) {
   return { current: next, mysql: isMysqlMode() };
 }
 
+/**
+ * Starts loading the sample data as a background job (~20 s) and answers at once with the job;
+ * the page asks for it with jobs.get until it is done (platform/jobs.ts). One load at a time.
+ */
 export async function loadSample(s: Session) {
   requireAdmin(s);
-  const reports = await loadSampleIntoMysql(companies().map((c) => ({ ba: c.ba, database: c.database })));
-  return { reports };
+  const guard = sampleLoadAllowed();
+  if (!guard.allowed) throw new AppError(guard.reason ?? 'Loading the sample data is not allowed here.', 403);
+  const running = await runningJob(JOB_KIND, s.u);
+  if (running) return { job: running };
+  const targets = companies().map((c) => ({ ba: c.ba, database: c.database }));
+  const job = await startJob(JOB_KIND, s.u, async (progress) => {
+    const reports = await loadSampleIntoMysql(targets, progress);
+    // Every company's cached answers came from the data that was just replaced.
+    for (const c of companies()) await invalidateCompany(c.ba);
+    return { reports };
+  });
+  await markRunning(JOB_KIND, s.u, job.id);
+  return { job };
 }
+
+const JOB_KIND = 'sample-load';

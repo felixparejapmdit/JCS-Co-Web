@@ -1,5 +1,6 @@
 'use client';
 
+import { READ_OPS } from '@/shared/ops';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export class ApiError extends Error {
@@ -9,37 +10,55 @@ export class ApiError extends Error {
 }
 
 /** Operations that only read. Every other operation changes data: it clears the screen cache and tells the shell. */
-const READS = new Set([
-  'app.info', 'auth.session', 'search', 'lookup', 'home.dashboard', 'home.tasks',
-  'doc.list', 'doc.get', 'doc.defaults', 'doc.sources', 'doc.prefill', 'doc.summary', 'master.meta', 'master.list',
-  'gl.periods', 'gl.openEntries', 'jvedit.list', 'jvedit.load', 'budget.periods', 'budget.monitor', 'budget.detail',
-  'report.trialBalance', 'report.ledger', 'report.fs', 'report.fsSchedules', 'report.catalog', 'report.run',
-  'inv.stock', 'inv.card', 'inv.register', 'inv.availability', 'lab.queue', 'prod.cosVsAsp', 'po.monitor', 'sales.register',
-  'ar.openInvoices', 'ar.aging', 'ar.soa', 'cdcr.candidates', 'cdcr.list', 'deposit.list', 'cwt.list',
-  'ap.openVouchers', 'ap.preview', 'ap.aging', 'fund.openVouchers', 'fund.custodians', 'cheque.getLayout',
-  'hr.employees', 'pay.periods', 'pay.attendance', 'pay.register', 'pay.payslip', 'pay.adjustments', 'pay.ids',
-  'dtr.preview', 'dtr.summary', 'admin.company', 'admin.users', 'admin.groups', 'admin.limits', 'admin.voids', 'admin.audit',
-  'system.maintenance', 'system.docSetup', 'dsr.list', 'dsr.get', 'dsr.plantStock', 'salesman.workspace', 'salesman.queue',
-  'cust.tools', 'cust.previewBulk', 'clinic.dashboard', 'clinic.report', 'dq.search', 'dq.info', 'source.status', 'companies.list',
-]);
 
 /** Fired on window after any operation that changed data. */
 export const CHANGED_EVENT = 'cloudaos:changed';
 
+/** Saves in flight, by what they send (double-click protection). */
+const inFlight = new Map<string, Promise<unknown>>();
+
 /** Calls one server operation. Signs the user out automatically when the session has ended. */
 export async function rpc<T = any>(op: string, args: Record<string, unknown> = {}): Promise<T> {
-  const data = await call<T>(op, args);
-  if (!READS.has(op)) {
+  let data: T;
+  if (READ_OPS.has(op)) data = await call<T>(op, args);
+  else {
+    // The same save asked again while it is still running shares the first request, so a double
+    // click sends nothing twice. Each request has its own Idempotency-Key, so a request that the
+    // network delivers twice also runs once. (A save repeated later, e.g. a toggle, runs again.)
+    const what = `${op} ${JSON.stringify(args)}`;
+    const running = inFlight.get(what) as Promise<T> | undefined;
+    if (running) return running;
+    const p = call<T>(op, args, newIdempotencyKey());
+    inFlight.set(what, p);
+    try {
+      data = await p;
+    } finally {
+      inFlight.delete(what);
+    }
+  }
+  if (!READ_OPS.has(op)) {
     screenCache.clear();
     if (typeof window !== 'undefined') window.dispatchEvent(new Event(CHANGED_EVENT));
   }
   return data;
 }
 
-async function call<T>(op: string, args: Record<string, unknown>): Promise<T> {
+/** A unique key for one save (crypto.randomUUID is missing on plain-HTTP intranet pages). */
+function newIdempotencyKey(): string {
+  try {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  } catch {}
+  return `k${Date.now().toString(36)}${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+}
+
+async function call<T>(op: string, args: Record<string, unknown>, idempotencyKey?: string): Promise<T> {
+  // A save carries an Idempotency-Key: if the same request reaches the server twice (a double
+  // click, a retried connection), it runs once and the second gets the first one's answer.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
   const res = await fetch('/api/aos', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ op, args }),
     credentials: 'same-origin',
   });

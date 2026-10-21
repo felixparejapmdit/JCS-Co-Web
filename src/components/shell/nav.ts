@@ -11,6 +11,7 @@ import {
   FileCog,
   FileText,
   History,
+  KeyRound,
   Landmark,
   ListTree,
   Network,
@@ -203,6 +204,7 @@ export const NAV: NavGroup[] = [
       { label: 'Document Setup', href: '/dashboard/admin/doc-setup', form: '001', category: 'System', icon: FileCog, tone: 'blue', keywords: 'numbering series docconfig upload download hold app' },
       { label: 'Maintenance Mode', href: '/dashboard/admin/maintenance', form: '001', category: 'System', icon: Wrench, tone: 'orange', keywords: 'downtime server note offline' },
       { label: 'Data Source', href: '/dashboard/admin/data-source', form: '001', category: 'System', icon: Database, tone: 'cyan', keywords: 'mysql memory memorystore sample data database storage local' },
+      { label: 'API Keys', href: '/dashboard/admin/api-keys', form: '001', category: 'System', icon: KeyRound, tone: 'amber', keywords: 'api key token integration rest v1 external system' },
     ],
   },
 ];

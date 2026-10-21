@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { MemoryDb, MemoryStore } from './memory';
 import type { Row } from './types';
-import { assertIdentifier } from './types';
+import { DbError, assertIdentifier } from './types';
 import { markSampleLoaded, sampleLoadAllowed } from './source';
 
 /**
@@ -232,10 +232,16 @@ async function loadCompany(ba: string, database: string): Promise<SampleLoadRepo
   return { ba, database, tables: [...store.tables.values()].filter((t) => t.length).length, rows, schemaChanges: changes };
 }
 
-export async function loadSampleIntoMysql(targets: { ba: string; database: string }[]): Promise<SampleLoadReport[]> {
+export async function loadSampleIntoMysql(
+  targets: { ba: string; database: string }[],
+  progress: (text: string) => Promise<void> | void = () => undefined
+): Promise<SampleLoadReport[]> {
   const guard = sampleLoadAllowed();
-  if (!guard.allowed) throw new Error(guard.reason);
+  if (!guard.allowed) throw new DbError(guard.reason ?? 'Loading the sample data is not allowed here.', 403);
   const out: SampleLoadReport[] = [];
-  for (const t of targets) out.push(await loadCompany(t.ba, t.database));
+  for (const [i, t] of targets.entries()) {
+    await progress(`Loading ${t.database} (${i + 1} of ${targets.length})`);
+    out.push(await loadCompany(t.ba, t.database));
+  }
   return out;
 }
