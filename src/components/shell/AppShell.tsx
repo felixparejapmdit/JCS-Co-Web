@@ -230,10 +230,16 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
   // without a saved one, the menu shows the page you are on.
   const navRef = useRef<HTMLElement>(null);
   const scrollKey = `cloudaos_nav_scroll_${onNavigate ? 'drawer' : 'desktop'}`;
+  const scrollFrame = useRef(0);
   const saveScroll = () => {
-    try {
-      sessionStorage.setItem(scrollKey, String(Math.round(navRef.current?.scrollTop ?? 0)));
-    } catch {}
+    // At most once a frame: scrolling stays smooth.
+    if (scrollFrame.current) return;
+    scrollFrame.current = requestAnimationFrame(() => {
+      scrollFrame.current = 0;
+      try {
+        sessionStorage.setItem(scrollKey, String(Math.round(navRef.current?.scrollTop ?? 0)));
+      } catch {}
+    });
   };
   useBeforePaint(() => {
     const nav = navRef.current;

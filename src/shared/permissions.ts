@@ -124,7 +124,7 @@ export const PERMISSIONS: PermSection[] = [
     label: 'Administration',
     forms: [
       { form: '001', name: 'users and settings', slug: 'admin.users', actions: { 1: 'View users, company settings and the audit trail', 3: 'Add users', 2: 'Edit users, company branding and document setup', 4: 'Deactivate users', 5: 'Unlock accounts and switch maintenance mode' } },
-      { form: '002', name: 'group access', slug: 'admin.groups', actions: { 1: 'View the access matrix', 2: 'Change group access' } },
+      { form: '002', name: 'group access', slug: 'admin.groups', actions: { 1: 'View user groups and the access matrix', 3: 'Add user groups', 2: 'Rename groups and change group access', 4: 'Delete user groups' } },
       { form: '003', name: 'void requests', slug: 'admin.voids', actions: { 1: 'View void requests', 3: 'Request a void', 5: 'Approve or reject void requests' } },
       { form: '045', name: 'approval limits', slug: 'admin.limits', actions: { 1: 'View approval limits', 2: 'Change approval limits' } },
     ],

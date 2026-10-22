@@ -35,7 +35,7 @@ export interface ReportDef {
   form: string;
   params: RParam[];
   columns: RCol[];
-  link?: { type: string; key: string }; // open the source document from a row
+  link?: { type: string; key: string }; // open the source document from a row (a row's own _href wins)
   run(ctx: Ctx, p: Record<string, string>): Promise<Row[]>;
 }
 
@@ -488,7 +488,9 @@ async function postedSales(ctx: Ctx, p: Record<string, string>) {
   const custs = await ctx.db.all('custmasttbl');
   return heads.map((h): Row => {
     const c = custs.find((x) => x.custno === h.custno);
-    return { ...h, areano: h.areano || c?.areano || '', smnno: h.smnno || c?.smnno || '', total: num(h.netamt), vat: num(h.vat), net: r2(num(h.netamt) - num(h.vat)) };
+    // Van sales invoices (ETCSI / ETCI) are kept on their daily sales report, not as sales invoices.
+    const href = h.tc !== TC.SALES_INVOICE && h.dsrno ? `/dashboard/sd/dsr/${encodeURIComponent(String(h.dsrno))}` : undefined;
+    return { ...h, areano: h.areano || c?.areano || '', smnno: h.smnno || c?.smnno || '', total: num(h.netamt), vat: num(h.vat), net: r2(num(h.netamt) - num(h.vat)), _href: href };
   });
 }
 

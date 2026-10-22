@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, Lock, Minus, Plus, RotateCcw, Save, ShieldCheck } from 'lucide-react';
+import { Check, ChevronDown, Lock, Minus, RotateCcw, Save, ShieldCheck, UsersRound } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/api';
 import { RequireRight, useSession } from '@/components/shell/AppShell';
 import { NAV } from '@/components/shell/nav';
-import { Alert, Badge, Button, Card, Field, ICON_CHIP, Input, MODULE_TONE, Modal, PageHeader, SearchInput, Segmented, Spinner, cx, useToast } from '@/components/ui/kit';
+import { Alert, Badge, Button, Card, ICON_CHIP, MODULE_TONE, PageHeader, SearchInput, Segmented, Spinner, cx, useToast } from '@/components/ui/kit';
 import { ACTION_VERB, ActionNo, PERMISSIONS, PermForm, PermSection } from '@/shared/permissions';
 import type { StatusTone } from '@/shared/codes';
 
@@ -63,7 +63,6 @@ export default function AccessMatrixPage() {
   const [filter, setFilter] = useState('');
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
-  const [adding, setAdding] = useState<{ code: string; name: string; notes: string } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<'all' | 'one'>('all');
   useEffect(() => {
@@ -76,7 +75,13 @@ export default function AccessMatrixPage() {
     const m: Matrix = Object.fromEntries(data.groups.map((g: any) => [g.ug_code, g.rights ?? {}]));
     setBase(m);
     setDraft(m);
-    setSelected((s) => (s && data.groups.some((g: any) => g.ug_code === s) ? s : data.groups[0]?.ug_code ?? null));
+    // ?group=CODE (from User Groups > Edit access) opens on that group.
+    const asked = new URLSearchParams(window.location.search).get('group');
+    setSelected((s) => {
+      const known = (c: string | null) => c && data.groups.some((g: any) => g.ug_code === c);
+      return known(s) ? s : known(asked) ? asked : data.groups[0]?.ug_code ?? null;
+    });
+    if (asked) requestAnimationFrame(() => document.getElementById(`col-${asked}`)?.scrollIntoView({ inline: 'center', block: 'nearest' }));
   }, [data]);
 
   const allGroups: any[] = data?.groups ?? [];
@@ -129,21 +134,6 @@ export default function AccessMatrixPage() {
     }
   };
 
-  const createGroup = async () => {
-    if (!adding) return;
-    setSaving(true);
-    try {
-      toast.success(await rpc<string>('admin.saveGroup', { group: adding.code.toUpperCase(), rights: {}, info: { ug_name: adding.name, ug_notes: adding.notes } }));
-      setAdding(null);
-      await reload();
-      pick(adding.code.toUpperCase());
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const cols = `minmax(min(230px, 52vw), 2.2fr) repeat(${Math.max(groups.length, 1)}, minmax(${view === 'one' ? 140 : 104}px, 1fr))`;
   const tone = (code: string) => TONES[Math.max(0, allGroups.findIndex((g) => g.ug_code === code)) % TONES.length];
   const countOf = (code: string) => ALL_PERMS.filter((p) => has(draft, code, p)).length;
@@ -155,11 +145,9 @@ export default function AccessMatrixPage() {
         title="Access Matrix"
         description="Tick which pages and buttons each role can use. These are the same rights the legacy system checks, so both systems stay in step."
         actions={
-          canEdit && (
-            <Button icon={Plus} disabled={dirty} title={dirty ? 'Save or discard your changes first' : undefined} onClick={() => setAdding({ code: '', name: '', notes: '' })}>
-              New group
-            </Button>
-          )
+          <Button icon={UsersRound} href="/dashboard/admin/user-groups" disabled={dirty} title={dirty ? 'Save or discard your changes first' : 'Add, rename or delete groups'}>
+            Manage groups
+          </Button>
         }
       />
       {loading && !data ? (
@@ -280,34 +268,6 @@ export default function AccessMatrixPage() {
         )
       )}
 
-      <Modal
-        open={Boolean(adding)}
-        onClose={() => setAdding(null)}
-        title="New user group"
-        description="The group starts with no access. Tick its pages and buttons in the matrix, then save."
-        footer={
-          <>
-            <Button onClick={() => setAdding(null)}>Cancel</Button>
-            <Button variant="primary" loading={saving} disabled={!adding?.code || !adding?.name} onClick={createGroup}>
-              Create group
-            </Button>
-          </>
-        }
-      >
-        {adding && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Group code" hint="2 to 12 letters or digits" required>
-              <Input value={adding.code} maxLength={12} onChange={(e) => setAdding({ ...adding, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })} />
-            </Field>
-            <Field label="Group name" required>
-              <Input value={adding.name} onChange={(e) => setAdding({ ...adding, name: e.target.value })} />
-            </Field>
-            <Field label="Notes" className="sm:col-span-2">
-              <Input value={adding.notes} placeholder="What this group does" onChange={(e) => setAdding({ ...adding, notes: e.target.value })} />
-            </Field>
-          </div>
-        )}
-      </Modal>
     </RequireRight>
   );
 }

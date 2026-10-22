@@ -55,3 +55,14 @@ describe('report data', () => {
     await expect(runReport(await ctxFor('8100'), 'ap/vp-register', { from: '2026-12-01', to: '2026-01-01' })).rejects.toThrow(/start date/);
   });
 });
+
+describe('report row links', () => {
+  it('opens a van sales invoice on its daily sales report, a sales invoice on its own page', async () => {
+    const ctx = await ctxFor('8300');
+    const { rows } = await runReport(ctx, 'sd/sales-register', YEAR);
+    const van = rows.filter((r) => /^ETC/.test(String(r.invno)));
+    expect(van.length).toBeGreaterThan(0);
+    for (const r of van) expect(r._href).toBe(`/dashboard/sd/dsr/${r.dsrno}`);
+    for (const r of rows.filter((x) => /^SI-/.test(String(x.invno)))) expect(r._href).toBeUndefined();
+  });
+});

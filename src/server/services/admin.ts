@@ -282,6 +282,112 @@ export async function saveAccessMatrix(ctx: Ctx, changes: Record<string, Record<
 }
 
 // ===========================================================================
+// User groups (form 002): the groups themselves. What each group may do is set in the Access Matrix.
+// ===========================================================================
+const GROUP_CODE = /^[A-Z0-9_-]{2,12}$/;
+
+/** Active API keys that read with a group's rights (none when the ng_api_keys table is not there yet). */
+async function keysOfGroup(db: Db, code: string): Promise<number> {
+  try {
+    return (await db.all('ng_api_keys', { where: { ug_code: code } })).filter((k) => !k.revoked_at).length;
+  } catch {
+    return 0;
+  }
+}
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+export async function listGroups(ctx: Ctx) {
+  await requireRight(ctx, FORM.GROUP_ACCESS, ACTION.VIEW, 'view user groups');
+  const groups = await ctx.db.all('sys_usergroup', { orderBy: [['ug_code', 'asc']] });
+  const users = await ctx.db.all('sys_userrecords');
+  const rights = await ctx.db.all('sys_usergrouprights');
+  const allowed = (a: Parameters<typeof isAllowed>[3]) => isAllowed(ctx.db, ctx.group, FORM.GROUP_ACCESS, a);
+  return {
+    groups: await Promise.all(
+      groups.map(async (g) => {
+        const code = String(g.ug_code);
+        return {
+          code,
+          name: str(g.ug_name) || code,
+          notes: str(g.ug_notes),
+          members: users.filter((u) => u.usergroup === code).length,
+          pages: code === ADMIN_GROUP ? matrixForms().length : rights.filter((r) => r.gr_groupcode === code && truthy(r.gr_viewrights)).length,
+          apiKeys: await keysOfGroup(ctx.db, code),
+          locked: code === ADMIN_GROUP,
+          mine: code === ctx.group,
+        };
+      })
+    ),
+    canAdd: await allowed(ACTION.INSERT),
+    canEdit: await allowed(ACTION.EDIT),
+    canDelete: await allowed(ACTION.DELETE),
+  };
+}
+
+/** Adds a group, with no access or with a copy of another group's access. */
+export async function createGroup(ctx: Ctx, input: Row): Promise<string> {
+  await requireRight(ctx, FORM.GROUP_ACCESS, ACTION.INSERT, 'add user groups');
+  const code = str(input.code).toUpperCase();
+  const name = need(str(input.name), 'Enter a name for the new group.');
+  if (!GROUP_CODE.test(code)) fail('The group code uses 2 to 12 letters, digits, dashes or underscores.');
+  const copyFrom = str(input.copyFrom).toUpperCase();
+  return ctx.db.tx(async (db) => {
+    if (await db.one('sys_usergroup', { ug_code: code })) fail(`Group ${code} already exists.`);
+    if (copyFrom && !(await db.one('sys_usergroup', { ug_code: copyFrom }))) fail(`Group ${copyFrom} does not exist.`);
+    await db.insert('sys_usergroup', { ug_code: code, ug_name: name, ug_notes: str(input.notes) });
+    let copied = 0;
+    if (copyFrom === ADMIN_GROUP) {
+      const shown = shownActions();
+      await writeRights(db, code, Object.fromEntries([...shown.entries()].map(([f, acts]) => [f, [...acts]])), matrixForms(), shown);
+      copied = matrixForms().length;
+    } else if (copyFrom) {
+      for (const r of await db.all('sys_usergrouprights', { where: { gr_groupcode: copyFrom } })) {
+        await db.insert('sys_usergrouprights', { ...r, gr_groupcode: code });
+        copied++;
+      }
+    }
+    await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: code, trans: `Add user group ${code}${copyFrom ? ` (access copied from ${copyFrom})` : ''}`, table: 'sys_usergroup', after: { ug_code: code, ug_name: name } });
+    return copyFrom ? `Group ${code} added with the access of ${copyFrom} (${plural(copied, 'page')}).` : `Group ${code} added with no access yet. Tick its pages in the Access Matrix.`;
+  });
+}
+
+/** Renames a group or changes its description; the code stays, since users and rights refer to it. */
+export async function updateGroup(ctx: Ctx, input: Row): Promise<string> {
+  await requireRight(ctx, FORM.GROUP_ACCESS, ACTION.EDIT, 'change user groups');
+  const code = str(input.code).toUpperCase();
+  const name = need(str(input.name), 'Enter the group name.');
+  return ctx.db.tx(async (db) => {
+    const old = await db.one('sys_usergroup', { ug_code: code });
+    if (!old) fail(`Group ${code} does not exist.`);
+    const after = { ug_name: name, ug_notes: str(input.notes) };
+    await db.update('sys_usergroup', { ug_code: code }, after);
+    await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: code, trans: `Change user group ${code}`, table: 'sys_usergroup', before: { ug_name: old!.ug_name, ug_notes: old!.ug_notes }, after });
+    return `Group ${code} saved.`;
+  });
+}
+
+/** Deletes an unused group with its rights. A group that still has users or API keys is refused. */
+export async function deleteGroup(ctx: Ctx, codeIn: unknown): Promise<string> {
+  await requireRight(ctx, FORM.GROUP_ACCESS, ACTION.DELETE, 'delete user groups');
+  const code = str(codeIn).toUpperCase();
+  if (code === ADMIN_GROUP) fail('The administrator group cannot be deleted.');
+  if (code === ctx.group) fail('You cannot delete your own group.');
+  return ctx.db.tx(async (db) => {
+    const old = await db.one('sys_usergroup', { ug_code: code });
+    if (!old) fail(`Group ${code} does not exist.`);
+    const members = (await db.all('sys_userrecords', { where: { usergroup: code } })).length;
+    if (members) fail(`Group ${code} still has ${plural(members, 'user')}. Move them to another group in Users first.`);
+    const keys = await keysOfGroup(db, code);
+    if (keys) fail(`${plural(keys, 'API key')} still use the rights of ${code}. Revoke them in API Keys first.`);
+    const rights = await db.remove('sys_usergrouprights', { gr_groupcode: code });
+    await db.remove('sys_usergroup', { ug_code: code });
+    await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: code, trans: `Delete user group ${code} (${plural(rights, 'page right')})`, table: 'sys_usergroup', before: { ug_code: code, ug_name: old!.ug_name, ug_notes: old!.ug_notes } });
+    return `Group ${code} deleted.`;
+  });
+}
+
+// ===========================================================================
 // Approval limits (AuthConfig.aspx, form 045)
 // ===========================================================================
 export const LIMIT_FORMS = [

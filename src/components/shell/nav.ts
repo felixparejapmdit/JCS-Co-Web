@@ -232,7 +232,8 @@ export const NAV: NavGroup[] = [
       { label: 'Departments', href: '/dashboard/master/departments', form: '054', category: 'Organization', icon: Network, tone: 'cyan' },
       // Users & Access
       { label: 'Users', href: '/dashboard/admin/users', form: '001', category: 'Users & Access', icon: UserCog, tone: 'sky', keywords: 'accounts unlock password' },
-      { label: 'Group Access', href: '/dashboard/admin/groups', form: '002', category: 'Users & Access', icon: ShieldCheck, tone: 'violet', keywords: 'rights roles permissions' },
+      { label: 'User Groups', href: '/dashboard/admin/user-groups', form: '002', category: 'Users & Access', icon: UsersRound, tone: 'indigo', keywords: 'roles groups add rename delete' },
+      { label: 'Group Access', href: '/dashboard/admin/groups', form: '002', category: 'Users & Access', icon: ShieldCheck, tone: 'violet', keywords: 'rights roles permissions access matrix' },
       { label: 'Approval Limits', href: '/dashboard/admin/limits', form: '045', category: 'Users & Access', icon: BadgeCheck, tone: 'emerald', keywords: 'authorization' },
       { label: 'Void Requests', href: '/dashboard/admin/voids', form: '003', category: 'Users & Access', icon: Ban, tone: 'rose', keywords: 'cancel' },
       { label: 'Audit Trail', href: '/dashboard/admin/audit', form: '001', category: 'Users & Access', icon: History, tone: 'amber', keywords: 'log history translog' },

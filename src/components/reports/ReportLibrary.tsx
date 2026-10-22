@@ -282,7 +282,7 @@ export function ReportViewer({ id }: { id: string }) {
               ))}
             </div>
             <div className={cx('glass overflow-hidden rounded-2xl transition-opacity', running && 'opacity-60')}>
-              <DataTable rows={result.rows} columns={columns} pageSize={25} rowKey={(r, i) => `${r[meta.columns[0].key]}-${i}`} rowHref={meta.link ? (r) => `/dashboard/doc/${meta.link!.type === 'fund' ? r.type : meta.link!.type}/${encodeURIComponent(r[meta.link!.key])}` : undefined} empty={<EmptyState icon={FileBarChart2} title="Nothing in this period" text="Change the dates or filters above." />} />
+              <DataTable rows={result.rows} columns={columns} pageSize={25} rowKey={(r, i) => `${r[meta.columns[0].key]}-${i}`} rowHref={meta.link ? (r) => r._href ?? `/dashboard/doc/${meta.link!.type === 'fund' ? r.type : meta.link!.type}/${encodeURIComponent(r[meta.link!.key])}` : undefined} empty={<EmptyState icon={FileBarChart2} title="Nothing in this period" text="Change the dates or filters above." />} />
             </div>
           </>
         )}

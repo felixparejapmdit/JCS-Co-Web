@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(process.argv[2] || '.');
 const { chromium } = require(path.join(ROOT, 'node_modules/playwright'));
-const BASE = 'http://localhost:8180';
+const BASE = process.env.PERF_BASE || 'http://localhost:8180';
 
 const nav = fs.readFileSync(path.join(ROOT, 'src/components/shell/nav.ts'), 'utf8');
 const HREFS = [...new Set([...nav.matchAll(/href: '(\/dashboard[^']*)'/g)].map((m) => m[1]))];

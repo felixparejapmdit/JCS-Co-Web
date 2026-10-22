@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getDb } from '@/server/db';
 import type { Ctx } from '@/server/services/context';
-import { groupsWithRights, saveAccessMatrix, saveGroupRights } from '@/server/services/admin';
+import { createGroup, deleteGroup, groupsWithRights, listGroups, saveAccessMatrix, saveGroupRights, updateGroup } from '@/server/services/admin';
 import { FORM_CATALOG } from '@/shared/codes';
 import { PERMISSIONS, matrixForms, permissionPairs } from '@/shared/permissions';
 import { NAV } from '@/components/shell/nav';
@@ -71,5 +71,40 @@ describe('saving the access matrix', () => {
     const g = (await groupsWithRights(ctx)).groups.find((x) => x.ug_code === 'TEMP');
     expect(g?.ug_name).toBe('Temporary staff');
     expect(Object.keys(g?.rights as object)).toHaveLength(0);
+  });
+});
+
+describe('user groups', () => {
+  it('adds a group with a copy of another group, renames it and deletes it', async () => {
+    const ctx = await ctxFor('8300');
+    expect(await createGroup(ctx, { code: 'audit2', name: 'Second auditors', copyFrom: 'FINHEAD' })).toMatch(/AUDIT2 added with the access of FINHEAD/);
+    const rights = (await groupsWithRights(ctx)).groups;
+    expect(rights.find((g) => g.ug_code === 'AUDIT2')!.rights).toEqual(rights.find((g) => g.ug_code === 'FINHEAD')!.rights);
+    await expect(createGroup(ctx, { code: 'AUDIT2', name: 'Again' })).rejects.toThrow(/already exists/);
+    await expect(createGroup(ctx, { code: 'X', name: 'Too short' })).rejects.toThrow(/2 to 12/);
+
+    await updateGroup(ctx, { code: 'AUDIT2', name: 'Internal audit (2)', notes: 'Year-end' });
+    const listed = (await listGroups(ctx)).groups.find((g) => g.code === 'AUDIT2')!;
+    expect(listed).toMatchObject({ name: 'Internal audit (2)', notes: 'Year-end', members: 0, locked: false });
+    expect(listed.pages).toBeGreaterThan(0);
+
+    expect(await deleteGroup(ctx, 'AUDIT2')).toMatch(/deleted/);
+    expect((await listGroups(ctx)).groups.some((g) => g.code === 'AUDIT2')).toBe(false);
+    expect(await ctx.db.all('sys_usergrouprights', { where: { gr_groupcode: 'AUDIT2' } })).toHaveLength(0);
+  });
+
+  it('refuses to delete the administrators, your own group, or a group that has users', async () => {
+    const admin = await ctxFor('8300');
+    await expect(deleteGroup(admin, 'ADMIN')).rejects.toThrow(/administrator group/);
+    await expect(deleteGroup(admin, 'FINHEAD')).rejects.toThrow(/still has \d+ user/);
+    await createGroup(admin, { code: 'MINE', name: 'Mine', copyFrom: 'ADMIN' });
+    await expect(deleteGroup(await ctxFor('8300', 'MINE'), 'MINE')).rejects.toThrow(/your own group/);
+    await expect(deleteGroup(admin, 'NOPE')).rejects.toThrow(/does not exist/);
+  });
+
+  it('needs the add and delete rights of Group Access', async () => {
+    const ctx = await ctxFor('8300', 'LAB');
+    await expect(createGroup(ctx, { code: 'LAB2', name: 'Lab 2' })).rejects.toThrow(/not allowed/i);
+    await expect(deleteGroup(ctx, 'FINHEAD')).rejects.toThrow(/not allowed/i);
   });
 });
