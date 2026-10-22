@@ -74,7 +74,8 @@ test.describe('flow', () => {
     await dialog.getByRole('link', { name: 'Edit access' }).click();
     await expect(page).toHaveURL(/\/dashboard\/admin\/groups\?group=QA_E2E/);
     await expect(page.getByRole('heading', { level: 1, name: 'Access Matrix' })).toBeVisible();
-    await expect(page.locator('main button[aria-current="true"]')).toContainText('QA team');
+    await expect(page.locator('#col-QA_E2E')).toContainText('QA team');
+    await expect(page.locator('#col-QA_E2E button[aria-pressed="true"]')).toBeVisible();
     await page.getByRole('link', { name: 'Manage groups' }).click();
     await expect(page).toHaveURL(/\/dashboard\/admin\/user-groups$/);
 

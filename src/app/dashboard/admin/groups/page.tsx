@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Lock, Minus, RotateCcw, Save, ShieldCheck, UsersRound } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/api';
 import { RequireRight, useSession } from '@/components/shell/AppShell';
 import { NAV } from '@/components/shell/nav';
-import { Alert, Badge, Button, Card, ICON_CHIP, MODULE_TONE, PageHeader, SearchInput, Segmented, Spinner, cx, useToast } from '@/components/ui/kit';
+import { Alert, Badge, Button, ICON_CHIP, MODULE_TONE, PageHeader, SearchInput, Segmented, Select, Spinner, cx, useToast } from '@/components/ui/kit';
 import { ACTION_VERB, ActionNo, PERMISSIONS, PermForm, PermSection } from '@/shared/permissions';
 import type { StatusTone } from '@/shared/codes';
 
@@ -65,6 +65,7 @@ export default function AccessMatrixPage() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<'all' | 'one'>('all');
+  const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Phones show one group at a time; pick it from the list above the matrix.
     if (window.matchMedia('(max-width: 639px)').matches) setView('one');
@@ -81,8 +82,13 @@ export default function AccessMatrixPage() {
       const known = (c: string | null) => c && data.groups.some((g: any) => g.ug_code === c);
       return known(s) ? s : known(asked) ? asked : data.groups[0]?.ug_code ?? null;
     });
-    if (asked) requestAnimationFrame(() => document.getElementById(`col-${asked}`)?.scrollIntoView({ inline: 'center', block: 'nearest' }));
+    if (asked && !window.matchMedia('(max-width: 639px)').matches) requestAnimationFrame(() => document.getElementById(`col-${asked}`)?.scrollIntoView({ inline: 'center', block: 'nearest' }));
   }, [data]);
+
+  // One group fits the width: start it at the left edge, whatever the all-groups view scrolled to.
+  useEffect(() => {
+    if (view === 'one' && scroller.current) scroller.current.scrollLeft = 0;
+  }, [view, selected]);
 
   const allGroups: any[] = data?.groups ?? [];
   const groups = view === 'one' ? allGroups.filter((g) => g.ug_code === selected) : allGroups;
@@ -134,7 +140,8 @@ export default function AccessMatrixPage() {
     }
   };
 
-  const cols = `minmax(min(230px, 52vw), 2.2fr) repeat(${Math.max(groups.length, 1)}, minmax(${view === 'one' ? 140 : 104}px, 1fr))`;
+  // All groups: as wide as it needs, scrolled sideways. One group: fits the screen, page names wrap.
+  const cols = view === 'one' ? 'minmax(0, 1fr) minmax(96px, 160px)' : `minmax(min(230px, 52vw), 2.2fr) repeat(${Math.max(groups.length, 1)}, minmax(104px, 1fr))`;
   const tone = (code: string) => TONES[Math.max(0, allGroups.findIndex((g) => g.ug_code === code)) % TONES.length];
   const countOf = (code: string) => ALL_PERMS.filter((p) => has(draft, code, p)).length;
 
@@ -156,39 +163,6 @@ export default function AccessMatrixPage() {
         <Alert tone="danger">{error}</Alert>
       ) : (
         data && (
-          <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-            <Card title="Groups" padded={false} className="lg:self-start">
-              <ul className="grid gap-1.5 p-2 max-lg:max-h-72 max-lg:overflow-y-auto sm:max-lg:grid-cols-2">
-                {allGroups.map((g) => {
-                  const locked = g.ug_code === ADMIN;
-                  const edited = changed.includes(g.ug_code);
-                  return (
-                    <li key={g.ug_code}>
-                      <button
-                        onClick={() => pick(g.ug_code)}
-                        aria-current={g.ug_code === selected}
-                        className={cx('flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left transition', g.ug_code === selected ? 'bg-white shadow-sm ring-1 ring-black/[0.06] dark:bg-white/[0.09] dark:ring-white/[0.08]' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.05]')}
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-white">
-                            <span className="truncate">{g.ug_name}</span>
-                            {locked && <Lock className="h-3 w-3 shrink-0 text-emerald-500" aria-label="Always has every right" />}
-                            {edited && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500 shadow-[0_0_8px_rgb(var(--brand-500)/0.8)]" title="Unsaved changes" />}
-                          </span>
-                          <span className="block text-xs text-slate-500">
-                            {g.ug_code} · {g.members} user(s)
-                          </span>
-                        </span>
-                        <span className="mt-0.5 font-mono text-[11px] tabular-nums text-slate-400">
-                          {countOf(g.ug_code)}/{ALL_PERMS.length}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Card>
-
             <div className="glass min-w-0 overflow-hidden rounded-3xl">
               <div className="flex flex-wrap items-center gap-3 border-b border-black/[0.06] p-3 dark:border-white/[0.07] sm:p-4">
                 <SearchInput value={filter} onChange={setFilter} placeholder="Filter pages, buttons or keys…" className="w-full sm:w-64" />
@@ -200,6 +174,15 @@ export default function AccessMatrixPage() {
                     { value: 'one', label: 'Selected group' },
                   ]}
                 />
+                {view === 'one' && (
+                  <Select
+                    aria-label="Group"
+                    className="w-full sm:w-64"
+                    value={selected ?? ''}
+                    onChange={(e) => pick(e.target.value)}
+                    options={allGroups.map((g) => ({ value: g.ug_code, label: `${g.ug_name} (${g.ug_code})${changed.includes(g.ug_code) ? ' · unsaved' : ''}` }))}
+                  />
+                )}
                 <p className="min-w-0 flex-1 basis-56 text-xs text-slate-500 dark:text-slate-400">
                   {canEdit ? 'Ticking a button also ticks its View; clearing View clears the page. Members see changes the next time they open a page.' : 'You can view the matrix. Ask an administrator to change it.'}
                 </p>
@@ -215,8 +198,8 @@ export default function AccessMatrixPage() {
                 )}
               </div>
 
-              <div className="max-h-[calc(100dvh-15rem)] overflow-auto" role="table" aria-label="Access matrix">
-                <div className="min-w-max" style={{ display: 'grid', gridTemplateColumns: cols }}>
+              <div ref={scroller} className="max-h-[calc(100dvh-15rem)] overflow-auto" role="table" aria-label="Access matrix">
+                <div className={view === 'one' ? 'w-full' : 'min-w-max'} style={{ display: 'grid', gridTemplateColumns: cols }}>
                   {/* Header: one column per group */}
                   <div role="columnheader" className="sticky left-0 top-0 z-30 flex items-end bg-white px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:bg-[#07080b] dark:text-slate-400">
                     Page / button
@@ -232,7 +215,7 @@ export default function AccessMatrixPage() {
                         role="columnheader"
                         className={cx('sticky top-0 z-20 flex flex-col items-center gap-1.5 px-2 py-3 text-center', sel ? 'bg-brand-50 dark:bg-[#07142b]' : 'bg-white dark:bg-[#07080b]', edited && 'shadow-[inset_0_-2px_0_rgb(var(--brand-500)/0.9)]')}
                       >
-                        <button type="button" onClick={() => pick(g.ug_code)} className="max-w-full" title={`${g.ug_name}${g.ug_notes ? ` — ${g.ug_notes}` : ''}`}>
+                        <button type="button" onClick={() => pick(g.ug_code)} aria-pressed={g.ug_code === selected} className="max-w-full" title={`${g.ug_name} · ${g.members} user(s)${g.ug_notes ? ` — ${g.ug_notes}` : ''}`}>
                           <Badge tone={locked ? 'success' : tone(g.ug_code)} dot={!locked} className="max-w-full">
                             {locked && <ShieldCheck className="h-3 w-3" />}
                             <span className="truncate">{g.ug_code}</span>
@@ -264,7 +247,6 @@ export default function AccessMatrixPage() {
                 </div>
               </div>
             </div>
-          </div>
         )
       )}
 
