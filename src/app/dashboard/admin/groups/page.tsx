@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Lock, Minus, RotateCcw, Save, ShieldCheck, UsersRound } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Lock, Minus, RotateCcw, Save, ShieldCheck, UsersRound } from 'lucide-react';
 import { rpc, useRpc } from '@/lib/api';
 import { RequireRight, useSession } from '@/components/shell/AppShell';
 import { NAV } from '@/components/shell/nav';
@@ -89,6 +89,52 @@ export default function AccessMatrixPage() {
   useEffect(() => {
     if (view === 'one' && scroller.current) scroller.current.scrollLeft = 0;
   }, [view, selected]);
+
+  // All groups: which sides have more groups out of sight, for the arrows in the header corner.
+  const corner = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState({ left: false, right: false });
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const left = el.scrollLeft > 2;
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+      setMore((m) => (m.left === left && m.right === right ? m : { left, right }));
+    };
+    const soon = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    // The mouse wheel over the group headers moves sideways through the groups.
+    const onWheel = (e: WheelEvent) => {
+      if (e.shiftKey || !(e.target as Element).closest?.('[role=columnheader]')) return;
+      const dy = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : 0;
+      if (!dy || (dy < 0 && el.scrollLeft <= 0) || (dy > 0 && el.scrollLeft + el.clientWidth >= el.scrollWidth - 1)) return;
+      e.preventDefault();
+      el.scrollLeft += dy;
+    };
+    measure();
+    el.addEventListener('scroll', soon, { passive: true });
+    el.addEventListener('wheel', onWheel, { passive: false });
+    const ro = new ResizeObserver(soon);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', soon);
+      el.removeEventListener('wheel', onWheel);
+      ro.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [data, view]);
+
+  /** Moves one screenful of groups to the left (-1) or right (1). */
+  const page = (dir: -1 | 1) => {
+    const el = scroller.current;
+    if (!el) return;
+    const step = Math.max(104, el.clientWidth - (corner.current?.offsetWidth ?? 0) - 48);
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
 
   const allGroups: any[] = data?.groups ?? [];
   const groups = view === 'one' ? allGroups.filter((g) => g.ug_code === selected) : allGroups;
@@ -201,8 +247,18 @@ export default function AccessMatrixPage() {
               <div ref={scroller} className="max-h-[calc(100dvh-15rem)] overflow-auto" role="table" aria-label="Access matrix">
                 <div className={view === 'one' ? 'w-full' : 'min-w-max'} style={{ display: 'grid', gridTemplateColumns: cols }}>
                   {/* Header: one column per group */}
-                  <div role="columnheader" className="sticky left-0 top-0 z-30 flex items-end bg-white px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:bg-[#07080b] dark:text-slate-400">
-                    Page / button
+                  <div ref={corner} role="columnheader" className="sticky left-0 top-0 z-30 flex items-end justify-between gap-2 bg-white px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:bg-[#07080b] dark:text-slate-400">
+                    <span>Page / button</span>
+                    {view === 'all' && (more.left || more.right) && (
+                      <span className="flex shrink-0 items-center gap-1 normal-case tracking-normal">
+                        <button type="button" onClick={() => page(-1)} disabled={!more.left} aria-label="Previous groups" title="Previous groups" className="grid h-7 w-7 place-items-center rounded-lg border border-black/[0.08] text-slate-600 transition hover:bg-black/[0.05] disabled:opacity-35 disabled:hover:bg-transparent dark:border-white/[0.1] dark:text-slate-300 dark:hover:bg-white/[0.08]">
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <button type="button" onClick={() => page(1)} disabled={!more.right} aria-label="More groups" title="More groups" className="grid h-7 w-7 place-items-center rounded-lg border border-black/[0.08] text-slate-600 transition hover:bg-black/[0.05] disabled:opacity-35 disabled:hover:bg-transparent dark:border-white/[0.1] dark:text-slate-300 dark:hover:bg-white/[0.08]">
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </span>
+                    )}
                   </div>
                   {groups.map((g) => {
                     const locked = g.ug_code === ADMIN;
