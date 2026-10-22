@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -166,6 +166,28 @@ function setRailCollapsed(collapsed: boolean) {
   } catch {}
 }
 
+/** Runs before the browser paints (a no-op during the server render). */
+const useBeforePaint = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+/** The icon and colour of a menu page, by its address (favourites show their page's icon). */
+function navIconOf(href: string): { Icon: NavItem['icon']; tone: NavItem['tone'] } | null {
+  for (const g of NAV) {
+    const i = g.items.find((x) => x.href === href);
+    if (i?.icon) return { Icon: i.icon, tone: i.tone };
+  }
+  return null;
+}
+
+function FavLabel({ href, label }: { href: string; label: string }) {
+  const n = navIconOf(href);
+  return (
+    <>
+      {n?.Icon && <n.Icon className={cx('h-3.5 w-3.5 flex-shrink-0', ICON_TEXT[n.tone ?? toneOfText(label)])} aria-hidden />}
+      <span className="truncate">{label}</span>
+    </>
+  );
+}
+
 const ACTIVE_ITEM = 'bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.05] dark:bg-white/[0.09] dark:text-white dark:ring-white/[0.08]';
 
 /** The pages of one menu group, under their categories (the expanded menu and the collapsed fly-out). */
@@ -183,6 +205,7 @@ function GroupItems({ items, pathname, accent, onNavigate }: { items: NavItem[];
                 key={i.href}
                 href={i.href}
                 onClick={onNavigate}
+                aria-current={active ? 'page' : undefined}
                 className={cx('nav-hl relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? cx(ACTIVE_ITEM, 'font-semibold') : 'text-slate-500 dark:text-slate-400')}
               >
                 {active && <span className="absolute -left-[9px] top-1.5 bottom-1.5 w-[3px] rounded-full" style={{ background: accent, boxShadow: `0 0 10px ${accent}` }} />}
@@ -201,6 +224,32 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
   const pathname = usePathname();
   const [filter, setFilter] = useState('');
   const filterRef = useRef<HTMLInputElement>(null);
+
+  // The menu keeps its place: the phone and tablet drawer is rebuilt each time it opens, and the
+  // desktop menu after a reload. The position is restored before the first paint, so it never jumps;
+  // without a saved one, the menu shows the page you are on.
+  const navRef = useRef<HTMLElement>(null);
+  const scrollKey = `cloudaos_nav_scroll_${onNavigate ? 'drawer' : 'desktop'}`;
+  const saveScroll = () => {
+    try {
+      sessionStorage.setItem(scrollKey, String(Math.round(navRef.current?.scrollTop ?? 0)));
+    } catch {}
+  };
+  useBeforePaint(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    let saved: string | null = null;
+    try {
+      saved = sessionStorage.getItem(scrollKey);
+    } catch {}
+    if (saved !== null) nav.scrollTop = Number(saved);
+    const here = nav.querySelector<HTMLElement>('a[aria-current="page"]');
+    if (here) {
+      const a = here.getBoundingClientRect();
+      const b = nav.getBoundingClientRect();
+      if (saved === null || a.top < b.top || a.bottom > b.bottom) here.scrollIntoView({ block: saved === null ? 'center' : 'nearest' });
+    }
+  }, []);
   const current = findNav(pathname).group?.id;
   const [open, setOpen] = useState<Record<string, boolean>>(() => {
     let saved: Record<string, boolean> = {};
@@ -281,7 +330,7 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
             />
           </div>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Main menu">
+        <nav ref={navRef} onScroll={saveScroll} className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Main menu">
           <Link href="/dashboard" onClick={onNavigate} className={cx('nav-hl flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors', pathname === '/dashboard' && ACTIVE_ITEM)}>
             <Home className={cx('h-4 w-4', ICON_TEXT.brand)} />
             Home
@@ -301,9 +350,9 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
                       href={f.href}
                       onClick={onNavigate}
                       title={f.section}
-                      className={cx('nav-hl relative block truncate rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? cx(ACTIVE_ITEM, 'font-semibold') : 'text-slate-500 dark:text-slate-400')}
+                      className={cx('nav-hl relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition-colors', active ? cx(ACTIVE_ITEM, 'font-semibold') : 'text-slate-500 dark:text-slate-400')}
                     >
-                      {f.label}
+                      <FavLabel href={f.href} label={f.label} />
                     </Link>
                   );
                 })}
@@ -427,8 +476,8 @@ function Sidebar({ info, can, onNavigate }: { info: SessionInfo; can: SessionCtx
             </div>
             {fly.id === 'fav'
               ? allFavs.map((f) => (
-                  <Link key={f.href} href={f.href} title={f.section} className={cx('nav-hl block truncate rounded-lg px-3 py-1.5 text-[13px]', pathname === f.href ? cx(ACTIVE_ITEM, 'font-semibold') : 'text-slate-500 dark:text-slate-400')}>
-                    {f.label}
+                  <Link key={f.href} href={f.href} title={f.section} className={cx('nav-hl flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px]', pathname === f.href ? cx(ACTIVE_ITEM, 'font-semibold') : 'text-slate-500 dark:text-slate-400')}>
+                    <FavLabel href={f.href} label={f.label} />
                   </Link>
                 ))
               : flyGroup && <GroupItems items={flyGroup.items} pathname={pathname} accent={accent} />}
