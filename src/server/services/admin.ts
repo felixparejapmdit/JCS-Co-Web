@@ -256,8 +256,10 @@ export async function saveGroupRights(ctx: Ctx, group: string, rights: Record<st
     const shown = shownActions();
     if (group === ADMIN_GROUP) rights = Object.fromEntries([...shown.entries()].map(([f, acts]) => [f, [...acts]]));
     const forms = [...new Set([...matrixForms(), ...Object.keys(rights)])];
+    const before = await rightsOf(db, group);
     await writeRights(db, group, rights, forms, shown);
-    await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: group, trans: `Update rights of group ${group}`, table: 'sys_usergrouprights', after: rights });
+    // The rights as stored before and after, so Logs > Access Changes can show each one given or taken.
+    await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: group, trans: `Update rights of group ${group}`, table: 'sys_usergrouprights', before, after: await rightsOf(db, group) });
     return `Rights of group ${group} saved. Members see the change when they next open a page.`;
   });
 }
@@ -274,8 +276,9 @@ export async function saveAccessMatrix(ctx: Ctx, changes: Record<string, Record<
     for (const group of groups) {
       if (!(await db.one('sys_usergroup', { ug_code: group }))) fail(`Group ${group} does not exist.`);
       const rights = group === ADMIN_GROUP ? Object.fromEntries([...shown.entries()].map(([f, a]) => [f, [...a]])) : changes[group];
+      const before = await rightsOf(db, group);
       await writeRights(db, group, rights, matrixForms(), shown);
-      await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: group, trans: `Update access matrix for ${group}`, table: 'sys_usergrouprights', after: rights });
+      await audit({ ...ctx, db }, { form: FORM.GROUP_ACCESS, docno: group, trans: `Update access matrix for ${group}`, table: 'sys_usergrouprights', before, after: await rightsOf(db, group) });
     }
     return `Access saved for ${groups.length} group(s). Members see the change when they next open a page.`;
   });

@@ -105,7 +105,7 @@ For the MySQL profile, put the `*.sql` backups in `database/restore/` (never com
 Always on a **restored test copy** first (PLAN.md Section 8.3).
 
 1. Restore the backups of `jcs`, `apf`, `chemag`, `bfi` and `bfi_admin`.
-2. Run [database/mysql/001_ng_tables.sql](database/mysql/001_ng_tables.sql) and then [002_ng_modules.sql](database/mysql/002_ng_modules.sql) in each company database. They only create `ng_*` tables and are safe to re-run. (Before it has run, Cloud AOS still signs users in read-only; its own tables simply read as empty.)
+2. Run [database/mysql/001_ng_tables.sql](database/mysql/001_ng_tables.sql), then [002_ng_modules.sql](database/mysql/002_ng_modules.sql), [003_ng_api_keys.sql](database/mysql/003_ng_api_keys.sql) and [004_ng_signin_log.sql](database/mysql/004_ng_signin_log.sql) in each company database, in that order. They only create `ng_*` tables and are safe to re-run. (Before it has run, Cloud AOS still signs users in read-only; its own tables simply read as empty.)
 3. Create a least-privilege MySQL account for Cloud AOS with the client's DBA (never `root`).
 4. Set the environment variables below and start Cloud AOS. It is read-only at this point.
 5. Compare screens and reports with the legacy system, then set `DATABASE_ALLOW_WRITES=true` **on the test copy** for the parity tests.

@@ -21,6 +21,7 @@ import {
   Factory,
   FileBarChart,
   FileCheck,
+  FileClock,
   FileCog,
   FileMinus,
   FilePen,
@@ -40,6 +41,7 @@ import {
   Landmark,
   ListPlus,
   ListTree,
+  LogIn,
   MapPin,
   Network,
   NotebookPen,
@@ -56,6 +58,7 @@ import {
   Scale,
   ScrollText,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
@@ -236,7 +239,6 @@ export const NAV: NavGroup[] = [
       { label: 'Group Access', href: '/dashboard/admin/groups', form: '002', category: 'Users & Access', icon: ShieldCheck, tone: 'violet', keywords: 'rights roles permissions access matrix' },
       { label: 'Approval Limits', href: '/dashboard/admin/limits', form: '045', category: 'Users & Access', icon: BadgeCheck, tone: 'emerald', keywords: 'authorization' },
       { label: 'Void Requests', href: '/dashboard/admin/voids', form: '003', category: 'Users & Access', icon: Ban, tone: 'rose', keywords: 'cancel' },
-      { label: 'Audit Trail', href: '/dashboard/admin/audit', form: '001', category: 'Users & Access', icon: History, tone: 'amber', keywords: 'log history translog' },
       // Finance Setup
       { label: 'Chart of Accounts', href: '/dashboard/master/accounts', form: '052', category: 'Finance Setup', icon: ListTree, tone: 'indigo', keywords: 'gl accounts coa' },
       { label: 'Cost Centers', href: '/dashboard/master/costCenters', form: '052', category: 'Finance Setup', icon: Target, tone: 'orange' },
@@ -250,6 +252,11 @@ export const NAV: NavGroup[] = [
       { label: 'Maintenance Mode', href: '/dashboard/admin/maintenance', form: '001', category: 'System', icon: Wrench, tone: 'orange', keywords: 'downtime server note offline' },
       { label: 'Data Source', href: '/dashboard/admin/data-source', form: '001', category: 'System', icon: Database, tone: 'cyan', keywords: 'mysql memory memorystore sample data database storage local' },
       { label: 'API Keys', href: '/dashboard/admin/api-keys', form: '001', category: 'System', icon: KeyRound, tone: 'amber', keywords: 'api key token integration rest v1 external system' },
+      // Logs
+      { label: 'Audit Trail', href: '/dashboard/admin/audit', form: '001', category: 'Logs', icon: History, tone: 'amber', keywords: 'log history translog' },
+      { label: 'Change History', href: '/dashboard/admin/logs/changes', form: '001', category: 'Logs', icon: FileClock, tone: 'sky', keywords: 'log before after diff field value changed edit' },
+      { label: 'Sign-in Log', href: '/dashboard/admin/logs/sign-ins', form: '001', category: 'Logs', icon: LogIn, tone: 'emerald', keywords: 'log login logon attempts failed locked ip address security' },
+      { label: 'Access Changes', href: '/dashboard/admin/logs/access', form: '001', category: 'Logs', icon: ShieldAlert, tone: 'rose', keywords: 'log rights permissions granted revoked group membership' },
     ],
   },
 ];

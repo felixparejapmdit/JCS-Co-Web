@@ -6,10 +6,12 @@ import { nowStamp } from '@/shared/dates';
 import { Session, hashPassword, legacyMatches, verifyPassword } from '../auth';
 import { AppError, num, openPeriodDate, rightsOf, truthy } from './context';
 import { companyProfile } from './admin';
+import { SignInOutcome, recordSignIn } from './logs';
 
 const MAX_STRIKES = 5;
 
-type Verdict = 'ok' | 'bad' | 'locked' | 'unknown' | 'inactive';
+/** lockout: this attempt was the 5th failure and locked the account; locked: it was locked already. */
+type Verdict = 'ok' | 'bad' | 'locked' | 'lockout' | 'unknown' | 'inactive';
 
 // Strike counter for users who have not signed in to NextGen yet (no ng_user_credentials row).
 const g = globalThis as unknown as { __cloudAosStrikes?: Map<string, number> };
@@ -52,7 +54,7 @@ export async function verifyLogin(db: Db, username: string, password: string): P
       // Same rule as legacy Login.aspx: the account locks after 5 strikes until an admin resets it.
       await db.update('sys_userrecords', { username }, { idstat: 'Locked' });
       if (cred) await db.update('ng_user_credentials', { username }, { locked_at: nowStamp() });
-      return 'locked';
+      return 'lockout';
     }
   } catch {
     strikes.set(key, n);
@@ -68,20 +70,41 @@ export interface LoginResult {
   maintenance?: boolean;
 }
 
+/** Where a sign-in attempt came from, for the Sign-in Log. */
+export interface SignInMeta {
+  ip?: string;
+  userAgent?: string;
+}
+
+const OUTCOME_OF: Partial<Record<Verdict, SignInOutcome>> = { bad: 'wrong_password', locked: 'locked', lockout: 'locked_out', inactive: 'inactive' };
+
+/**
+ * Logs an attempt in each company whose database knows the username; an unknown username is
+ * logged in every company, so a guessing attack shows up for its administrators.
+ */
+export async function logSignInAttempt(username: string, outcome: SignInOutcome, meta: SignInMeta = {}, detail?: string) {
+  const dbs = await Promise.all(companies().map((c) => getDb(c.ba)));
+  const known = [];
+  for (const db of dbs) if (await db.one('sys_userrecords', { username })) known.push(db);
+  for (const db of known.length ? known : dbs) await recordSignIn(db, { username, outcome: known.length ? outcome : 'unknown_user', detail, ...meta });
+}
+
 /**
  * Signs a user in without asking them to pick a company. The username is checked against every
  * company database; only companies where the password matches are offered, so nobody can see
  * which organisations exist before they have authenticated.
  */
-export async function signIn(usernameRaw: string, password: string, chosenBa?: string): Promise<LoginResult> {
+export async function signIn(usernameRaw: string, password: string, chosenBa?: string, meta: SignInMeta = {}): Promise<LoginResult> {
   const username = usernameRaw.trim().toLowerCase();
   if (!username || !password) return { error: 'Enter your username and password.' };
   const matched: { ba: string; name: string; group: string; fullName: string }[] = [];
   let locked = false;
+  const refused: { db: Db; verdict: Verdict }[] = [];
   for (const c of companies()) {
     const db = await getDb(c.ba);
     const verdict = await verifyLogin(db, username, password);
-    if (verdict === 'locked') locked = true;
+    if (verdict === 'locked' || verdict === 'lockout') locked = true;
+    if (verdict !== 'ok') refused.push({ db, verdict });
     if (verdict === 'ok') {
       const u = await db.one('sys_userrecords', { username });
       const { branding } = await companyProfile({ db, ba: c.ba, user: username, fullName: '', group: '' });
@@ -89,6 +112,8 @@ export async function signIn(usernameRaw: string, password: string, chosenBa?: s
     }
   }
   if (!matched.length) {
+    const known = refused.filter((r) => r.verdict !== 'unknown');
+    for (const r of known.length ? known : refused) await recordSignIn(r.db, { username, outcome: OUTCOME_OF[r.verdict] ?? 'unknown_user', ...meta });
     return locked
       ? { error: 'This account is locked after too many failed attempts. Ask your system administrator to unlock it.', locked: true }
       : { error: 'The username or password is not correct.' };
@@ -97,8 +122,16 @@ export async function signIn(usernameRaw: string, password: string, chosenBa?: s
   if (!pick) return { choose: matched.map((m) => ({ ba: m.ba, name: m.name })) };
   const pdb = await getDb(pick.ba);
   const m = await maintenance(pdb);
-  if (m.on && !(await bypassesMaintenance(pdb, pick.group))) return { error: `Under maintenance: ${maintenanceText(m)}`, maintenance: true };
+  if (m.on && !(await bypassesMaintenance(pdb, pick.group))) {
+    await recordSignIn(pdb, { username, outcome: 'maintenance', ...meta });
+    return { error: `Under maintenance: ${maintenanceText(m)}`, maintenance: true };
+  }
+  await recordSignIn(pdb, { username, outcome: 'success', detail: matched.length > 1 ? `Chose this company out of ${matched.length}` : undefined, ...meta });
   return { session: { u: username, n: pick.fullName, g: pick.group, ba: pick.ba, cos: matched.map((m) => m.ba) } };
+}
+
+export async function recordSignOut(s: Session, meta: SignInMeta = {}) {
+  await recordSignIn(await getDb(s.ba), { username: s.u, outcome: 'signed_out', ...meta });
 }
 
 /** What the browser needs after sign-in: who you are, your company header and your rights. */

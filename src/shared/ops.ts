@@ -15,7 +15,7 @@ export const READ_OPS: ReadonlySet<string> = new Set([
   'hr.employees', 'pay.periods', 'pay.attendance', 'pay.register', 'pay.payslip', 'pay.adjustments', 'pay.ids',
   'dtr.preview', 'dtr.summary', 'admin.company', 'admin.users', 'admin.groups', 'admin.limits', 'admin.voids', 'admin.audit',
   'system.maintenance', 'system.docSetup', 'dsr.list', 'dsr.get', 'dsr.plantStock', 'salesman.workspace', 'salesman.queue',
-  'cust.tools', 'cust.previewBulk', 'clinic.dashboard', 'clinic.report', 'dq.search', 'dq.info', 'source.status', 'companies.list', 'jobs.get', 'apikeys.list', 'groups.list',
+  'cust.tools', 'cust.previewBulk', 'clinic.dashboard', 'clinic.report', 'dq.search', 'dq.info', 'source.status', 'companies.list', 'jobs.get', 'apikeys.list', 'groups.list', 'logs.changes', 'logs.signins', 'logs.access',
 ]);
 
 export function isReadOp(op: string): boolean {

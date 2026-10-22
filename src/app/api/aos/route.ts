@@ -44,8 +44,14 @@ export const POST = gateway('bff', async (req, g) => {
     const username = String(args.username ?? '').trim().toLowerCase();
     // Slows down password guessing per address and account (failed tries only), before the 5-strike lockout.
     const bucket = `signin:${g.ip ?? 'unknown'}:${username}`;
-    await refuseIfFull(bucket, LIMITS.signIn);
-    const res = await session.signIn(username, String(args.password ?? ''), args.ba ? String(args.ba) : undefined);
+    const meta = { ip: g.ip, userAgent: req.headers.get('user-agent') ?? undefined };
+    try {
+      await refuseIfFull(bucket, LIMITS.signIn);
+    } catch (e) {
+      if (username) await session.logSignInAttempt(username, 'rate_limited', meta);
+      throw e;
+    }
+    const res = await session.signIn(username, String(args.password ?? ''), args.ba ? String(args.ba) : undefined, meta);
     if (res.error && !res.maintenance) await countFailure(bucket, LIMITS.signIn);
     if (res.error) return NextResponse.json({ ok: false, error: res.error, locked: res.locked ?? false, maintenance: res.maintenance ?? false }, { status: res.locked ? 423 : res.maintenance ? 503 : 401 });
     if (res.choose) return NextResponse.json({ ok: true, data: { choose: res.choose } });
@@ -54,6 +60,8 @@ export const POST = gateway('bff', async (req, g) => {
     return out;
   }
   if (op === 'auth.logout') {
+    const who = readSession(req.cookies.get(SESSION_COOKIE)?.value);
+    if (who && isActiveCompany(who.ba)) await session.recordSignOut(who, { ip: g.ip, userAgent: req.headers.get('user-agent') ?? undefined });
     const out = NextResponse.json({ ok: true, data: null });
     out.cookies.set(SESSION_COOKIE, '', { ...cookie, maxAge: 0 });
     return out;

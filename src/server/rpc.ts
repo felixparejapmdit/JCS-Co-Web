@@ -39,6 +39,7 @@ import * as funds from './services/funds';
 import * as budget from './services/budget';
 import * as production from './services/production';
 import * as admin from './services/admin';
+import * as logs from './services/logs';
 import * as session from './services/session';
 import * as datasource from './services/datasource';
 import * as companyAdmin from './services/companies';
@@ -266,6 +267,9 @@ const ops: Record<string, Handler> = {
   'admin.groups': (c) => admin.groupsWithRights(c),
   'admin.saveGroup': (c, a) => admin.saveGroupRights(c, String(a.group), (a.rights ?? {}) as Record<string, number[]>, a.info as never),
   'groups.list': (c) => admin.listGroups(c),
+  'logs.changes': (c, a) => logs.changeHistory(c, a),
+  'logs.signins': (c, a) => logs.signInLog(c, a),
+  'logs.access': (c, a) => logs.accessChanges(c, a),
   'groups.create': (c, a) => admin.createGroup(c, a),
   'groups.update': (c, a) => admin.updateGroup(c, a),
   'groups.delete': (c, a) => admin.deleteGroup(c, a.code),
@@ -310,6 +314,9 @@ async function invalidateAll() {
   for (const c of companies()) await invalidateCompany(c.ba);
 }
 
+/** Reads never answered from the read cache: their data is written outside runOp (sign-ins). */
+const NOT_CACHED = new Set(['logs.signins']);
+
 /** Operations that still work while the company is in maintenance (the shell shows the notice). */
 const OPEN_IN_MAINTENANCE = new Set(['auth.session']);
 
@@ -327,7 +334,7 @@ export async function runOp(op: string, args: Row, s: Session, ip?: string): Pro
   const ctx: Ctx = { db, ba: s.ba, user: s.u, fullName: s.n, group: s.g, ip };
   if (!OPEN_IN_MAINTENANCE.has(op)) await system.guardMaintenance(db, s.g);
   if (isReadOp(op)) {
-    if (!readCacheEnabled(db.mode === 'mysql')) return handler(ctx, args, s);
+    if (!readCacheEnabled(db.mode === 'mysql') || NOT_CACHED.has(op)) return handler(ctx, args, s);
     return cachedRead({ ba: s.ba, user: s.u, op, args }, () => handler(ctx, args, s));
   }
   const out = await handler(ctx, args, s);

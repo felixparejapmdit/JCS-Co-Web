@@ -123,7 +123,9 @@ export async function actOnDoc(ctx: Ctx, type: string, no: string, action: strin
       if (field.required && (payload[field.key] === undefined || payload[field.key] === '')) fail(`${field.label} is required.`);
     }
     const message = await svc.perform(tctx, doc, action, payload);
-    await audit(tctx, { form: def.form ?? svc.form, tc: svc.tc, docno: no, trans: `${def.label} ${svc.title}`, table: svc.table, before: doc.h });
+    // The header before and after, for Logs > Change History (e.g. status Open → Approved).
+    const after = (await svc.load(tctx, no))?.h ?? null;
+    await audit(tctx, { form: def.form ?? svc.form, tc: svc.tc, docno: no, trans: `${def.label} ${svc.title}`, table: svc.table, before: doc.h, after });
     return { no, message };
   });
 }
@@ -136,8 +138,10 @@ export async function saveDoc(ctx: Ctx, type: string, input: Row): Promise<{ no:
   }
   return ctx.db.tx(async (db) => {
     const tctx = { ...ctx, db };
+    const before = isNew ? null : ((await svc.load(tctx, String(input.no)))?.h ?? null);
     const res = await svc.save(tctx, input);
-    await audit(tctx, { form: svc.form, tc: svc.tc, docno: res.no, trans: `${isNew ? 'Create' : 'Edit'} ${svc.title}`, table: svc.table });
+    const after = (await svc.load(tctx, res.no))?.h ?? null;
+    await audit(tctx, { form: svc.form, tc: svc.tc, docno: res.no, trans: `${isNew ? 'Create' : 'Edit'} ${svc.title}`, table: svc.table, before, after });
     return { no: res.no, message: res.message ?? `${svc.title} ${res.no} saved.` };
   });
 }
