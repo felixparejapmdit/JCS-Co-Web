@@ -45,7 +45,7 @@ services:
     ports:
       - "8180:8180"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8180/api/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8180/api/healthz?live || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

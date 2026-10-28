@@ -29,7 +29,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'npx next start -p 8190',
-    url: 'http://localhost:8190/api/healthz',
+    url: 'http://localhost:8190/api/healthz?live',
     reuseExistingServer: true,
     timeout: 60 * 1000,
     env: { NEXT_DIST_DIR: '.next-e2e', DATA_SOURCE: 'memory', CLOUDAOS_SETTINGS_FILE: SETTINGS, COMPANIES_DISABLED: '8100,8200' },

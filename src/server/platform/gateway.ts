@@ -8,7 +8,9 @@
  *   500 with a plain message, logged with its request id (internal details never reach the caller);
  * - rate limits: 429 with Retry-After (see rate-limit.ts);
  * - security headers and no caching of API answers by browsers or proxies;
- * - an access log line (JSON) for errors and slow requests, or every request with LOG_REQUESTS=all.
+ * - an access log line (JSON) for errors and slow requests, or every request with LOG_REQUESTS=all;
+ * - request guards a handler can use: a size limit on the body (readJsonBody) and, for the
+ *   cookie-authenticated internal API, a same-origin check (assertSameOrigin).
  */
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
@@ -46,7 +48,7 @@ export function errorBody(api: ApiName, status: number, message: string, request
 
 function codeOf(status: number): string {
   return (
-    ({ 400: 'bad_request', 401: 'unauthorized', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 423: 'locked', 429: 'rate_limited', 503: 'unavailable' } as Record<number, string>)[status] ??
+    ({ 400: 'bad_request', 401: 'unauthorized', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 413: 'too_large', 423: 'locked', 429: 'rate_limited', 503: 'unavailable', 504: 'timeout' } as Record<number, string>)[status] ??
     (status >= 500 ? 'server_error' : 'error')
   );
 }
@@ -82,6 +84,45 @@ export function gateway(api: ApiName, handler: (req: NextRequest, g: GatewayCtx)
     log(req, res, g);
     return res;
   };
+}
+
+/** Largest request body accepted, in bytes (API_MAX_BODY_MB, default 5: logos and Excel lists fit). */
+const MAX_BODY = Math.max(0.1, Number(process.env.API_MAX_BODY_MB ?? 5)) * 1024 * 1024;
+
+/**
+ * Reads a JSON body of at most API_MAX_BODY_MB. A larger one is refused with 413 before it is
+ * parsed, so one oversized request cannot take the server's memory; anything that is not a JSON
+ * object is a 400.
+ */
+export async function readJsonBody(req: NextRequest, maxBytes = MAX_BODY): Promise<Record<string, unknown>> {
+  const declared = Number(req.headers.get('content-length') ?? 0);
+  if (declared > maxBytes) throw new DbError(`The request is too large (over ${Math.round(maxBytes / 1048576)} MB).`, 413);
+  const text = await req.text();
+  if (Buffer.byteLength(text) > maxBytes) throw new DbError(`The request is too large (over ${Math.round(maxBytes / 1048576)} MB).`, 413);
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new DbError('Invalid request: the body is not JSON.', 400);
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new DbError('Invalid request: expected a JSON object.', 400);
+  return body as Record<string, unknown>;
+}
+
+/**
+ * Refuses a request a browser sent from another site (cross-site request forgery). The session
+ * cookie is SameSite=Lax already; this also covers other sites on the same domain. Requests
+ * without an Origin header (scripts, curl, same-origin GETs) are let through.
+ */
+export function assertSameOrigin(req: NextRequest) {
+  const origin = req.headers.get('origin');
+  if (!origin || origin === 'null') return;
+  const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(',')[0].trim().toLowerCase();
+  let from = '';
+  try {
+    from = new URL(origin).host.toLowerCase();
+  } catch {}
+  if (!host || from !== host) throw new DbError('This request came from another website and was refused.', 403);
 }
 
 function log(req: NextRequest, res: NextResponse, g: GatewayCtx) {

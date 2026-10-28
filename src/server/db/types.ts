@@ -41,6 +41,8 @@ export interface Db {
   remove(table: string, where: Where): Promise<number>;
   /** Runs fn atomically: every write inside commits together or not at all. */
   tx<T>(fn: (db: Db) => Promise<T>): Promise<T>;
+  /** Whether a table exists (an ng_* table reads as empty until its migration has run). */
+  hasTable(table: string): Promise<boolean>;
 }
 
 export class DbError extends Error {

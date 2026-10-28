@@ -85,6 +85,10 @@ export class MemoryDb implements Db {
     return removed;
   }
 
+  async hasTable(): Promise<boolean> {
+    return true; // the sample data creates a table when it is first written
+  }
+
   async tx<T>(fn: (db: Db) => Promise<T>): Promise<T> {
     if (this.inTx) return fn(this);
     return this.store.exclusive(async () => {

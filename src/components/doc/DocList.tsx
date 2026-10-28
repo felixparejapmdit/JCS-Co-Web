@@ -72,7 +72,22 @@ export function DocList({ type }: { type: string }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [picker, setPicker] = useState<string | null>(null);
-  const { data, loading, error } = useRpc<{ rows: any[]; counts: Record<string, number> }>(cfg ? 'doc.list' : null, { type });
+  // A long history comes in pages: the server sends the newest documents, and once the list is
+  // capped the search, tab and dates are applied by the server (the search after a short pause).
+  const [serverSide, setServerSide] = useState(false);
+  const [sq, setSq] = useState('');
+  useEffect(() => {
+    if (!serverSide) return;
+    const t = setTimeout(() => setSq(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q, serverSide]);
+  const { data, loading, error } = useRpc<{ rows: any[]; counts: Record<string, number>; total?: number; capped?: boolean; limit?: number }>(
+    cfg ? 'doc.list' : null,
+    serverSide ? { type, status, q: sq, from, to } : { type }
+  );
+  useEffect(() => {
+    if (data?.capped) setServerSide(true);
+  }, [data?.capped]);
   const { data: summary } = useRpc<{ label: string; value: number; sub?: string; tone?: any; href?: string }[]>(cfg?.summary ? 'doc.summary' : null, { type });
 
   useEffect(() => setStatus(params.get('status') ?? 'all'), [params]);
@@ -141,6 +156,11 @@ export function DocList({ type }: { type: string }) {
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="sm:w-40" />
           </div>
         </div>
+        {data?.capped && (
+          <p className="px-4 pt-2 text-xs text-slate-500 dark:text-slate-400">
+            Showing the newest {data.limit?.toLocaleString()} of {data.total?.toLocaleString()} documents. Search or set dates to find older ones.
+          </p>
+        )}
         {loading && !data ? (
           <Spinner />
         ) : error ? (

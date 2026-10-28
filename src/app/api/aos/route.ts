@@ -3,7 +3,8 @@ import { SESSION_COOKIE, readSession, sessionCookieOptions, signSession } from '
 import { isActiveCompany, isMysqlMode } from '@/server/db';
 import { mysqlHoldsSampleData } from '@/server/db/source';
 import { runOp, session } from '@/server/rpc';
-import { gateway } from '@/server/platform/gateway';
+import { DbError } from '@/server/db';
+import { assertSameOrigin, gateway, readJsonBody } from '@/server/platform/gateway';
 import { LIMITS, countFailure, enforce, refuseIfFull } from '@/server/platform/rate-limit';
 import { withIdempotency } from '@/server/platform/idempotency';
 import { isReadOp } from '@/shared/ops';
@@ -20,14 +21,15 @@ function isHttps(req: NextRequest): boolean {
  * Operations are listed in server/rpc.ts. The gateway (server/platform/gateway.ts) adds request ids,
  * error handling, security headers and logs; this handler adds sessions, rate limits and idempotency.
  */
+/** An operation name: lowercase words joined by dots, e.g. doc.list, logs.signins. */
+const OP_NAME = /^[a-z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*){0,3}$/;
+
 export const POST = gateway('bff', async (req, g) => {
-  let body: { op?: string; args?: Record<string, unknown> };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid request.', requestId: g.requestId }, { status: 400 });
-  }
-  const op = String(body.op ?? '');
+  assertSameOrigin(req);
+  const body = await readJsonBody(req);
+  const op = typeof body.op === 'string' ? body.op : '';
+  if (!OP_NAME.test(op)) throw new DbError('Invalid request: unknown operation.', 400);
+  if (body.args !== undefined && (typeof body.args !== 'object' || body.args === null || Array.isArray(body.args))) throw new DbError('Invalid request: args must be an object.', 400);
   const args = (body.args ?? {}) as Record<string, any>;
   const cookie = sessionCookieOptions(isHttps(req));
   g.op = op;

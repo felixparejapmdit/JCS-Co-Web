@@ -101,7 +101,12 @@ const ops: Record<string, Handler> = {
   'doc.list': async (c, a) => {
     const svc = docService(String(a.type));
     await requireRight(c, svc.form, ACTION.VIEW, `view ${svc.title.toLowerCase()}s`);
-    return svc.list(c, a);
+    const res = await svc.list(c, a);
+    // Pagination: the newest LIST_LIMIT documents that match the filters (the counts stay complete),
+    // so a company with years of history never sends tens of thousands of rows to a browser.
+    const total = res.rows.length;
+    const limit = listLimit();
+    return { ...res, rows: total > limit ? res.rows.slice(0, limit) : res.rows, total, capped: total > limit, limit };
   },
   'doc.get': async (c, a) => {
     const svc = docService(String(a.type));
@@ -313,6 +318,9 @@ const CLEARS_ALL = new Set(['source.set', 'source.loadSample', 'companies.setAct
 async function invalidateAll() {
   for (const c of companies()) await invalidateCompany(c.ba);
 }
+
+/** Most documents one list answer carries (LIST_LIMIT, default 2000); filters reach the older ones. */
+const listLimit = () => Math.max(1, Number(process.env.LIST_LIMIT || 2000));
 
 /** Reads never answered from the read cache: their data is written outside runOp (sign-ins). */
 const NOT_CACHED = new Set(['logs.signins']);

@@ -22,6 +22,7 @@
  * - The same rules as the app: a key acts with the rights of its user group (Access Matrix), and
  *   every answer comes from the same services and caches as the screens (runOp).
  */
+import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { companyInfo } from '../../db';
 import { runOp } from '../../rpc';
@@ -109,9 +110,9 @@ function corsHeaders(req: NextRequest, res: NextResponse) {
   if (origin && allowed.includes(origin)) {
     res.headers.set('Access-Control-Allow-Origin', origin);
     res.headers.set('Vary', 'Origin');
-    res.headers.set('Access-Control-Allow-Headers', 'Authorization, X-API-Key, X-Request-Id');
     res.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.headers.set('Access-Control-Expose-Headers', 'API-Version, Link, X-Request-Id, X-RateLimit-Remaining, Retry-After');
+    res.headers.set('Access-Control-Allow-Headers', 'Authorization, X-API-Key, X-Request-Id, If-None-Match');
+    res.headers.set('Access-Control-Expose-Headers', 'API-Version, ETag, Link, X-Request-Id, X-RateLimit-Remaining, Retry-After');
   }
   return res;
 }
@@ -141,10 +142,28 @@ export async function handleV1(req: NextRequest, g: GatewayCtx, segments: string
 
   const url = req.nextUrl;
   g.op = `GET /${segments.join('/')}`;
-  const res = await route(auth.session, segments, url.searchParams, new URL(url.href));
+  let res = await route(auth.session, segments, url.searchParams, new URL(url.href));
+  if (res.status === 200) res = await withEtag(req, res);
   res.headers.set('X-RateLimit-Limit', String(rate.limit));
   res.headers.set('X-RateLimit-Remaining', String(rate.remaining));
   return corsHeaders(req, res);
+}
+
+/**
+ * Conditional requests: every answer carries an ETag (a hash of its body). A caller that sends it
+ * back in If-None-Match gets 304 Not Modified with no body when nothing changed, so a dashboard
+ * that refreshes every minute downloads the data only when it is new. "private, no-cache" lets the
+ * caller keep a copy but makes it ask each time; shared proxies never keep one.
+ */
+async function withEtag(req: NextRequest, res: NextResponse): Promise<NextResponse> {
+  const body = await res.clone().text();
+  const etag = `W/"${createHash('sha1').update(body).digest('base64url')}"`;
+  const asked = (req.headers.get('if-none-match') ?? '').split(',').map((x) => x.trim());
+  const out = asked.includes(etag) || asked.includes('*') ? new NextResponse(null, { status: 304 }) : res;
+  if (out !== res) for (const h of ['API-Version', 'Link']) if (res.headers.get(h)) out.headers.set(h, res.headers.get(h)!);
+  out.headers.set('ETag', etag);
+  out.headers.set('Cache-Control', 'private, no-cache');
+  return out;
 }
 
 async function route(s: Session, seg: string[], q: URLSearchParams, url: URL): Promise<NextResponse> {

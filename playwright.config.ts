@@ -48,7 +48,7 @@ export default defineConfig({
   /* Reuse existing local Docker / dev server if running on port 8180 */
   webServer: {
     command: 'npm run start',
-    url: 'http://localhost:8180/api/healthz',
+    url: 'http://localhost:8180/api/healthz?live',
     reuseExistingServer: true,
     timeout: 60 * 1000,
   },

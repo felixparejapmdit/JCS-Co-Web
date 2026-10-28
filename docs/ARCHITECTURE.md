@@ -47,7 +47,7 @@ Each layer has one job. A rule of thumb when adding code:
 src/app/                     Next.js pages (App Router) and API routes
   api/aos/route.ts           internal API (BFF): sessions, rate limits, idempotency
   api/v1/[[...path]]/route.ts public API v1 → server/api/v1/router.ts
-  api/healthz/route.ts       health check (load balancers, monitoring)
+  api/healthz/route.ts       health check: ?live (process up) or readiness (database + cache)
   dashboard/…                the screens
 src/components/              UI: shell (side menu, header), doc framework, reports, UI kit
 src/lib/api.ts               browser side of the internal API: rpc(), useRpc() screen cache
@@ -87,13 +87,13 @@ tests/server/, e2e/          server tests (Vitest) and browser tests (Playwright
 
 | Pattern | In Cloud AOS | Where |
 | :--- | :--- | :--- |
-| **Resource design** | The public API names things, not actions: `/customers`, `/documents/si/{no}`, `/reports/trial-balance`. GET only in v1. | `server/api/v1/router.ts` |
+| **Resource design** | The public API names things, not actions: `/customers`, `/documents/si/{no}`, `/reports/trial-balance`. GET only in v1. Every answer has an `ETag`; `If-None-Match` gives `304 Not Modified`. | `server/api/v1/router.ts` |
 | **Idempotency** | Every save carries an `Idempotency-Key` (browser); the server runs a key once and replays the answer for 24 h. Failed requests can be retried with the same key. | `lib/api.ts`, `server/platform/idempotency.ts`, `api/aos/route.ts` |
-| **Pagination** | Every public list: `?limit` (1–200) and an opaque `?cursor`; answers `{data, page}` and a `Link: rel="next"` header. | `pageOf` in `server/api/v1/router.ts` |
+| **Pagination** | Every public list: `?limit` (1–200) and an opaque `?cursor`; answers `{data, page}` and a `Link: rel="next"` header. The screens' document lists carry at most `LIST_LIMIT` (2,000) documents, newest first, with `total` and `capped`; a capped list sends its search, tab and dates to the server. | `pageOf` in `server/api/v1/router.ts`, `doc.list` in `server/rpc.ts`, `components/doc/DocList.tsx` |
 | **Async APIs** | Work longer than a request (loading the sample data, ~20 s) starts as a job and answers at once with its id; the caller asks `jobs.get` / `GET /api/v1/jobs/{id}` until it is done. | `server/platform/jobs.ts`, `services/datasource.ts` |
 | **Versioning** | `/api/v1` in the path and an `API-Version` header. A breaking change becomes `/api/v2`; v1 keeps working until its users have moved. The internal API is not versioned: it ships with the screens that call it. | `server/api/v1/router.ts` |
 | **BFF** (backend for frontend) | The internal API is shaped like the screens (`home.dashboard`, `doc.list`), so a screen needs one round trip. It can change with the screens; outside systems use the public API, which stays stable. | `server/rpc.ts`, `api/aos/route.ts` |
-| **API gateway** | One layer in front of every API: request ids, one error format, rate limits, security headers, access logs. | `server/platform/gateway.ts` |
+| **API gateway** | One layer in front of every API: request ids, one error format, rate limits, security headers, access logs; a body size limit (`API_MAX_BODY_MB`, 413), a same-origin check for the cookie-based internal API (403 from another website), and validation of the operation name and its arguments. | `server/platform/gateway.ts`, `api/aos/route.ts` |
 
 ## 5. Caching (Redis)
 
@@ -115,6 +115,16 @@ What is cached, and why it stays correct:
 take up to `CACHE_TTL_SECONDS` to show. Lower it, or set `CACHE_READS=false`, during periods when
 both systems are used for the same module.
 
+### Health and failures
+
+* `GET /api/healthz` is the readiness check for a load balancer: it reads the company database and
+  the cache store (the answer is reused for 5 s) and answers **503** when the database cannot be
+  reached. `GET /api/healthz?live` only says the process is up; Docker and the tests use it.
+* The MySQL pool lets at most `DATABASE_QUEUE_LIMIT` requests wait for a connection, and every
+  statement has `DATABASE_QUERY_TIMEOUT_MS`. A database that is down becomes **503** ("cannot be
+  reached right now") and a statement that runs too long **504**, both with a plain message; the
+  cause, with the server address, stays in the server log.
+
 ## 6. Settings
 
 See `.env.example` for every option. The platform ones:
@@ -127,6 +137,10 @@ See `.env.example` for every option. The platform ones:
 | `LOG_REQUESTS` | errors and slow | `all` logs every API request as a JSON line. |
 | `LOG_SLOW_MS` | `1000` | A request slower than this is logged. |
 | `API_CORS_ORIGINS` | empty | Web origins allowed to call `/api/v1` from a browser (comma list). |
+| `API_MAX_BODY_MB` | `5` | Largest request body; larger ones get 413. |
+| `LIST_LIMIT` | `2000` | Most documents one list answer carries. |
+| `DATABASE_QUEUE_LIMIT` | `200` | Requests that may wait for a free database connection. |
+| `DATABASE_QUERY_TIMEOUT_MS` | `30000` | Longest one statement may run. |
 
 ## 7. Rules that keep it fast and correct
 

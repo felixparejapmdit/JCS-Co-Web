@@ -147,3 +147,77 @@ describe('internal API (BFF) through the gateway', () => {
     expect((await res.json()).cache).toBe('memory');
   });
 });
+
+describe('gateway guards and resilience', () => {
+  const call = (body: string, headers: Record<string, string> = {}) =>
+    aos(new NextRequest(`${BASE}/api/aos`, { method: 'POST', body, headers: { 'content-type': 'application/json', host: 'localhost:8180', ...headers } }));
+
+  it('refuses bodies that are too large, not JSON, or not a valid operation', async () => {
+    const big = await call(JSON.stringify({ op: 'search', args: { q: 'x'.repeat(6 * 1024 * 1024) } }));
+    expect(big.status).toBe(413);
+    expect((await big.json()).error).toMatch(/too large/);
+    expect((await call('not json')).status).toBe(400);
+    expect((await call('[1,2]')).status).toBe(400);
+    expect((await call(JSON.stringify({ op: "x'; DROP TABLE" }))).status).toBe(400);
+    expect((await call(JSON.stringify({ op: 'search', args: [1] }))).status).toBe(400);
+  });
+
+  it('refuses a request a browser sent from another website', async () => {
+    const res = await call(JSON.stringify({ op: 'app.info' }), { origin: 'https://evil.example' });
+    expect(res.status).toBe(403);
+    expect((await call(JSON.stringify({ op: 'app.info' }), { origin: 'http://localhost:8180' })).status).toBe(200);
+    expect((await call(JSON.stringify({ op: 'app.info' }))).status).toBe(200); // scripts send no Origin
+  });
+
+  it('turns database outages and timeouts into clear 503 / 504 answers', async () => {
+    const { friendlyDbError } = await import('@/server/db/mysql');
+    const down = friendlyDbError(Object.assign(new Error('connect ECONNREFUSED 10.0.0.5:3306'), { code: 'ECONNREFUSED' })) as any;
+    expect(down.status).toBe(503);
+    expect(down.message).not.toContain('10.0.0.5');
+    expect((friendlyDbError(Object.assign(new Error('Query inactivity timeout'), { code: 'PROTOCOL_SEQUENCE_TIMEOUT' })) as any).status).toBe(504);
+    const other = new Error('ER_DUP_ENTRY');
+    expect(friendlyDbError(other)).toBe(other);
+  });
+
+  it('reports the database and cache in the health check, and a light liveness check', async () => {
+    const res = await health(new NextRequest(`${BASE}/api/healthz`));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: 'healthy', checks: { database: { ok: true }, cache: { ok: true } } });
+    const live = await (await health(new NextRequest(`${BASE}/api/healthz?live`))).json();
+    expect(live.status).toBe('healthy');
+    expect(live.checks).toBeUndefined();
+  });
+
+  it('answers 304 Not Modified when the caller already has the current data', async () => {
+    const { key } = await createKey(await adminCtx(), { name: 'Polling dashboard', group: 'ADMIN' });
+    const first = await get('/api/v1/materials?limit=5', key);
+    const etag = first.headers.get('ETag')!;
+    expect(etag).toMatch(/^W\/"/);
+    expect(first.headers.get('Cache-Control')).toBe('private, no-cache');
+    const again = await v1(new NextRequest(`${BASE}/api/v1/materials?limit=5`, { headers: { authorization: `Bearer ${key}`, 'if-none-match': etag } }));
+    expect(again.status).toBe(304);
+    expect(await again.text()).toBe('');
+    expect(again.headers.get('ETag')).toBe(etag);
+    const other = await v1(new NextRequest(`${BASE}/api/v1/materials?limit=4`, { headers: { authorization: `Bearer ${key}`, 'if-none-match': etag } }));
+    expect(other.status).toBe(200);
+  });
+
+  it('sends at most LIST_LIMIT documents, newest first, and filters reach the older ones', async () => {
+    const { runOp } = await import('@/server/rpc');
+    const s = { u: 'admin', n: 'System Administrator', g: 'ADMIN', ba: '8300', cos: ['8300'] };
+    const all = (await runOp('doc.list', { type: 'jv' }, s)) as any;
+    expect(all.capped).toBe(false);
+    process.env.LIST_LIMIT = '2';
+    try {
+      const capped = (await runOp('doc.list', { type: 'jv', fresh: 1 }, s)) as any;
+      expect(capped).toMatchObject({ capped: true, total: all.rows.length, limit: 2 });
+      expect(capped.rows.map((r: any) => r.no)).toEqual(all.rows.slice(0, 2).map((r: any) => r.no));
+      expect(capped.counts.all).toBe(all.counts.all);
+      const oldest = all.rows[all.rows.length - 1];
+      const found = (await runOp('doc.list', { type: 'jv', q: oldest.no }, s)) as any;
+      expect(found.rows.map((r: any) => r.no)).toContain(oldest.no);
+    } finally {
+      delete process.env.LIST_LIMIT;
+    }
+  });
+});

@@ -133,6 +133,12 @@ async function pool(database: string) {
       password: process.env.DATABASE_PASSWORD,
       database,
       connectionLimit: Number(process.env.DATABASE_POOL_SIZE || 5),
+      // Requests waiting for a free connection; beyond this the server answers "busy" at once
+      // instead of piling up requests that would all time out.
+      queueLimit: Number(process.env.DATABASE_QUEUE_LIMIT || 200),
+      connectTimeout: 10000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
       dateStrings: true,
       decimalNumbers: true,
       ssl: process.env.DATABASE_SSL === 'true' ? {} : undefined,

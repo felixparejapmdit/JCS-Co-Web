@@ -214,13 +214,9 @@ export async function signInLog(ctx: Ctx, f: Row) {
   const when = range(f.from, f.to);
   const where: Row = { occurred_at: when };
   if (str(f.user)) where.username = str(f.user);
-  let rows: Row[] = [];
-  let ready = true;
-  try {
-    rows = await ctx.db.all('ng_signin_log', { where, orderBy: [['occurred_at', 'desc']], limit: MAX_ROWS });
-  } catch {
-    ready = false; // the table is not there yet (004_ng_signin_log.sql not run)
-  }
+  // Without database/mysql/004_ng_signin_log.sql the table reads as empty; the page says to run it.
+  const ready = await ctx.db.hasTable('ng_signin_log');
+  const rows: Row[] = ready ? await ctx.db.all('ng_signin_log', { where, orderBy: [['occurred_at', 'desc']], limit: MAX_ROWS }) : [];
   // Addresses a user signed in from before this period, to flag a new one.
   const known = new Map<string, Set<string>>();
   if (ready && rows.length) {

@@ -74,16 +74,21 @@ when you report a problem; the server log has the details.
 | 403 | `forbidden` | The key's user group may not read this |
 | 404 | `not_found` | No such resource or record |
 | 405 | — | Not GET: version 1 is read-only |
+| 413 | `too_large` | The request body is over the size limit |
 | 429 | `rate_limited` | Over 300 requests a minute for this key; wait `Retry-After` seconds |
-| 503 | `unavailable` | The company is under maintenance |
+| 503 | `unavailable` | The company is under maintenance, or its database cannot be reached |
+| 504 | `timeout` | The database took too long; narrow the dates and try again |
 | 500 | `server_error` | Unexpected; quote the `request_id` |
 
 ## Limits and headers
 
 * 300 requests a minute per key. Every answer carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
 * Every answer carries `API-Version: 1`.
-* Answers are not cached by browsers or proxies (`Cache-Control: no-store`); the server keeps
-  recent answers for a few seconds, so a dashboard that refreshes often stays fast.
+* Every answer carries an `ETag`. Send it back as `If-None-Match` and you get
+  `304 Not Modified` with no body when nothing changed, so a dashboard that refreshes every minute
+  downloads the data only when it is new. Answers are `Cache-Control: private, no-cache`: your
+  program may keep a copy but must ask each time; shared proxies never keep one.
+* The server keeps recent answers for a few seconds, so a dashboard that refreshes often stays fast.
 * Calling from a web page in a browser needs the page's origin in `API_CORS_ORIGINS` on the server.
 
 ## Versioning

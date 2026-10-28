@@ -9,6 +9,25 @@ import { Condition, Db, DbError, Query, Row, Where, assertIdentifier } from './t
  */
 type Executor = Pool | PoolConnection;
 
+/** Longest a statement may run (DATABASE_QUERY_TIMEOUT_MS, default 30 s); the request then fails clearly. */
+const QUERY_TIMEOUT_MS = Number(process.env.DATABASE_QUERY_TIMEOUT_MS || 30000);
+
+const UNREACHABLE = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'PROTOCOL_CONNECTION_LOST', 'ER_ACCESS_DENIED_ERROR', 'ER_BAD_DB_ERROR']);
+
+/** Database failures a user can act on get a plain message and a status; the cause stays in the server log. */
+export function friendlyDbError(err: any): unknown {
+  const code = String(err?.code ?? '');
+  if (code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
+    console.error('[cloud-aos] database statement timed out', err?.message);
+    return new DbError(`The company database took longer than ${Math.round(QUERY_TIMEOUT_MS / 1000)} seconds to answer. Try again; if it keeps happening, narrow the dates or contact your administrator.`, 504);
+  }
+  if (UNREACHABLE.has(code) || /queue limit/i.test(String(err?.message))) {
+    console.error('[cloud-aos] database not reachable', code, err?.message);
+    return new DbError('The company database cannot be reached right now. Please try again in a moment.', 503);
+  }
+  return err;
+}
+
 export class MysqlDb implements Db {
   readonly mode = 'mysql' as const;
 
@@ -20,8 +39,12 @@ export class MysqlDb implements Db {
   ) {}
 
   private async run(sql: string, params: unknown[]): Promise<any> {
-    const [result] = await this.exec.query(sql, params);
-    return result;
+    try {
+      const [result] = await this.exec.query({ sql, timeout: QUERY_TIMEOUT_MS }, params);
+      return result;
+    } catch (err) {
+      throw friendlyDbError(err);
+    }
   }
 
   /** Reads; Cloud AOS's own ng_* tables read as empty until their migration has run (PLAN.md 7.2). */
@@ -107,18 +130,26 @@ export class MysqlDb implements Db {
     return Number(result.affectedRows ?? 0);
   }
 
+  async hasTable(table: string): Promise<boolean> {
+    const rows = await this.run('SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [assertIdentifier(table)]);
+    return Number(rows[0]?.n ?? 0) > 0;
+  }
+
   async tx<T>(fn: (db: Db) => Promise<T>): Promise<T> {
     if (this.isTx) return fn(this);
     const pool = this.exec as Pool;
-    const conn = await pool.getConnection();
+    const conn = await pool.getConnection().catch((err) => {
+      throw friendlyDbError(err);
+    });
     try {
       await conn.beginTransaction();
       const result = await fn(new MysqlDb(this.ba, conn, this.allowWrites, true));
       await conn.commit();
       return result;
     } catch (err) {
-      await conn.rollback();
-      throw err;
+      // A lost connection cannot roll back; the server does it when the connection closes.
+      await conn.rollback().catch(() => undefined);
+      throw friendlyDbError(err);
     } finally {
       conn.release();
     }
